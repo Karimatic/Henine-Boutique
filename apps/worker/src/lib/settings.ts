@@ -31,6 +31,9 @@ export interface Settings {
   faq: { q_fr: string; a_fr: string; q_ar: string; a_ar: string }[];
   "shipping.prices_verified": boolean;
   catalog_version: number;
+  /** start/end times of published drops: public cache keys change when one passes */
+  drop_times: number[];
+  reviews: { auto_approve_verified: boolean };
 }
 
 export const DEFAULTS: Settings = {
@@ -75,6 +78,8 @@ export const DEFAULTS: Settings = {
   ],
   "shipping.prices_verified": false,
   catalog_version: 0,
+  drop_times: [],
+  reviews: { auto_approve_verified: true },
 };
 
 export type SettingKey = keyof Settings;

@@ -82,7 +82,9 @@ export function PromosPage() {
 function FreeShipping({ current }: { current: number | null }) {
   const home = useQuery({ queryKey: ["home"], queryFn: () => api<{ checkout: { express_on_product: boolean; desk_enabled: boolean; free_shipping_over: number | null; max_orders_per_phone_per_hour: number } } & Record<string, unknown>>("/home") });
   const [value, setValue] = useState<number | null>(current);
-  useEffect(() => setValue(current), [current]);
+  useEffect(() => {
+    setValue(current);
+  }, [current]);
   const save = useSave(
     async (v: number | null) => {
       const h = home.data!;
@@ -273,14 +275,30 @@ interface Review {
 }
 
 export function ReviewsPage() {
-  const [status, setStatus] = useState("pending");
+  const [status, setStatus] = useState("approved");
+  const settings = useQuery({ queryKey: ["reviews-settings"], queryFn: () => api<{ auto_approve_verified: boolean }>("/reviews/settings") });
+  const saveSettings = useSave((v: { auto_approve_verified: boolean }) => put("/reviews/settings", v), ["reviews-settings"]);
   const q = useQuery({ queryKey: ["reviews", status], queryFn: () => api<{ rows: Review[]; counts: { status: string; n: number; avg: number }[] }>(`/reviews?status=${status}`) });
   const count = (s: string) => q.data?.counts.find((c) => c.status === s)?.n ?? 0;
   const approved = q.data?.counts.find((c) => c.status === "approved");
   return (
     <div>
       <PageHeader group="Marketing" title="Avis" subtitle={approved ? `Note moyenne publiée : ${approved.avg.toFixed(1)} / 5 (${approved.n} avis)` : undefined} />
-      <Pills value={status} onChange={setStatus} options={[{ value: "pending", label: `À valider (${count("pending")})` }, { value: "approved", label: "Publiés" }, { value: "rejected", label: "Refusés" }, { value: "all", label: "Tous" }]} />
+      <Card className="mb-4">
+        <p className="mb-2 text-sm text-ink-soft">
+          Seules les clientes dont la commande est <b>livrée</b> peuvent laisser un avis (depuis leur lien de suivi, ou avec n° de commande + téléphone).
+          Un avis par produit et par commande, affiché avec le prénom et l'initiale du nom.
+        </p>
+        {settings.data && (
+          <Toggle
+            label="Publier automatiquement les avis vérifiés"
+            hint="Sinon, ils attendent votre validation dans « À valider ». Vous pouvez toujours masquer ou supprimer un avis."
+            checked={settings.data.auto_approve_verified}
+            onChange={(v) => saveSettings.mutate({ auto_approve_verified: v })}
+          />
+        )}
+      </Card>
+      <Pills value={status} onChange={setStatus} options={[{ value: "approved", label: `Publiés (${count("approved")})` }, { value: "pending", label: `À valider (${count("pending")})` }, { value: "rejected", label: "Masqués" }, { value: "all", label: "Tous" }]} />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.rows.length === 0 ? <Empty title="Aucun avis ici" icon="⭐" /> : (
         <ul className="space-y-2">{q.data.rows.map((r) => <ReviewItem key={r.id} r={r} />)}</ul>
       )}
@@ -309,7 +327,7 @@ function ReviewItem({ r }: { r: Review }) {
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {r.status !== "approved" && <Button size="sm" variant="primary" onClick={() => save.mutate({ status: "approved" })}>✓ Publier</Button>}
-        {r.status !== "rejected" && <Button size="sm" onClick={() => save.mutate({ status: "rejected" })}>Refuser</Button>}
+        {r.status !== "rejected" && <Button size="sm" onClick={() => save.mutate({ status: "rejected" })}>Masquer</Button>}
         <Button size="sm" variant="ghost" onClick={() => save.mutate({ isFeatured: !r.is_featured })}>{r.is_featured ? "Ne plus mettre en avant" : "Mettre en avant"}</Button>
         <Button size="sm" variant="danger" onClick={() => confirm("Supprimer définitivement cet avis ?") && remove.mutate(undefined)}>Supprimer</Button>
       </div>
@@ -570,3 +588,195 @@ function ContactSettingsCard({ contact, store }: { contact: ContactSettings; sto
   );
 }
 
+/* ───────────── Collections & drops ───────────── */
+
+interface CollectionRow {
+  id: number;
+  slug: string;
+  name_fr: string;
+  name_ar: string;
+  description_fr: string | null;
+  description_ar: string | null;
+  starts_at: number | null;
+  ends_at: number | null;
+  show_countdown: number;
+  lock_products: number;
+  is_active: number;
+  product_ids: number[];
+}
+
+/** <input type="datetime-local"> in Algiers time (UTC+1, no DST). */
+const toLocalInput = (ts: number | null) => (ts ? new Date(ts + 3600_000).toISOString().slice(0, 16) : "");
+const fromLocalInput = (s: string) => (s ? new Date(`${s}:00+01:00`).getTime() : null);
+
+function dropState(c: Pick<CollectionRow, "is_active" | "starts_at" | "ends_at">): [string, string] {
+  const now = Date.now();
+  if (!c.is_active) return ["Brouillon", "bg-stone-200 text-stone-700"];
+  if (c.ends_at && c.ends_at <= now) return ["Terminée", "bg-stone-200 text-stone-500"];
+  if (c.starts_at && c.starts_at > now) return ["Programmée", "bg-sky-100 text-sky-800"];
+  return ["En ligne", "bg-emerald-100 text-emerald-800"];
+}
+
+export function CollectionsPage() {
+  const q = useQuery({ queryKey: ["collections"], queryFn: () => api<CollectionRow[]>("/collections") });
+  const [edit, setEdit] = useState<Partial<CollectionRow> | null>(null);
+  const origin = location.origin;
+  return (
+    <div>
+      <PageHeader
+        group="Marketing"
+        title="Collections & lancements"
+        subtitle="Une page à partager sur Instagram, avec compte à rebours avant le lancement."
+        actions={<Button variant="primary" onClick={() => setEdit({ is_active: 0, show_countdown: 1, lock_products: 1, product_ids: [] })}>+ Nouvelle collection</Button>}
+      />
+      {q.error ? (
+        <ErrorState error={q.error} onRetry={q.refetch} />
+      ) : !q.data ? (
+        <ListSkeleton />
+      ) : q.data.length === 0 ? (
+        <Empty title="Aucune collection" icon="✨">
+          Exemple : « Collection Ramadan », lancement vendredi 20:00, avec compte à rebours. Les pièces restent cachées jusqu'au lancement si vous le souhaitez.
+        </Empty>
+      ) : (
+        <ul className="space-y-2">
+          {q.data.map((c) => {
+            const [label, tone] = dropState(c);
+            return (
+              <li key={c.id}>
+                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-2xl border border-line bg-white/70 p-4 text-start transition hover:border-plum-600/40">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-semibold">{c.name_fr}</p>
+                      <p className="truncate font-mono text-xs text-plum-600">{origin}/collection/{c.slug}</p>
+                    </div>
+                    <Badge tone={tone}>{label}</Badge>
+                  </div>
+                  <p className="mt-1 text-sm text-ink-soft">
+                    {c.product_ids.length} produit(s)
+                    {c.starts_at ? ` · lancement ${new Date(c.starts_at).toLocaleString("fr-FR", { timeZone: "Africa/Algiers", dateStyle: "medium", timeStyle: "short" })}` : ""}
+                    {c.lock_products ? " · 🔒 cachées avant" : ""}
+                  </p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {edit && <CollectionSheet c={edit} onClose={() => setEdit(null)} />}
+    </div>
+  );
+}
+
+function CollectionSheet({ c, onClose }: { c: Partial<CollectionRow>; onClose: () => void }) {
+  const [f, setF] = useState({
+    slug: c.slug ?? "",
+    nameFr: c.name_fr ?? "",
+    nameAr: c.name_ar ?? "",
+    descriptionFr: c.description_fr ?? "",
+    descriptionAr: c.description_ar ?? "",
+    startsAt: toLocalInput(c.starts_at ?? null),
+    endsAt: toLocalInput(c.ends_at ?? null),
+    showCountdown: c.show_countdown !== 0,
+    lockProducts: !!c.lock_products,
+    isActive: !!c.is_active,
+    productIds: c.product_ids ?? [],
+  });
+  const [search, setSearch] = useState("");
+  const products = useQuery({ queryKey: ["products", "all", ""], queryFn: () => api<{ id: number; name_fr: string; image: string | null; status: string }[]>("/products?status=all&q=") });
+  const save = useSave(() => {
+    const body = {
+      slug: f.slug || undefined, nameFr: f.nameFr, nameAr: f.nameAr, descriptionFr: f.descriptionFr || null, descriptionAr: f.descriptionAr || null,
+      startsAt: fromLocalInput(f.startsAt), endsAt: fromLocalInput(f.endsAt), showCountdown: f.showCountdown, lockProducts: f.lockProducts,
+      isActive: f.isActive, productIds: f.productIds,
+    };
+    return c.id ? put(`/collections/${c.id}`, body) : post("/collections", body);
+  }, ["collections"]);
+  const remove = useSave(() => del(`/collections/${c.id}`), ["collections"], "Collection supprimée");
+  const byId = new Map((products.data ?? []).map((p) => [p.id, p]));
+  const matches = (products.data ?? []).filter((p) => !f.productIds.includes(p.id) && p.name_fr.toLowerCase().includes(search.toLowerCase())).slice(0, 12);
+  const move = (i: number, d: number) =>
+    setF((x) => {
+      const ids = [...x.productIds];
+      const j = i + d;
+      if (j < 0 || j >= ids.length) return x;
+      [ids[i], ids[j]] = [ids[j]!, ids[i]!];
+      return { ...x, productIds: ids };
+    });
+
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      wide
+      title={c.id ? f.nameFr || "Collection" : "Nouvelle collection"}
+      footer={
+        <div className="flex flex-wrap gap-2">
+          <Button variant="primary" loading={save.isPending} disabled={f.nameFr.trim().length < 2} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>
+            Enregistrer
+          </Button>
+          {c.id && (
+            <Button variant="danger" onClick={() => confirm("Supprimer cette collection ? (les produits ne sont pas supprimés)") && remove.mutate(undefined, { onSuccess: onClose })}>
+              Supprimer
+            </Button>
+          )}
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <Card title="Infos">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Nom (français)" value={f.nameFr} onChange={(e) => setF({ ...f, nameFr: e.target.value })} maxLength={80} />
+            <TextField label="الاسم (عربي)" dir="rtl" value={f.nameAr} onChange={(e) => setF({ ...f, nameAr: e.target.value })} maxLength={80} />
+            <TextArea label="Texte (français)" rows={2} value={f.descriptionFr} onChange={(e) => setF({ ...f, descriptionFr: e.target.value })} maxLength={1000} />
+            <TextArea label="النص (عربي)" dir="rtl" rows={2} value={f.descriptionAr} onChange={(e) => setF({ ...f, descriptionAr: e.target.value })} maxLength={1000} />
+            <TextField label="Adresse" hint={`/collection/${f.slug || "…"}`} value={f.slug} placeholder="ex : ramadan-2027" onChange={(e) => setF({ ...f, slug: e.target.value })} className="sm:col-span-2" />
+          </div>
+        </Card>
+        <Card title="Lancement">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label="Début (heure d'Algérie)" type="datetime-local" value={f.startsAt} onChange={(e) => setF({ ...f, startsAt: e.target.value })} hint="vide = tout de suite" />
+            <TextField label="Fin (facultatif)" type="datetime-local" value={f.endsAt} onChange={(e) => setF({ ...f, endsAt: e.target.value })} />
+          </div>
+          <div className="mt-3 space-y-1">
+            <Toggle label="Afficher le compte à rebours" checked={f.showCountdown} onChange={(v) => setF({ ...f, showCountdown: v })} />
+            <Toggle
+              label="Cacher les pièces jusqu'au lancement"
+              hint="Elles n'apparaissent nulle part (et ne peuvent pas être commandées) avant l'heure du début."
+              checked={f.lockProducts}
+              onChange={(v) => setF({ ...f, lockProducts: v })}
+            />
+            <Toggle label="Publiée" hint="Visible sur la boutique (bannière d'accueil + page de la collection)." checked={f.isActive} onChange={(v) => setF({ ...f, isActive: v })} />
+          </div>
+        </Card>
+        <Card title={`Produits (${f.productIds.length})`}>
+          {f.productIds.length > 0 && (
+            <ul className="mb-3 divide-y divide-line">
+              {f.productIds.map((id, i) => (
+                <li key={id} className="flex items-center gap-2 py-2 text-sm">
+                  {byId.get(id)?.image ? <img src={byId.get(id)!.image!} alt="" className="h-10 w-8 rounded object-cover" /> : <span className="grid h-10 w-8 place-items-center rounded bg-rose-100">👗</span>}
+                  <span className="min-w-0 flex-1 truncate">{byId.get(id)?.name_fr ?? `#${id}`}</span>
+                  <button type="button" onClick={() => move(i, -1)} className="grid size-8 place-items-center rounded-full hover:bg-rose-100" aria-label="Monter">↑</button>
+                  <button type="button" onClick={() => move(i, 1)} className="grid size-8 place-items-center rounded-full hover:bg-rose-100" aria-label="Descendre">↓</button>
+                  <button type="button" onClick={() => setF({ ...f, productIds: f.productIds.filter((x) => x !== id) })} className="grid size-8 place-items-center rounded-full text-red-700 hover:bg-red-50" aria-label="Retirer">×</button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <input className={inputCls} placeholder="Ajouter un produit : tapez son nom…" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            {matches.map((p) => (
+              <li key={p.id}>
+                <button type="button" onClick={() => setF({ ...f, productIds: [...f.productIds, p.id] })} className="flex w-full items-center gap-2 rounded-xl border border-dashed border-line px-2 py-1.5 text-start text-sm hover:border-plum-600">
+                  {p.image ? <img src={p.image} alt="" className="h-9 w-7 rounded object-cover" /> : <span className="grid h-9 w-7 place-items-center rounded bg-rose-100 text-xs">👗</span>}
+                  <span className="min-w-0 flex-1 truncate">+ {p.name_fr}</span>
+                  {p.status !== "published" && <span className="text-xs text-ink-soft">brouillon</span>}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-ink-soft">Astuce : créez les pièces en « En ligne » et cochez « Cacher jusqu'au lancement » ; elles apparaîtront seules à l'heure dite.</p>
+        </Card>
+      </div>
+    </Sheet>
+  );
+}

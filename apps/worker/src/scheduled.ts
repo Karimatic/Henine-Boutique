@@ -62,7 +62,7 @@ async function purgeExpired(env: Env) {
     env.DB.prepare("DELETE FROM outbox WHERE done_at IS NOT NULL AND done_at < ?").bind(now - 30 * 86400_000),
     // privacy: drop IP hashes / user agents after 90 days
     env.DB.prepare("UPDATE orders SET ip_hash = NULL, ua_short = NULL WHERE created_at < ? AND ip_hash IS NOT NULL").bind(now - 90 * 86400_000),
-    // abandoned carts are kept 60 days
-    env.DB.prepare("DELETE FROM carts WHERE updated_at < ?").bind(now - 60 * 86400_000),
+    // abandoned checkouts (phone, name) are kept 30 days, then deleted
+    env.DB.prepare("DELETE FROM carts WHERE updated_at < ?").bind(now - 30 * 86400_000),
   ]);
 }

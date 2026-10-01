@@ -6,7 +6,7 @@
  * - flexible settings/config: JSON text columns
  */
 import { sql } from "drizzle-orm";
-import { check, index, integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { check, index, integer, primaryKey, real, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 const now = sql`(unixepoch() * 1000)`;
 const createdAt = () => integer("created_at").notNull().default(now);
@@ -39,6 +39,8 @@ export const communes = sqliteTable(
     dairaFr: text("daira_fr"),
     dairaAr: text("daira_ar"),
     homeSupported: bool("home_supported").notNull().default(true),
+    /** home-delivery price for this commune when it differs from the wilaya's (remote communes) */
+    homePrice: integer("home_price"),
     isActive: bool("is_active").notNull().default(true),
   },
   (t) => [index("communes_wilaya_idx").on(t.wilayaCode)],
@@ -124,6 +126,10 @@ export const products = sqliteTable(
     seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
     sort: integer("sort").notNull().default(0),
+    /** first time the product went online ("Nouveautés" order) */
+    publishedAt: integer("published_at"),
+    /** hand-picked "Complétez le look" products */
+    relatedIds: text("related_ids", { mode: "json" }).$type<number[]>().notNull().default(sql`'[]'`),
     createdBy: integer("created_by"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -138,7 +144,18 @@ export const collections = sqliteTable("collections", {
   nameAr: text("name_ar").notNull(),
   /** null = manual (collection_products), otherwise a rule evaluated at build time */
   rule: text("rule", { mode: "json" }).$type<{ kind: "new" | "bestsellers" | "promo" | "tag"; value?: string; limit?: number }>(),
+  /** published = visible at /collection/<slug> */
   isActive: bool("is_active").notNull().default(true),
+  descriptionFr: text("description_fr"),
+  descriptionAr: text("description_ar"),
+  /** launch time of a drop (null = always open) */
+  startsAt: integer("starts_at"),
+  endsAt: integer("ends_at"),
+  showCountdown: bool("show_countdown").notNull().default(true),
+  /** hide the drop's products everywhere (and refuse orders) until startsAt */
+  lockProducts: bool("lock_products").notNull().default(false),
+  sort: integer("sort").notNull().default(0),
+  createdAt: integer("created_at"),
 });
 
 export const collectionProducts = sqliteTable(
@@ -248,6 +265,8 @@ export const customers = sqliteTable("customers", {
   deliveredCount: integer("delivered_count").notNull().default(0),
   returnedCount: integer("returned_count").notNull().default(0),
   cancelledCount: integer("cancelled_count").notNull().default(0),
+  /** orders marked "fausse commande" (also counted in cancelled_count) */
+  fakeCount: integer("fake_count").notNull().default(0),
   totalSpent: integer("total_spent").notNull().default(0),
   pointsBalance: integer("points_balance").notNull().default(0),
   tier: text("tier"),
@@ -301,6 +320,10 @@ export const orders = sqliteTable(
     customerNote: text("customer_note"),
     internalNote: text("internal_note"),
     riskScore: integer("risk_score").notNull().default(0),
+    /** order-level risk signals captured at creation (see RISK_FLAGS in @henine/shared) */
+    riskFlags: text("risk_flags", { mode: "json" }).$type<string[]>(),
+    /** why it was cancelled / returned (OUTCOME_REASONS) */
+    outcomeReason: text("outcome_reason"),
     telegramMessageId: integer("telegram_message_id"),
     /** random value written by each status change; follow-up statements in the same batch check it (optimistic concurrency) */
     opNonce: text("op_nonce"),
@@ -325,6 +348,8 @@ export const orders = sqliteTable(
     index("orders_phone_idx").on(t.phone),
     index("orders_tracking_idx").on(t.trackingNumber),
     index("orders_callback_idx").on(t.nextCallbackAt),
+    index("orders_created_idx").on(t.createdAt),
+    index("orders_wilaya_created_idx").on(t.wilayaCode, t.createdAt),
   ],
 );
 
@@ -344,7 +369,7 @@ export const orderItems = sqliteTable(
     qty: integer("qty").notNull(),
     lineDiscount: integer("line_discount").notNull().default(0),
   },
-  (t) => [index("order_items_order_idx").on(t.orderId)],
+  (t) => [index("order_items_order_idx").on(t.orderId), index("order_items_product_idx").on(t.productId)],
 );
 
 export const orderEvents = sqliteTable(
@@ -371,7 +396,12 @@ export const carts = sqliteTable(
     phone: text("phone"),
     name: text("name"),
     wilayaCode: integer("wilaya_code"),
+    communeId: integer("commune_id"),
+    deliveryType: text("delivery_type"),
+    channel: text("channel"),
+    locale: text("locale"),
     value: integer("value").notNull().default(0),
+    /** details | address | delivery | ready */
     step: text("step"),
     consent: bool("consent").notNull().default(false),
     recoveredOrderId: integer("recovered_order_id"),
@@ -447,7 +477,11 @@ export const reviews = sqliteTable(
     isFeatured: bool("is_featured").notNull().default(false),
     createdAt: createdAt(),
   },
-  (t) => [index("reviews_product_status_idx").on(t.productId, t.status)],
+  (t) => [
+    index("reviews_product_status_idx").on(t.productId, t.status),
+    // one verified review per product per order
+    uniqueIndex("reviews_order_product_uq").on(t.orderId, t.productId),
+  ],
 );
 
 export const homeBlocks = sqliteTable("home_blocks", {

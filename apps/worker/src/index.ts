@@ -1,8 +1,8 @@
 import { Hono, type Context } from "hono";
-import { imageUrl } from "@henine/shared";
+import { formatDA, imageUrl, type ImageRef } from "@henine/shared";
 import type { AppEnv } from "./env";
 import { recordError } from "./lib/audit";
-import { getProductDetail } from "./lib/catalog";
+import { getCollection, getProductDetail } from "./lib/catalog";
 import { HttpError } from "./lib/http";
 import { handleUpdate, verifyWebhookSecret } from "./lib/telegram";
 import { adminDocumentHeaders, apiHeaders, sameOriginWrites } from "./middleware/security";
@@ -78,36 +78,98 @@ app.get("/l/:slug", async (c) => {
  */
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+interface PreviewMeta {
+  title: string;
+  description: string;
+  type: "product" | "website";
+  image: ImageRef | null;
+  imageAlt: string;
+  price?: number;
+}
+
+/**
+ * Link-preview tags (WhatsApp, Instagram DMs, Facebook, Google). The image is the 960 px
+ * rendition: sharp in previews without making every share download a full-size photo.
+ */
+function previewHead(c: Context<AppEnv>, path: string, ar: boolean, m: PreviewMeta): string {
+  const canonical = new URL(path, c.env.PUBLIC_ORIGIN).toString();
+  const tags: [string, string][] = [
+    ["og:site_name", "Henine Boutique"],
+    ["og:locale", ar ? "ar_DZ" : "fr_DZ"],
+    ["og:type", m.type],
+    ["og:url", canonical],
+    ["og:title", m.title],
+    ["og:description", m.description],
+  ];
+  if (m.image) {
+    const src = imageUrl(m.image, 960);
+    const w = Number(/-(\d+)\.\w+$/.exec(src)?.[1] ?? m.image.width);
+    tags.push(
+      ["og:image", new URL(src, c.env.PUBLIC_ORIGIN).toString()],
+      ["og:image:width", String(w)],
+      ["og:image:height", String(Math.round((w * m.image.height) / m.image.width))],
+      ["og:image:alt", m.imageAlt],
+    );
+  }
+  if (m.price != null) tags.push(["product:price:amount", String(m.price)], ["product:price:currency", "DZD"]);
+  return [
+    ...tags.map(([k, v]) => `<meta property="${k}" content="${esc(v)}">`),
+    `<meta name="twitter:card" content="${m.image ? "summary_large_image" : "summary"}">`,
+    `<link rel="canonical" href="${esc(canonical)}">`,
+  ].join("");
+}
+
 async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: string) {
   const url = new URL(c.req.url);
   const direct = await c.env.ASSETS.fetch(new Request(url, c.req.raw));
   if (direct.status !== 404 || slug === "_") return direct;
   const res = await c.env.ASSETS.fetch(new Request(new URL(`${prefix}/${section}/_`, url), { headers: c.req.raw.headers }));
-  if (section !== "produit" || !res.ok) return new Response(res.body, res);
+  if ((section !== "produit" && section !== "collection") || !res.ok) return new Response(res.body, res);
 
-  const product = await getProductDetail(c.env, slug).catch(() => null);
-  if (!product) return new Response(res.body, { status: 404, headers: res.headers });
   const ar = prefix === ""; // Arabic is served at the root, French under /fr
-  const title = `${ar ? product.nameAr : product.nameFr} · Henine Boutique`;
-  const description = (product.seoDescription ?? (ar ? product.descriptionAr : product.descriptionFr) ?? "").replace(/[*#\n]+/g, " ").trim().slice(0, 180);
-  const image = product.images[0] ? new URL(imageUrl(product.images[0], 1440), c.env.PUBLIC_ORIGIN).toString() : null;
-  const head = [
-    `<meta property="og:title" content="${esc(title)}">`,
-    `<meta property="og:description" content="${esc(description)}">`,
-    `<meta property="og:type" content="product">`,
-    `<link rel="canonical" href="${esc(new URL(url.pathname, c.env.PUBLIC_ORIGIN).toString())}">`,
-    image ? `<meta property="og:image" content="${esc(image)}">` : "",
-  ].join("");
+  let meta: PreviewMeta | null = null;
+  if (section === "produit") {
+    const product = await getProductDetail(c.env, slug).catch(() => null);
+    if (product) {
+      const name = ar ? product.nameAr : product.nameFr;
+      const text = (product.seoDescription ?? (ar ? product.descriptionAr : product.descriptionFr) ?? "").replace(/[*#\n]+/g, " ").trim();
+      const price = formatDA(product.price);
+      meta = {
+        title: `${name} · ${price}`,
+        description: (text || (ar ? "الدفع عند الاستلام · التوصيل إلى 69 ولاية" : "Paiement à la livraison · Livraison 69 wilayas")).slice(0, 180),
+        type: "product",
+        image: product.images[0] ?? null,
+        imageAlt: name,
+        price: product.price,
+      };
+    }
+  } else {
+    const col = await getCollection(c.env, slug).catch(() => null);
+    if (col) {
+      const name = ar ? col.nameAr : col.nameFr;
+      meta = {
+        title: `${name} · Henine Boutique`,
+        description: ((ar ? col.descriptionAr : col.descriptionFr) ?? (ar ? "تشكيلة جديدة من Henine Boutique" : "Nouvelle collection Henine Boutique")).slice(0, 180),
+        type: "website",
+        image: col.image,
+        imageAlt: name,
+      };
+    }
+  }
+  if (!meta) return new Response(res.body, { status: 404, headers: res.headers });
+  const head = previewHead(c, url.pathname, ar, meta);
+  const title = section === "produit" ? `${meta.imageAlt} · Henine Boutique` : meta.title;
   return new HTMLRewriter()
     .on("title", { element: (el) => void el.setInnerContent(title) })
-    .on('meta[name="description"]', { element: (el) => void el.setAttribute("content", description) })
-    .on('meta[property^="og:"], link[rel="canonical"]', { element: (el) => void el.remove() })
+    .on('meta[name="description"]', { element: (el) => void el.setAttribute("content", meta.description) })
+    .on('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"]', { element: (el) => void el.remove() })
     .on("head", { element: (el) => void el.append(head, { html: true }) })
     .transform(new Response(res.body, res));
 }
 
 for (const prefix of ["", "/fr"]) {
-  for (const section of ["produit", "c", "p"]) {
+  for (const section of ["produit", "c", "p", "collection"]) {
+
     app.get(`${prefix}/${section}/:slug`, (c) => shell(c, prefix, section, c.req.param("slug")));
   }
 }

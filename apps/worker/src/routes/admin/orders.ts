@@ -3,11 +3,28 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { cleanText, dzPhone, nextStatuses, ORDER_STATUSES, orderLine, STATUS_LABELS, type OrderStatus } from "@henine/shared";
+import {
+  assessRisk,
+  cleanText,
+  customerRiskSql,
+  customerSegment,
+  dzPhone,
+  nextStatuses,
+  ORDER_STATUSES,
+  orderLine,
+  OUTCOME_REASON_LABEL,
+  OUTCOME_REASONS,
+  RISK_LEVELS,
+  segmentSql,
+  STATUS_LABELS,
+  type CustomerSegment,
+  type OrderStatus,
+} from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
+import { variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
-import { applyStatusChange, createOrder } from "../../lib/orders";
+import { applyStatusChange, CANCELLED_SQL, createOrder } from "../../lib/orders";
 import { getSetting, setSetting } from "../../lib/settings";
 import { permissionFor, syncOrderMessage } from "../../lib/telegram";
 import { actorOf, requirePermission } from "../../middleware/access";
@@ -17,8 +34,39 @@ export const orderRoutes = new Hono<AppEnv>();
 
 /* ───────────── Orders ───────────── */
 
+type RiskCounters = {
+  delivered_count: number | null; returned_count: number | null; cancelled_count: number | null; fake_count: number | null;
+  is_blacklisted: number | null; risk_flags: string | null;
+};
+const riskOf = (r: RiskCounters) =>
+  assessRisk(
+    {
+      deliveredCount: r.delivered_count ?? 0, returnedCount: r.returned_count ?? 0, cancelledCount: r.cancelled_count ?? 0,
+      fakeCount: r.fake_count ?? 0, isBlacklisted: !!r.is_blacklisted,
+    },
+    r.risk_flags ? (JSON.parse(r.risk_flags) as string[]) : [],
+  );
+
+/**
+ * "Needs attention" filters, shared by the orders list and the dashboard command center.
+ * Each is a condition on `orders o` (+ `customers c`); `now` is generated server-side.
+ */
+export function attentionSql(now: number): Record<string, string> {
+  const h = 3600_000;
+  return {
+    to_confirm: "o.status IN ('nouvelle','injoignable')",
+    callbacks: `o.status = 'injoignable' AND o.next_callback_at <= ${now}`,
+    high_risk: `o.status IN ('nouvelle','injoignable') AND (o.risk_score >= ${RISK_LEVELS.high} OR ${customerRiskSql("c")} >= ${RISK_LEVELS.high})`,
+    stale_confirmed: `o.status = 'confirmee' AND COALESCE(o.confirmed_at, o.updated_at) < ${now - 24 * h}`,
+    stale_preparing: `o.status = 'en_preparation' AND o.updated_at < ${now - 48 * h}`,
+    stale_shipped: `o.status IN ('expediee','en_livraison') AND COALESCE(o.shipped_at, o.updated_at) < ${now - 7 * 24 * h}`,
+    returns: "o.status = 'retour'",
+  };
+}
+
 orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
   const status = c.req.query("status") ?? "active";
+  const attention = c.req.query("attention");
   const q = (c.req.query("q") ?? "").trim();
   const page = Math.max(0, Number(c.req.query("page") ?? 0));
   const where: string[] = [];
@@ -30,7 +78,9 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     termine: ["livree", "retour_recu"],
     annule: ["annulee", "doublon", "fausse", "retour"],
   };
-  if (groups[status]) {
+  const attn = attention ? attentionSql(Date.now())[attention] : undefined;
+  if (attn) where.push(attn);
+  else if (groups[status]) {
     where.push(`o.status IN (${groups[status]!.map(() => "?").join(",")})`);
     binds.push(...groups[status]!);
   } else if ((ORDER_STATUSES as readonly string[]).includes(status)) {
@@ -46,29 +96,40 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
   const [rows, counts] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT o.id, o.public_code, o.status, o.channel, o.name, o.phone, o.total, o.wilaya_code, w.name_fr AS wilaya, o.delivery_type,
-              o.created_at, o.risk_score, o.confirm_attempts, o.next_callback_at, o.tracking_number,
+              o.created_at, o.risk_score, o.risk_flags, o.confirm_attempts, o.next_callback_at, o.tracking_number, o.outcome_reason,
               (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS items,
-              c.returned_count, c.delivered_count
+              c.returned_count, c.delivered_count, c.cancelled_count, c.fake_count, c.is_blacklisted
          FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN customers c ON c.id = o.customer_id
          ${whereSql} ORDER BY o.created_at DESC LIMIT 50 OFFSET ?`,
     ).bind(...binds, page * 50),
     c.env.DB.prepare("SELECT status, COUNT(*) AS n FROM orders GROUP BY status"),
   ]);
-  return c.json({ rows: rows!.results, counts: Object.fromEntries((counts!.results as { status: string; n: number }[]).map((r) => [r.status, r.n])) });
+  return c.json({
+    rows: (rows!.results as (Record<string, unknown> & RiskCounters)[]).map(({ risk_flags, ...r }) => {
+      const risk = riskOf({ ...r, risk_flags });
+      return { ...r, risk: { level: risk.level, score: risk.score } };
+    }),
+    counts: Object.fromEntries((counts!.results as { status: string; n: number }[]).map((r) => [r.status, r.n])),
+  });
 });
 
 orderRoutes.get("/orders/:id", requirePermission("orders.view"), async (c) => {
   const id = intParam(c, "id");
   const o = await c.env.DB.prepare(
     `SELECT o.*, w.name_fr AS wilaya_fr, cm.name_fr AS commune_fr, c.orders_count, c.delivered_count, c.returned_count,
-            c.cancelled_count, c.is_blacklisted, c.points_balance, m.name AS assigned_name
+            c.cancelled_count, c.fake_count, c.is_blacklisted, c.total_spent, c.points_balance, m.name AS assigned_name
        FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN communes cm ON cm.id = o.commune_id
        LEFT JOIN customers c ON c.id = o.customer_id LEFT JOIN team_members m ON m.id = o.assigned_to
       WHERE o.id = ?`,
   )
     .bind(id)
-    .first<Record<string, unknown> & { status: OrderStatus; track_token_hash?: string; ip_hash?: string; op_nonce?: string }>();
+    .first<Record<string, unknown> & RiskCounters & { status: OrderStatus; total_spent: number | null; track_token_hash?: string; ip_hash?: string; op_nonce?: string }>();
   if (!o) throw new HttpError(404, "not_found");
+  const risk = riskOf(o);
+  const segment = customerSegment({
+    deliveredCount: o.delivered_count ?? 0, returnedCount: o.returned_count ?? 0, cancelledCount: o.cancelled_count ?? 0,
+    fakeCount: o.fake_count ?? 0, isBlacklisted: !!o.is_blacklisted, totalSpent: o.total_spent ?? 0,
+  });
   delete o.track_token_hash;
   delete o.ip_hash;
   delete o.op_nonce;
@@ -84,14 +145,29 @@ orderRoutes.get("/orders/:id", requirePermission("orders.view"), async (c) => {
     items: items!.results,
     events: events!.results,
     next: nextStatuses(o.status).filter((s) => hasPermission(perms, permissionFor(s))),
+    risk,
+    segment,
   });
 });
 
 orderRoutes.post("/orders/:id/status", requirePermission("orders.view"), async (c) => {
   const id = intParam(c, "id");
-  const input = await body(c, z.object({ to: z.enum(ORDER_STATUSES), note: cleanText(300).optional() }));
+  const input = await body(
+    c,
+    z.object({
+      to: z.enum(ORDER_STATUSES),
+      note: cleanText(300).optional(),
+      reason: z.enum(OUTCOME_REASONS).optional(),
+      /** "Expédiée": the ZR Express tracking number, saved in the same step */
+      trackingNumber: cleanText(60).optional(),
+    }),
+  );
   if (!hasPermission(c.get("member").permissions, permissionFor(input.to))) throw new HttpError(403, "forbidden");
-  const res = await applyStatusChange(c.env, id, input.to, actorOf(c.get("member")), "admin", input.note);
+  if (input.trackingNumber) {
+    await c.env.DB.prepare("UPDATE orders SET tracking_number = ?, updated_at = ? WHERE id = ?").bind(input.trackingNumber, Date.now(), id).run();
+  }
+  const note = [input.reason ? OUTCOME_REASON_LABEL[input.reason] : null, input.note].filter(Boolean).join(" · ") || undefined;
+  const res = await applyStatusChange(c.env, id, input.to, actorOf(c.get("member")), "admin", note, input.reason);
   c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
   return c.json(res);
 });
@@ -111,6 +187,7 @@ orderRoutes.patch("/orders/:id", requirePermission("orders.edit"), async (c) => 
       internalNote: cleanText(1000).nullable().optional(),
       trackingNumber: cleanText(60).nullable().optional(),
       assignedTo: z.number().int().positive().nullable().optional(),
+      outcomeReason: z.enum(OUTCOME_REASONS).nullable().optional(),
     }),
   );
   const cols: string[] = [];
@@ -118,6 +195,7 @@ orderRoutes.patch("/orders/:id", requirePermission("orders.edit"), async (c) => 
   const map: Record<string, string> = {
     name: "name", phone: "phone", wilayaCode: "wilaya_code", communeId: "commune_id", address: "address", deliveryType: "delivery_type",
     shippingPrice: "shipping_price", internalNote: "internal_note", trackingNumber: "tracking_number", assignedTo: "assigned_to",
+    outcomeReason: "outcome_reason",
   };
   for (const [k, col] of Object.entries(map)) {
     if (k in input) {
@@ -245,6 +323,10 @@ orderRoutes.get("/sales", requirePermission("sales.view"), async (c) => {
 
 /* ───────────── Customers ───────────── */
 
+/**
+ * Customers (identified by phone). Segments come from real order history with the same
+ * rules as the risk score (see @henine/shared risk.ts), so filters and badges always agree.
+ */
 orderRoutes.get("/customers", requirePermission("customers.view"), async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   const segment = c.req.query("segment") ?? "all";
@@ -254,35 +336,54 @@ orderRoutes.get("/customers", requirePermission("customers.view"), async (c) => 
     where.push("(c.name LIKE ? OR c.phone LIKE ?)");
     binds.push(`%${q}%`, `%${q.replace(/\s/g, "")}%`);
   }
-  const seg: Record<string, string> = {
-    vip: "c.delivered_count >= 3",
-    fideles: "c.delivered_count >= 2",
-    nouvelles: "c.orders_count <= 1",
-    risque: "c.returned_count > 0",
-    inactives: `c.last_order_at < ${Date.now() - 60 * 86400_000}`,
-    blacklist: "c.is_blacklisted = 1",
-  };
-  if (seg[segment]) where.push(seg[segment]!);
-  const { results } = await c.env.DB.prepare(
-    `SELECT c.id, c.name, c.phone, c.wilaya_code, w.name_fr AS wilaya, c.orders_count, c.delivered_count, c.returned_count, c.cancelled_count,
-            c.total_spent, c.points_balance, c.is_blacklisted, c.tags, c.last_order_at
-       FROM customers c LEFT JOIN wilayas w ON w.code = c.wilaya_code
-       ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY c.last_order_at DESC LIMIT 200`,
-  )
-    .bind(...binds)
-    .all();
-  return c.json(results);
+  if (["new", "returning", "vip", "high_risk"].includes(segment)) where.push(segmentSql(segment as CustomerSegment, "c"));
+  else if (segment === "inactives") where.push(`c.last_order_at < ${Date.now() - 60 * 86400_000}`);
+  else if (segment === "blacklist") where.push("c.is_blacklisted = 1");
+  const segCounts = (["new", "returning", "vip", "high_risk"] as const).map((s) => `SUM(CASE WHEN ${segmentSql(s, "c")} THEN 1 ELSE 0 END) AS "${s}"`).join(", ");
+  const [rows, counts] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT c.id, c.name, c.phone, c.wilaya_code, w.name_fr AS wilaya, c.orders_count, c.delivered_count, c.returned_count, c.cancelled_count,
+              c.fake_count, c.total_spent, c.points_balance, c.is_blacklisted, c.tags, c.last_order_at
+         FROM customers c LEFT JOIN wilayas w ON w.code = c.wilaya_code
+         ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY c.last_order_at DESC LIMIT 200`,
+    ).bind(...binds),
+    c.env.DB.prepare(`SELECT COUNT(*) AS all_count, ${segCounts} FROM customers c`),
+  ]);
+  type Row = RiskCounters & { total_spent: number };
+  return c.json({
+    counts: counts!.results[0],
+    rows: (rows!.results as (Record<string, unknown> & Row)[]).map((r) => {
+      const h = {
+        deliveredCount: r.delivered_count ?? 0, returnedCount: r.returned_count ?? 0, cancelledCount: r.cancelled_count ?? 0,
+        fakeCount: r.fake_count ?? 0, isBlacklisted: !!r.is_blacklisted,
+      };
+      const risk = assessRisk(h);
+      return { ...r, segment: customerSegment({ ...h, totalSpent: r.total_spent ?? 0 }), risk: { level: risk.level, score: risk.score } };
+    }),
+  });
 });
 
 orderRoutes.get("/customers/:id", requirePermission("customers.view"), async (c) => {
   const id = intParam(c, "id");
-  const cust = await c.env.DB.prepare("SELECT c.*, w.name_fr AS wilaya FROM customers c LEFT JOIN wilayas w ON w.code = c.wilaya_code WHERE c.id = ?").bind(id).first();
+  const cust = await c.env.DB.prepare("SELECT c.*, w.name_fr AS wilaya FROM customers c LEFT JOIN wilayas w ON w.code = c.wilaya_code WHERE c.id = ?")
+    .bind(id)
+    .first<Record<string, unknown> & RiskCounters & { total_spent: number }>();
   if (!cust) throw new HttpError(404, "not_found");
   const [orders, ledger] = await c.env.DB.batch([
-    c.env.DB.prepare("SELECT id, public_code, status, total, channel, created_at FROM orders WHERE customer_id = ? ORDER BY id DESC LIMIT 50").bind(id),
+    c.env.DB.prepare("SELECT id, public_code, status, total, channel, created_at, outcome_reason FROM orders WHERE customer_id = ? ORDER BY id DESC LIMIT 50").bind(id),
     c.env.DB.prepare("SELECT * FROM loyalty_ledger WHERE customer_id = ? ORDER BY id DESC LIMIT 50").bind(id),
   ]);
-  return c.json({ customer: cust, orders: orders!.results, ledger: ledger!.results });
+  const h = {
+    deliveredCount: cust.delivered_count ?? 0, returnedCount: cust.returned_count ?? 0, cancelledCount: cust.cancelled_count ?? 0,
+    fakeCount: cust.fake_count ?? 0, isBlacklisted: !!cust.is_blacklisted,
+  };
+  return c.json({
+    customer: cust,
+    orders: orders!.results,
+    ledger: ledger!.results,
+    risk: assessRisk(h),
+    segment: customerSegment({ ...h, totalSpent: cust.total_spent ?? 0 }),
+  });
 });
 
 orderRoutes.patch("/customers/:id", requirePermission("customers.edit"), async (c) => {
@@ -327,14 +428,20 @@ orderRoutes.post("/customers/:id/points", requirePermission("loyalty.edit"), asy
 
 /* ───────────── Paniers (abandoned checkouts) ───────────── */
 
+/** A checkout counts as abandoned after 30 minutes without activity and without an order. */
+export const ABANDONED_AFTER = 30 * 60_000;
+
 orderRoutes.get("/carts", requirePermission("carts.view"), async (c) => {
   const filter = c.req.query("filter") ?? "abandoned";
+  const now = Date.now();
   const where =
     filter === "recovered"
       ? "ca.recovered_order_id IS NOT NULL"
       : filter === "all"
         ? "1=1"
-        : `ca.recovered_order_id IS NULL AND ca.updated_at < ${Date.now() - 30 * 60_000}`;
+        : filter === "active"
+          ? `ca.recovered_order_id IS NULL AND ca.updated_at >= ${now - ABANDONED_AFTER}`
+          : `ca.recovered_order_id IS NULL AND ca.updated_at < ${now - ABANDONED_AFTER}`;
   // a cart counts as recovered when the same phone ordered after the cart was saved
   await c.env.DB.prepare(
     `UPDATE carts SET recovered_order_id = (SELECT o.id FROM orders o WHERE o.phone = carts.phone AND o.created_at >= carts.created_at ORDER BY o.id LIMIT 1)
@@ -343,8 +450,10 @@ orderRoutes.get("/carts", requirePermission("carts.view"), async (c) => {
   ).run();
   const [rows, stats] = await c.env.DB.batch([
     c.env.DB.prepare(
-      `SELECT ca.*, w.name_fr AS wilaya, o.public_code AS recovered_code FROM carts ca
-         LEFT JOIN wilayas w ON w.code = ca.wilaya_code LEFT JOIN orders o ON o.id = ca.recovered_order_id
+      `SELECT ca.*, w.name_fr AS wilaya, cm.name_fr AS commune, o.public_code AS recovered_code,
+              (SELECT COUNT(*) FROM orders x WHERE x.phone = ca.phone AND x.status NOT IN ${CANCELLED_SQL}) AS customer_orders
+         FROM carts ca LEFT JOIN wilayas w ON w.code = ca.wilaya_code LEFT JOIN communes cm ON cm.id = ca.commune_id
+         LEFT JOIN orders o ON o.id = ca.recovered_order_id
         WHERE ${where} ORDER BY ca.updated_at DESC LIMIT 100`,
     ),
     c.env.DB.prepare(
@@ -356,12 +465,13 @@ orderRoutes.get("/carts", requirePermission("carts.view"), async (c) => {
   const variantIds = [...new Set(carts.flatMap((ca) => (JSON.parse(ca.items) as { variantId: number }[]).map((i) => i.variantId)))];
   const names = new Map<number, string>();
   if (variantIds.length) {
-    const { results } = await c.env.DB.prepare(
-      `SELECT v.id, p.name_fr FROM variants v JOIN products p ON p.id = v.product_id WHERE v.id IN (${variantIds.map(() => "?").join(",")})`,
-    )
-      .bind(...variantIds)
-      .all<{ id: number; name_fr: string }>();
-    for (const r of results) names.set(r.id, r.name_fr);
+    const [{ results }, labels] = await Promise.all([
+      c.env.DB.prepare(`SELECT v.id, p.name_fr FROM variants v JOIN products p ON p.id = v.product_id WHERE v.id IN (${variantIds.map(() => "?").join(",")})`)
+        .bind(...variantIds)
+        .all<{ id: number; name_fr: string }>(),
+      variantLabels(c.env, variantIds),
+    ]);
+    for (const r of results) names.set(r.id, `${r.name_fr}${labels.get(r.id)?.fr ? ` (${labels.get(r.id)!.fr})` : ""}`);
   }
   return c.json({
     stats: stats!.results[0],
@@ -370,6 +480,7 @@ orderRoutes.get("/carts", requirePermission("carts.view"), async (c) => {
       items: (JSON.parse(ca.items) as { variantId: number; qty: number }[]).map((i) => ({ ...i, name: names.get(i.variantId) ?? "?" })),
     })),
   });
+
 });
 
 orderRoutes.post("/carts/:id/contacted", requirePermission("carts.view"), async (c) => {

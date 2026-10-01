@@ -24,6 +24,9 @@ export const cleanText = (max: number) =>
 
 export const wilayaCode = z.number().int().min(1).max(69);
 
+/** At least two letters (any alphabet): rejects "11", "..", "a" while accepting "Lina" or "لينا". */
+const hasLetters = (min: number) => (v: string) => (v.match(/\p{L}/gu)?.length ?? 0) >= min;
+
 export const deliveryType = z.enum(["domicile", "bureau"]);
 
 export const orderLine = z.object({
@@ -35,7 +38,9 @@ export const orderLine = z.object({
 export const createOrderInput = z
   .object({
     idempotencyKey: z.string().uuid(),
-    name: cleanText(80).pipe(z.string().min(2, "name_required")),
+    /** checkout autosave id: the saved abandoned checkout is marked recovered */
+    cartId: z.string().uuid().optional(),
+    name: cleanText(80).pipe(z.string().min(2, "name_required").refine(hasLetters(2), "name_required")),
     phone: dzPhone,
     wilaya: wilayaCode,
     communeId: z.number().int().positive().nullable(),
@@ -65,7 +70,7 @@ export const createOrderInput = z
       .optional(),
   })
   .superRefine((o, ctx) => {
-    if (o.deliveryType === "domicile" && (!o.address || o.address.length < 4)) {
+    if (o.deliveryType === "domicile" && (!o.address || o.address.length < 4 || !hasLetters(2)(o.address))) {
       ctx.addIssue({ code: "custom", path: ["address"], message: "address_required" });
     }
     if (o.communeId == null && !o.communeText) {
@@ -92,28 +97,44 @@ const couponCode = z
 export const quoteInput = z.object({
   lines: z.array(orderLine).min(1).max(30),
   wilaya: wilayaCode.nullable().optional(),
+  communeId: z.number().int().positive().nullable().optional(),
   deliveryType: deliveryType.optional(),
   coupon: couponCode.optional(),
 });
 export type QuoteInput = z.infer<typeof quoteInput>;
 
-/** Checkout in progress, saved only with the customer's consent (abandoned-cart follow-up). */
+/** Checkout in progress (autosaved once the phone number is valid; see the notice in the form). */
+export const CHECKOUT_STEPS = ["details", "address", "delivery", "ready"] as const;
 export const cartSaveInput = z.object({
   id: z.string().uuid(),
   lines: z.array(orderLine).min(1).max(30),
   phone: dzPhone,
   name: cleanText(80).optional(),
   wilaya: wilayaCode.nullable().optional(),
-  consent: z.literal(true),
+  communeId: z.number().int().positive().nullable().optional(),
+  deliveryType: deliveryType.optional(),
+  step: z.enum(CHECKOUT_STEPS).default("details"),
+  channel: z.enum(["web", "express"]).default("web"),
+  locale: z.enum(["fr", "ar"]).default("ar"),
 });
 
-export const reviewInput = z.object({
-  productId: z.number().int().positive(),
-  name: cleanText(60).pipe(z.string().min(2)),
-  rating: z.number().int().min(1).max(5),
-  text: cleanText(1000).optional(),
-  turnstileToken: z.string().min(1).max(4096),
-});
+const orderCode = z.string().trim().toUpperCase().regex(/^HN-[0-9A-Z]{4,10}$/);
+
+/**
+ * Verified review: proves a delivered order either with the private tracking token
+ * or with the phone number used for the order.
+ */
+export const reviewInput = z
+  .object({
+    code: orderCode,
+    token: z.string().min(16).max(128).optional(),
+    phone: dzPhone.optional(),
+    productId: z.number().int().positive(),
+    rating: z.number().int().min(1).max(5),
+    text: cleanText(1000).optional(),
+    turnstileToken: z.string().min(1).max(4096),
+  })
+  .refine((r) => !!r.token || !!r.phone, { message: "proof_required", path: ["phone"] });
 
 export const contactInput = z.object({
   name: cleanText(80).pipe(z.string().min(2)),

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "@tanstack/react-router";
 import { useState } from "react";
 import { api, errorMessage, post } from "../api";
 import { da, dateTime } from "../lib/format";
@@ -26,7 +27,8 @@ const REASON: Record<string, string> = {
 };
 
 export function StockPage() {
-  const [filter, setFilter] = useState("all");
+  const search = useSearch({ strict: false }) as { filter?: string };
+  const [filter, setFilter] = useState(search.filter ?? "all");
   const [q, setQ] = useState("");
   const [adjust, setAdjust] = useState<StockRow | null>(null);
   const [history, setHistory] = useState(false);
@@ -43,7 +45,7 @@ export function StockPage() {
           <Stat label="Ruptures / stock bas" value={`${t.out_count ?? 0} / ${t.low_count ?? 0}`} tone={(t.out_count ?? 0) > 0 ? "warn" : undefined} />
         </div>
       )}
-      <Pills value={filter} onChange={setFilter} options={[{ value: "all", label: "Tout" }, { value: "low", label: "Stock bas" }, { value: "out", label: "Ruptures" }]} />
+      <Pills value={filter} onChange={setFilter} options={[{ value: "all", label: "Tout" }, { value: "low", label: "Stock bas" }, { value: "out", label: "Ruptures" }, { value: "waiting", label: "🔔 Clientes en attente" }]} />
       <SearchBox value={q} onChange={setQ} placeholder="Produit, SKU ou code-barres…" />
       {data.error ? (
         <ErrorState error={data.error} onRetry={data.refetch} />

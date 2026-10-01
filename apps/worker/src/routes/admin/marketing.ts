@@ -285,3 +285,104 @@ marketingRoutes.put("/contact/settings", requirePermission("marketing.edit"), as
   ]);
   return c.json({ ok: true });
 });
+
+/* ───────────── Avis: settings ───────────── */
+
+marketingRoutes.get("/reviews/settings", requirePermission("reviews.moderate"), async (c) => c.json((await getSettings(c.env, ["reviews"])).reviews));
+
+marketingRoutes.put("/reviews/settings", requirePermission("reviews.moderate"), async (c) => {
+  const input = await body(c, z.object({ auto_approve_verified: z.boolean() }));
+  await c.env.DB.batch([setSettingStmt(c.env, "reviews", input), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "reviews", input)]);
+  return c.json(input);
+});
+
+/* ───────────── Collections & drops ───────────── */
+
+const collectionInput = z.object({
+  slug: z.string().trim().max(80).optional(),
+  nameFr: cleanText(80).pipe(z.string().min(2)),
+  nameAr: cleanText(80),
+  descriptionFr: cleanText(1000).nullable().optional(),
+  descriptionAr: cleanText(1000).nullable().optional(),
+  startsAt: z.number().int().positive().nullable(),
+  endsAt: z.number().int().positive().nullable(),
+  showCountdown: z.boolean().default(true),
+  lockProducts: z.boolean().default(false),
+  isActive: z.boolean(),
+  productIds: z.array(z.number().int().positive()).max(100),
+});
+
+/**
+ * Public caches are keyed on how many of these instants have passed, so a drop's products
+ * appear (and the countdown turns into the collection) the moment it starts, with no cron.
+ */
+async function dropTimesStmt(env: AppEnv["Bindings"]) {
+  const { results } = await env.DB.prepare(
+    "SELECT starts_at, ends_at FROM collections WHERE is_active = 1 AND (starts_at IS NOT NULL OR ends_at IS NOT NULL)",
+  ).all<{ starts_at: number | null; ends_at: number | null }>();
+  const times = results.flatMap((r) => [r.starts_at, r.ends_at]).filter((t): t is number => t != null).sort((a, b) => a - b);
+  return setSettingStmt(env, "drop_times", times);
+}
+
+marketingRoutes.get("/collections", requirePermission("marketing.edit"), async (c) => {
+  const [cols, items] = await c.env.DB.batch([
+    c.env.DB.prepare("SELECT * FROM collections ORDER BY is_active DESC, COALESCE(starts_at, created_at) DESC, id DESC"),
+    c.env.DB.prepare("SELECT collection_id, product_id FROM collection_products ORDER BY collection_id, sort"),
+  ]);
+  const byCol = new Map<number, number[]>();
+  for (const r of items!.results as { collection_id: number; product_id: number }[]) byCol.set(r.collection_id, [...(byCol.get(r.collection_id) ?? []), r.product_id]);
+  return c.json((cols!.results as { id: number }[]).map((r) => ({ ...r, product_ids: byCol.get(r.id) ?? [] })));
+});
+
+async function saveCollection(c: Parameters<typeof body>[0], id: number | null) {
+  const input = await body(c, collectionInput);
+  if (input.startsAt && input.endsAt && input.endsAt <= input.startsAt) throw new HttpError(422, "ends_before_start");
+  const slug = slugify(input.slug || input.nameFr);
+  if (!slug) throw new HttpError(422, "slug_required");
+  const taken = await c.env.DB.prepare("SELECT id FROM collections WHERE slug = ? AND id != ?").bind(slug, id ?? 0).first();
+  if (taken) throw new HttpError(409, "slug_taken");
+  const cols = [slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.startsAt, input.endsAt,
+    input.showCountdown ? 1 : 0, input.lockProducts ? 1 : 0, input.isActive ? 1 : 0];
+  let collectionId = id;
+  if (id) {
+    const res = await c.env.DB.prepare(
+      `UPDATE collections SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, starts_at = ?, ends_at = ?,
+         show_countdown = ?, lock_products = ?, is_active = ? WHERE id = ?`,
+    )
+      .bind(...cols, id)
+      .run();
+    if (!res.meta.changes) throw new HttpError(404, "not_found");
+  } else {
+    const row = await c.env.DB.prepare(
+      `INSERT INTO collections (slug, name_fr, name_ar, description_fr, description_ar, starts_at, ends_at, show_countdown, lock_products, is_active, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+    )
+      .bind(...cols, Date.now())
+      .first<{ id: number }>();
+    collectionId = row!.id;
+  }
+  const productIds = [...new Set(input.productIds)];
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM collection_products WHERE collection_id = ?").bind(collectionId),
+    ...productIds.map((pid, i) =>
+      c.env.DB.prepare("INSERT INTO collection_products (collection_id, product_id, sort) SELECT ?, id, ? FROM products WHERE id = ?").bind(collectionId, i, pid),
+    ),
+    await dropTimesStmt(c.env),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), id ? "update" : "create", "collection", collectionId, { name: input.nameFr, products: productIds.length }),
+  ]);
+  return c.json({ id: collectionId, slug }, id ? 200 : 201);
+}
+
+marketingRoutes.post("/collections", requirePermission("marketing.edit"), (c) => saveCollection(c, null));
+marketingRoutes.put("/collections/:id", requirePermission("marketing.edit"), (c) => saveCollection(c, intParam(c, "id")));
+
+marketingRoutes.delete("/collections/:id", requirePermission("marketing.edit"), async (c) => {
+  const id = intParam(c, "id");
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM collection_products WHERE collection_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM collections WHERE id = ?").bind(id),
+  ]);
+  await c.env.DB.batch([await dropTimesStmt(c.env), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "delete", "collection", id)]);
+  return c.json({ ok: true });
+});

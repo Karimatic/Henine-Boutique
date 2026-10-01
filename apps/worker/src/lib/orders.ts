@@ -4,8 +4,10 @@
  * the admin (manual sales, status buttons) and the Telegram bot.
  */
 import {
+  assessRisk,
   canTransition,
   computeTotals,
+  HIGH_VALUE_DA,
   imageUrl,
   newOrderCode,
   newSecretToken,
@@ -14,11 +16,13 @@ import {
   stockEffect,
   type CouponRule,
   type OrderStatus,
+  type OutcomeReason,
+  type RiskFlag,
   type QuoteDTO,
   type QuoteLineDTO,
 } from "@henine/shared";
 import type { Env } from "../env";
-import { imageRef, variantLabels, type ImageRow } from "./catalog";
+import { imageRef, lockedSql, variantLabels, type ImageRow } from "./catalog";
 import { HttpError } from "./http";
 import { getSetting, getSettings } from "./settings";
 
@@ -27,6 +31,8 @@ import { getSetting, getSettings } from "./settings";
 export interface QuoteRequest {
   lines: { variantId: number; qty: number }[];
   wilaya?: number | null;
+  /** commune-level home price override (remote communes) */
+  communeId?: number | null;
   deliveryType?: "domicile" | "bureau";
   coupon?: string;
   phone?: string;
@@ -48,6 +54,7 @@ interface VariantRow {
   name_ar: string;
   price: number;
   status: string;
+  locked: number;
 }
 
 export interface QuoteResult extends QuoteDTO {
@@ -65,16 +72,17 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
   const ids = [...merged.keys()];
   const ph = ids.map(() => "?").join(",");
 
-  const [variantsRes, imagesRes, wilayaRes] = await env.DB.batch([
+  const [variantsRes, imagesRes, wilayaRes, communeRes] = await env.DB.batch([
     env.DB.prepare(
       `SELECT v.id, v.product_id, v.sku, v.price_override, v.stock_on_hand, v.stock_reserved, v.is_active, v.option_value_ids,
-              p.slug, p.name_fr, p.name_ar, p.price, p.status
+              p.slug, p.name_fr, p.name_ar, p.price, p.status, ${lockedSql("p", Date.now())} AS locked
          FROM variants v JOIN products p ON p.id = v.product_id WHERE v.id IN (${ph})`,
     ).bind(...ids),
     env.DB.prepare(
       `SELECT * FROM product_images WHERE product_id IN (SELECT product_id FROM variants WHERE id IN (${ph})) ORDER BY product_id, sort, id`,
     ).bind(...ids),
-    env.DB.prepare("SELECT home_price, desk_price, is_active FROM wilayas WHERE code = ?").bind(req.wilaya ?? 0),
+    env.DB.prepare("SELECT home_price, desk_price, is_active, delay_days FROM wilayas WHERE code = ?").bind(req.wilaya ?? 0),
+    env.DB.prepare("SELECT home_price, home_supported FROM communes WHERE id = ? AND wilaya_code = ?").bind(req.communeId ?? 0, req.wilaya ?? 0),
   ]);
   const variants = new Map((variantsRes!.results as unknown as VariantRow[]).map((v) => [v.id, v]));
   const images = imagesRes!.results as unknown as ImageRow[];
@@ -87,7 +95,8 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
     const valueIds = JSON.parse(v.option_value_ids) as number[];
     const productImages = images.filter((i) => i.product_id === v.product_id);
     const img = productImages.find((i) => i.option_value_id != null && valueIds.includes(i.option_value_id)) ?? productImages[0];
-    const sellable = v.is_active === 1 && (req.admin ? v.status !== "archived" : v.status === "published");
+    // products of a drop that hasn't launched yet can't be ordered from the storefront
+    const sellable = v.is_active === 1 && (req.admin ? v.status !== "archived" : v.status === "published" && !v.locked);
     const available = Math.max(0, v.stock_on_hand - v.stock_reserved);
     const unitPrice = v.price_override ?? v.price;
     lines.push({
@@ -108,11 +117,15 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
   }
 
   const { checkout } = await getSettings(env, ["checkout"]);
-  const w = (wilayaRes!.results as { home_price: number | null; desk_price: number | null; is_active: number }[])[0];
+  const w = (wilayaRes!.results as { home_price: number | null; desk_price: number | null; is_active: number; delay_days: string | null }[])[0];
+  const commune = (communeRes!.results as { home_price: number | null; home_supported: number }[])[0];
   let shippingPrice: number | null = null;
   if (w && w.is_active) {
-    shippingPrice =
-      req.deliveryType === "bureau" ? (checkout.desk_enabled || req.admin ? w.desk_price : null) : req.deliveryType === "domicile" ? w.home_price : null;
+    if (req.deliveryType === "bureau") shippingPrice = checkout.desk_enabled || req.admin ? w.desk_price : null;
+    else if (req.deliveryType === "domicile") {
+      // a commune may be stop-desk only, or cost more than the rest of its wilaya
+      shippingPrice = commune && !commune.home_supported ? null : (commune?.home_price ?? w.home_price);
+    }
   }
 
   // coupon
@@ -165,6 +178,7 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
     total: totals.total,
     freeShipping: totals.freeShipping,
     deliveryAvailable: shippingPrice != null,
+    delay: w?.is_active ? w.delay_days : null,
     coupon: req.coupon
       ? { code: req.coupon.toUpperCase(), valid: !couponInvalid, reason: couponInvalid, label: couponRule && !couponInvalid ? couponLabel(couponRule) : null }
       : null,
@@ -192,6 +206,8 @@ export interface NewOrder {
   utm?: { source?: string; medium?: string; campaign?: string };
   ipHash?: string;
   uaShort?: string;
+  /** checkout autosave to mark as recovered */
+  cartId?: string;
   /** admin manual sale: initial status + actor */
   initialStatus?: "nouvelle" | "confirmee" | "livree";
   actor?: string;
@@ -212,6 +228,7 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
   const q = await quote(env, {
     lines: input.lines,
     wilaya: input.wilaya,
+    communeId: input.communeId,
     deliveryType: input.deliveryType,
     coupon: input.coupon,
     phone: input.phone,
@@ -224,20 +241,41 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
   if (shipping == null) throw new HttpError(422, "delivery_unavailable");
   const total = q.subtotal - q.discount + shipping;
 
-  // abuse limits (storefront only)
+  // Storefront only: abuse limit + risk signals. The score is decision support for the team;
+  // it never rejects an order (only the per-phone hourly limit does, against floods).
   let risk = 0;
+  let riskFlags: RiskFlag[] | null = null;
   if (!isAdmin) {
     const { checkout } = await getSettings(env, ["checkout"]);
-    const recent = await env.DB.prepare(
+    const t = Date.now();
+    const r = await env.DB.prepare(
       `SELECT (SELECT COUNT(*) FROM orders WHERE phone = ?1 AND created_at > ?2) AS last_hour,
-              (SELECT COUNT(*) FROM orders WHERE phone = ?1 AND created_at > ?3 AND status NOT IN ('annulee','doublon','fausse')) AS last_day,
-              (SELECT returned_count FROM customers WHERE phone = ?1) AS returned,
-              (SELECT is_blacklisted FROM customers WHERE phone = ?1) AS blacklisted`,
+              (SELECT COUNT(*) FROM orders WHERE phone = ?1 AND created_at > ?3 AND status NOT IN ${CANCELLED_SQL}) AS last_day,
+              (SELECT COUNT(*) FROM orders WHERE phone = ?1 AND created_at > ?4 AND status IN ('annulee','fausse')) AS recent_cancel,
+              (SELECT COUNT(DISTINCT phone) FROM orders WHERE ip_hash = ?5 AND created_at > ?6 AND phone != ?1) AS ip_phones,
+              c.delivered_count, c.returned_count, c.cancelled_count, c.fake_count, c.is_blacklisted
+         FROM (SELECT 1) LEFT JOIN customers c ON c.phone = ?1`,
     )
-      .bind(input.phone, Date.now() - 3600_000, Date.now() - 86400_000)
-      .first<{ last_hour: number; last_day: number; returned: number | null; blacklisted: number | null }>();
-    if ((recent?.last_hour ?? 0) >= checkout.max_orders_per_phone_per_hour) throw new HttpError(429, "too_many_orders");
-    risk = (recent?.returned ?? 0) * 20 + ((recent?.last_day ?? 0) > 0 ? 30 : 0) + (recent?.blacklisted ? 100 : 0);
+      .bind(input.phone, t - 3600_000, t - 86400_000, t - 7 * 86400_000, input.ipHash ?? "", t - 2 * 3600_000)
+      .first<{
+        last_hour: number; last_day: number; recent_cancel: number; ip_phones: number;
+        delivered_count: number | null; returned_count: number | null; cancelled_count: number | null; fake_count: number | null; is_blacklisted: number | null;
+      }>();
+    if ((r?.last_hour ?? 0) >= checkout.max_orders_per_phone_per_hour) throw new HttpError(429, "too_many_orders");
+    riskFlags = [];
+    if (r?.recent_cancel) riskFlags.push("recent_cancel");
+    if (r?.last_day) riskFlags.push("repeat_24h");
+    // mobile operators share public IPs (CGNAT): only many different numbers in a short window count
+    if (input.ipHash && (r?.ip_phones ?? 0) >= 3) riskFlags.push("ip_burst");
+    if (input.communeId == null && input.communeText) riskFlags.push("commune_text");
+    if (total >= HIGH_VALUE_DA) riskFlags.push("high_value");
+    risk = assessRisk(
+      {
+        deliveredCount: r?.delivered_count ?? 0, returnedCount: r?.returned_count ?? 0, cancelledCount: r?.cancelled_count ?? 0,
+        fakeCount: r?.fake_count ?? 0, isBlacklisted: !!r?.is_blacklisted,
+      },
+      riskFlags,
+    ).score;
   }
 
   const status: OrderStatus = input.initialStatus ?? "nouvelle";
@@ -259,13 +297,14 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
       env.DB.prepare(
         `INSERT INTO orders (public_code, track_token_hash, idempotency_key, status, channel, locale, customer_id, name, phone, wilaya_code,
             commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code,
-            customer_note, internal_note, risk_score, utm_source, utm_medium, utm_campaign, ip_hash, ua_short, created_at, updated_at,
+            customer_note, internal_note, risk_score, risk_flags, utm_source, utm_medium, utm_campaign, ip_hash, ua_short, created_at, updated_at,
             confirmed_at, delivered_at)
-         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         code, tokenHash, input.idempotencyKey, status, input.channel, input.locale, input.phone, input.name, input.phone, input.wilaya,
         input.communeId, input.communeText ?? null, input.deliveryType, input.stopDeskId ?? null, input.address ?? null,
         q.subtotal, q.discount, shipping, total, q.couponRow?.code ?? null, input.note ?? null, input.internalNote ?? null, risk,
+        riskFlags ? JSON.stringify(riskFlags) : null,
         input.utm?.source ?? null, input.utm?.medium ?? null, input.utm?.campaign ?? null, input.ipHash ?? null, input.uaShort ?? null,
         now, now, status === "confirmee" || status === "livree" ? now : null, status === "livree" ? now : null,
       ),
@@ -302,6 +341,13 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
       ).bind(status, actor, isAdmin ? "admin" : "customer", input.channel === "express" ? "Commande express" : null, now),
     );
     if (q.couponRow) stmts.push(env.DB.prepare("UPDATE coupons SET used_count = used_count + 1 WHERE id = ?").bind(q.couponRow.id));
+    if (input.cartId) {
+      stmts.push(
+        env.DB.prepare(`UPDATE carts SET recovered_order_id = ${orderRef}, step = 'ready', updated_at = ? WHERE id = ? AND recovered_order_id IS NULL`).bind(
+          now, input.cartId,
+        ),
+      );
+    }
     if (status === "livree") {
       stmts.push(
         env.DB.prepare("UPDATE customers SET delivered_count = delivered_count + 1, total_spent = total_spent + ? WHERE phone = ?").bind(total, input.phone),
@@ -411,6 +457,9 @@ export function analyticsStmts(env: Env, ts: number, metrics: [string, string][]
 
 /* ───────────── Status changes ───────────── */
 
+/** Statuses that record an outcome reason (why it was cancelled / returned). */
+export const OUTCOME_STATUSES: readonly OrderStatus[] = ["annulee", "doublon", "fausse", "retour"];
+
 const TIMESTAMP_COL: Partial<Record<OrderStatus, string>> = {
   confirmee: "confirmed_at",
   expediee: "shipped_at",
@@ -433,6 +482,7 @@ export async function applyStatusChange(
   actor: string,
   source: "admin" | "telegram" | "carrier" | "system",
   note?: string,
+  reason?: OutcomeReason,
 ): Promise<StatusChangeResult> {
   const order = await env.DB.prepare("SELECT id, public_code, status, customer_id, total FROM orders WHERE id = ?")
     .bind(orderId)
@@ -450,12 +500,16 @@ export async function applyStatusChange(
   const nonce = [...crypto.getRandomValues(new Uint8Array(12))].map((b) => b.toString(16).padStart(2, "0")).join("");
   const guard = `(SELECT op_nonce FROM orders WHERE id = ${orderId}) = '${nonce}'`;
   const tsCol = TIMESTAMP_COL[to];
+  // outcome reason: set when cancelled / returned, kept through "retour reçu", cleared when reopened
+  const outcome = OUTCOME_STATUSES.includes(to) ? (reason ?? (to === "doublon" ? "duplicate" : null)) : to === "nouvelle" ? null : undefined;
 
   const stmts: D1PreparedStatement[] = [
     env.DB.prepare(
-      `UPDATE orders SET status = ?, op_nonce = ?, updated_at = ?${tsCol ? `, ${tsCol} = COALESCE(${tsCol}, ?)` : ""}${to === "injoignable" ? ", confirm_attempts = confirm_attempts + 1, next_callback_at = ?" : ""}${to === "confirmee" ? ", next_callback_at = NULL" : ""}
+      `UPDATE orders SET status = ?, op_nonce = ?, updated_at = ?${tsCol ? `, ${tsCol} = COALESCE(${tsCol}, ?)` : ""}${to === "injoignable" ? ", confirm_attempts = confirm_attempts + 1, next_callback_at = ?" : ""}${to === "confirmee" ? ", next_callback_at = NULL" : ""}${outcome !== undefined ? ", outcome_reason = ?" : ""}
         WHERE id = ? AND status = ?`,
-    ).bind(...[to, nonce, now, ...(tsCol ? [now] : []), ...(to === "injoignable" ? [now + 2 * 3600_000] : []), orderId, from]),
+    ).bind(
+      ...[to, nonce, now, ...(tsCol ? [now] : []), ...(to === "injoignable" ? [now + 2 * 3600_000] : []), ...(outcome !== undefined ? [outcome] : []), orderId, from],
+    ),
   ];
 
   const effect = stockEffect(from, to);
@@ -499,7 +553,10 @@ export async function applyStatusChange(
   } else if (to === "annulee" || to === "doublon" || to === "fausse") {
     // cancelled orders don't count as orders (history, loyalty, "first order" coupons, Telegram badges)
     stmts.push(
-      env.DB.prepare(`UPDATE customers SET cancelled_count = cancelled_count + 1, orders_count = MAX(orders_count - 1, 0) WHERE id = ? AND ${guard}`).bind(order.customer_id),
+      env.DB.prepare(
+        `UPDATE customers SET cancelled_count = cancelled_count + 1, orders_count = MAX(orders_count - 1, 0)${to === "fausse" ? ", fake_count = fake_count + 1" : ""} WHERE id = ? AND ${guard}`,
+      ).bind(order.customer_id),
+
     );
   } else if (from === "annulee" && to === "nouvelle") {
     stmts.push(

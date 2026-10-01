@@ -1,16 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { dateLocale, normalizeDzPhone, type Locale, type ProductCardDTO, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
+import { dateLocale, normalizeDzPhone, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { HeartIcon } from "@/components/ui/icons";
 import { Markdown } from "@/components/ui/Markdown";
 import { ErrorBox, inputCls, Price, ProductImage, Stars } from "@/components/ui/kit";
-import { ApiError, apiPost, slugFromPath, useApi } from "@/lib/api";
+import { apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { cart, toggleFavorite, useFavorites } from "@/lib/stores";
 import { Turnstile } from "@/lib/turnstile";
+import { Badges } from "./Badges";
 import { ProductGrid } from "./ProductCard";
+import { ReviewForm } from "./ReviewForm";
+import { ShareButton } from "./ShareButton";
 
 export function ProductView() {
   const [slug, setSlug] = useState<string | null>(null);
@@ -52,7 +55,6 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   const { t, ar, href, locale } = useLocale();
   const favorites = useFavorites();
   const site = useApi<SiteConfigDTO>("/site");
-  const catalog = useApi<ProductCardDTO[]>("/catalog");
   const name = ar ? p.nameAr : p.nameFr;
   useEffect(() => {
     document.title = `${name} · Henine Boutique`;
@@ -125,7 +127,8 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   }
 
   const fav = favorites.includes(p.slug);
-  const related = (catalog.data ?? []).filter((x) => x.id !== p.id && x.categorySlug === p.categorySlug).slice(0, 4);
+  // computed by the API: hand-picked look → bought together → same category (no catalogue download)
+  const related = p.related;
   const expressEnabled = site.data?.checkout.expressOnProduct ?? true;
 
   return (
@@ -145,6 +148,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
         <div>
           <div className="relative">
             <ProductImage image={images[active] ?? null} alt={name} category={p.categorySlug} color={colorHex} priority sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/5] rounded-card" />
+            <Badges p={p} className="pointer-events-none absolute start-3 top-3" />
             <button
               type="button"
               onClick={() => toggleFavorite(p.slug)}
@@ -169,7 +173,10 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
         </div>
 
         <div>
-          <h1 className="heading-display text-3xl leading-tight md:text-4xl">{name}</h1>
+          <div className="flex items-start justify-between gap-3">
+            <h1 className="heading-display text-3xl leading-tight md:text-4xl">{name}</h1>
+            <ShareButton slug={p.slug} name={name} price={variant?.price ?? p.price} className="shrink-0" />
+          </div>
           {p.rating && (
             <a href="#avis" className="mt-2 inline-flex items-center gap-2 text-sm text-ink-soft">
               <Stars value={p.rating.avg} /> {p.rating.avg} ({p.rating.count})
@@ -287,14 +294,14 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
         </div>
       </div>
 
-      <Reviews p={p} siteKey={site.data?.turnstileSiteKey ?? ""} locale={locale} />
-
       {related.length > 0 && (
         <section className="mt-12">
-          <h2 className="heading-display mb-5 text-3xl">{t.product.related}</h2>
+          <h2 className="heading-display mb-5 text-3xl">{p.relatedKind === "look" ? t.look.title : t.look.similar}</h2>
           <ProductGrid products={related} />
         </section>
       )}
+
+      <Reviews p={p} />
 
       {/* sticky mobile CTA */}
       {variant && variant.available > 0 && !showExpress && (
@@ -344,60 +351,45 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
   );
 }
 
-function Reviews({ p, siteKey, locale }: { p: ProductDetailDTO; siteKey: string; locale: Locale }) {
-  const { t } = useLocale();
+function Reviews({ p }: { p: ProductDetailDTO }) {
+  const { t, locale } = useLocale();
+  const R = t.reviewsPlus;
   const [open, setOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [rating, setRating] = useState(5);
-  const [text, setText] = useState("");
-  const [token, setToken] = useState("");
-  const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  const [done, setDone] = useState<string | null>(null);
   return (
     <section id="avis" className="mt-12 scroll-mt-24">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="heading-display text-3xl">{t.product.reviews}</h2>
-        {!open && state !== "done" && (
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
+        <h2 className="heading-display text-3xl">
+          {t.product.reviews}
+          {p.rating && (
+            <span className="ms-3 inline-flex items-center gap-1.5 align-middle font-sans text-base text-ink-soft">
+              <Stars value={p.rating.avg} /> <span dir="ltr">{p.rating.avg}/5 ({p.rating.count})</span>
+            </span>
+          )}
+        </h2>
+        {!open && !done && (
           <button type="button" onClick={() => setOpen(true)} className="rounded-full border border-ink/15 px-4 py-2 text-sm font-semibold">
-            {t.product.writeReview}
+            {R.cta}
           </button>
         )}
       </div>
-      {state === "done" && <p className="mb-4 rounded-xl bg-rose-100 p-4 text-sm font-medium text-plum-700">{t.product.reviewThanks}</p>}
-      {open && state !== "done" && (
-        <form
-          className="mb-6 space-y-3 rounded-card border border-line bg-white/70 p-4"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            if (name.trim().length < 2) return;
-            setState("sending");
-            try {
-              await apiPost("/reviews", { productId: p.id, name: name.trim(), rating, text: text.trim() || undefined, turnstileToken: token || "pending" });
-              setState("done");
+      <p className="mb-4 text-sm text-ink-soft">✓ {R.onlyBuyers}</p>
+      {done && <p className="mb-4 rounded-xl bg-rose-100 p-4 text-sm font-medium text-plum-700">{done === "approved" ? R.thanksPublished : R.thanksPending}</p>}
+      {open && !done && (
+        <div className="mb-6 rounded-card border border-line bg-white/70 p-4">
+          <ReviewForm
+            productId={p.id}
+            onDone={(status) => {
+              setDone(status);
               setOpen(false);
-            } catch (err) {
-              setState(err instanceof ApiError ? "error" : "error");
-            }
-          }}
-        >
-          <div className="flex gap-1" role="radiogroup" aria-label="Note">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button key={n} type="button" role="radio" aria-checked={rating === n} onClick={() => setRating(n)} className={`text-3xl ${n <= rating ? "text-gold" : "text-line"}`}>
-                ★
-              </button>
-            ))}
-          </div>
-          <input className={inputCls} placeholder={t.product.reviewName} value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />
-          <textarea className={`${inputCls} h-24 py-3`} placeholder={t.product.reviewText} value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
-          <Turnstile siteKey={siteKey} onToken={setToken} locale={locale} />
-          {state === "error" && <p className="text-sm text-danger">{t.checkout.errors.generic}</p>}
-          <button type="submit" disabled={state === "sending"} className="h-11 rounded-full bg-plum-600 px-6 font-semibold text-ivory">
-            {t.product.reviewSend}
-          </button>
-        </form>
+            }}
+          />
+        </div>
       )}
       {p.reviews.length === 0 ? (
         <p className="text-sm text-ink-soft">{t.product.noReviews}</p>
       ) : (
+
         <ul className="grid gap-3 md:grid-cols-2">
           {p.reviews.map((r) => (
             <li key={r.id} className="rounded-card border border-line bg-white/60 p-4">

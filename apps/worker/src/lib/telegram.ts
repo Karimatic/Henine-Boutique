@@ -3,9 +3,20 @@
  * Button presses arrive as callback queries (production: webhook; development: the admin
  * panel polls getUpdates) and go through the same applyStatusChange as the admin panel.
  */
-import { formatDA, formatDzPhone, hasPermission, nextStatuses, timingSafeEqual, type OrderStatus, type Permission } from "@henine/shared";
+import {
+  assessRisk,
+  formatDA,
+  formatDzPhone,
+  hasPermission,
+  nextStatuses,
+  RISK_LEVEL_LABEL,
+  timingSafeEqual,
+  type OrderStatus,
+  type Permission,
+} from "@henine/shared";
 import type { Env } from "../env";
 import { recordError } from "./audit";
+import { variantLabels } from "./catalog";
 import { decryptSecret } from "./crypto";
 import { HttpError } from "./http";
 import { algiersDate, algiersDayStart, applyStatusChange, CANCELLED_SQL, periodStats, type PeriodStats } from "./orders";
@@ -95,6 +106,9 @@ interface OrderForMessage {
   returned_count: number | null;
   delivered_count: number | null;
   is_blacklisted: number | null;
+  cancelled_count?: number | null;
+  fake_count?: number | null;
+  risk_flags?: string | null;
   prev_orders: number;
   prev_cancelled: number;
   tracking_number: string | null;
@@ -105,6 +119,7 @@ interface OrderForMessage {
 async function loadOrder(env: Env, orderId: number) {
   const o = await env.DB.prepare(
     `SELECT o.*, w.name_fr AS wilaya_fr, cm.name_fr AS commune_fr, c.orders_count, c.returned_count, c.delivered_count, c.is_blacklisted,
+            c.cancelled_count, c.fake_count,
             (SELECT COUNT(*) FROM orders x WHERE x.customer_id = o.customer_id AND x.id != o.id AND x.status NOT IN ${CANCELLED_SQL}) AS prev_orders,
             (SELECT COUNT(*) FROM orders x WHERE x.customer_id = o.customer_id AND x.id != o.id AND x.status IN ${CANCELLED_SQL}) AS prev_cancelled
        FROM orders o
@@ -162,6 +177,15 @@ export async function buildOrderMessage(env: Env, orderId: number, view: "main" 
   if ((o.delivered_count ?? 0) > 0) risk.push(`💎 cliente fidèle (${o.delivered_count} livrée(s))`);
   else if (o.prev_orders > 0) risk.push(`🔁 ${o.prev_orders} autre(s) commande(s) en cours`);
   else if (!o.prev_cancelled && !o.returned_count) risk.push("🆕 première commande");
+  // same transparent score as the admin (decision support, never an automatic rejection)
+  const assessed = assessRisk(
+    {
+      deliveredCount: o.delivered_count ?? 0, returnedCount: o.returned_count ?? 0, cancelledCount: o.cancelled_count ?? 0,
+      fakeCount: o.fake_count ?? 0, isBlacklisted: !!o.is_blacklisted,
+    },
+    o.risk_flags ? (JSON.parse(o.risk_flags) as string[]) : [],
+  );
+  if (assessed.level !== "low") risk.unshift(`${RISK_LEVEL_LABEL[assessed.level].emoji} <b>${RISK_LEVEL_LABEL[assessed.level].fr}</b>`);
 
   const channel = o.channel === "express" ? "site · express" : o.channel === "web" ? "site" : o.channel;
   const lines = [
@@ -260,7 +284,31 @@ export async function syncOrderMessage(env: Env, orderId: number): Promise<void>
 }
 
 /** Free-form alert to the group (low stock, reviews, contact messages, daily report). */
+/** Tells the team when variants with a "Prévenez-moi" waiting list are back in stock. */
+export async function notifyRestocked(env: Env, variantIds: number[]): Promise<void> {
+  if (!variantIds.length) return;
+  const notif = await getSetting(env, "notifications");
+  if (!notif.telegram_low_stock) return;
+  const { results } = await env.DB.prepare(
+    `SELECT a.variant_id, p.name_fr, COUNT(*) AS waiting FROM stock_alerts a JOIN variants v ON v.id = a.variant_id JOIN products p ON p.id = v.product_id
+      WHERE a.notified_at IS NULL AND a.variant_id IN (${variantIds.map(() => "?").join(",")}) GROUP BY a.variant_id`,
+  )
+    .bind(...variantIds)
+    .all<{ variant_id: number; name_fr: string; waiting: number }>();
+  if (!results.length) return;
+  const labels = await variantLabels(env, results.map((r) => r.variant_id));
+  await sendTelegramText(
+    env,
+    [
+      "🔔 <b>De retour en stock</b>, des clientes attendent :",
+      ...results.map((r) => `• ${esc(r.name_fr)}${labels.get(r.variant_id) ? ` — ${esc(labels.get(r.variant_id)!.fr)}` : ""} : ${r.waiting} cliente(s)`),
+      "Admin → Notifier pour les prévenir (WhatsApp).",
+    ].join("\n"),
+  );
+}
+
 export async function sendTelegramText(env: Env, html: string): Promise<boolean> {
+
   const cfg = await telegramConfig(env);
   if (!cfg.ready) return false;
   const res = await tgCall(cfg.token!, "sendMessage", { chat_id: cfg.chat_id, text: html, parse_mode: "HTML", link_preview_options: { is_disabled: true } });

@@ -41,6 +41,7 @@ const appRoutes = [
   page("/avis", lazy(Marketing, "ReviewsPage")),
   page("/notifier", lazy(Marketing, "NotifierPage")),
   page("/liens", lazy(Marketing, "LinksPage")),
+  page("/collections", lazy(Marketing, "CollectionsPage")),
   page("/contact", lazy(Marketing, "ContactPage")),
   page("/statistiques", lazy(() => import("./pages/Stats"), "StatsPage")),
   page("/equipe", lazy(System, "TeamPage")),

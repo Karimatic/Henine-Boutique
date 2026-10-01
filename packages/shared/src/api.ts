@@ -2,6 +2,7 @@
  * JSON contracts between the Worker API and the two front-ends.
  * Money is integer DA. Times are epoch milliseconds.
  */
+import type { ProductBadge } from "./insights";
 import type { OrderStatus } from "./order-status";
 
 /* ───────────── Media ───────────── */
@@ -53,8 +54,11 @@ export interface ProductCardDTO {
   /** hex colours of the colour option, for swatches and placeholders */
   colors: string[];
   inStock: boolean;
+  /** arrival date: first publication (falls back to creation) */
   createdAt: number;
   rating: { avg: number; count: number } | null;
+  /** data-driven sales badge (see BADGE_RULES), null when the numbers don't support one */
+  badge: ProductBadge | null;
 }
 
 export interface OptionValueDTO {
@@ -100,6 +104,31 @@ export interface ProductDetailDTO extends ProductCardDTO {
   reviews: ReviewDTO[];
   seoTitle: string | null;
   seoDescription: string | null;
+  /** "look": hand-picked or bought together; "similar": same category */
+  related: ProductCardDTO[];
+  relatedKind: "look" | "similar";
+}
+
+/* ───────────── Collections / drops ───────────── */
+
+export interface DropTeaserDTO {
+  slug: string;
+  nameFr: string;
+  nameAr: string;
+  startsAt: number | null;
+  endsAt: number | null;
+  showCountdown: boolean;
+}
+
+export interface CollectionDTO extends DropTeaserDTO {
+  descriptionFr: string | null;
+  descriptionAr: string | null;
+  /** false until startsAt: products are hidden while a locked drop has not launched */
+  launched: boolean;
+  /** server clock, so the countdown doesn't depend on the phone's clock */
+  now: number;
+  image: ImageRef | null;
+  products: ProductCardDTO[];
 }
 
 /* ───────────── Site configuration ───────────── */
@@ -113,6 +142,8 @@ export interface SiteConfigDTO {
   turnstileSiteKey: string;
   maintenance: { active: boolean; messageFr: string; messageAr: string };
   faq: { qFr: string; aFr: string; qAr: string; aAr: string }[];
+  /** next or current collection launch, for the home banner */
+  drop: DropTeaserDTO | null;
 }
 
 export interface WilayaDTO {
@@ -128,6 +159,10 @@ export interface CommuneDTO {
   id: number;
   fr: string;
   ar: string;
+  /** home-delivery price for this commune when it differs from the wilaya price */
+  home: number | null;
+  /** false when couriers don't deliver at home here (stop-desk only) */
+  homeOk: boolean;
 }
 
 export interface LinkDTO {
@@ -173,6 +208,8 @@ export interface QuoteDTO {
   coupon: { code: string; valid: boolean; reason: string | null; label: string | null } | null;
   freeShipping: boolean;
   deliveryAvailable: boolean;
+  /** usual delivery time for the wilaya, e.g. "1-2" (days) */
+  delay: string | null;
 }
 
 export interface CreatedOrderDTO {
@@ -184,17 +221,38 @@ export interface CreatedOrderDTO {
 
 /* ───────────── Tracking ───────────── */
 
+export interface TrackedItemDTO {
+  productId: number | null;
+  slug: string | null;
+  nameFr: string;
+  nameAr: string;
+  options: string | null;
+  /** size / colour in Arabic (looked up from the variant; null if it no longer exists) */
+  optionsAr: string | null;
+  qty: number;
+  unitPrice: number;
+  image: ImageRef | null;
+  /** with a valid token on a delivered order: a verified review can be left (once) */
+  canReview: boolean;
+}
+
 export interface TrackedOrderDTO {
   code: string;
   status: OrderStatus;
   createdAt: number;
+  subtotal: number;
+  discount: number;
+  shipping: number;
   total: number;
+  wilayaCode: number;
   wilayaFr: string;
   wilayaAr: string;
+  communeFr: string | null;
+  communeAr: string | null;
   deliveryType: "domicile" | "bureau";
   trackingNumber: string | null;
-  items: { nameFr: string; nameAr: string; options: string | null; qty: number; image: ImageRef | null }[];
+  items: TrackedItemDTO[];
   events: { status: string; at: number }[];
   /** only with a valid token */
-  details: { name: string; phoneMasked: string; address: string | null; communeFr: string | null } | null;
+  details: { name: string; phoneMasked: string; address: string | null } | null;
 }

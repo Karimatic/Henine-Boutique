@@ -11,6 +11,7 @@ import {
   stockAlertInput,
   timingSafeEqual,
   trackLookupInput,
+  type CommuneDTO,
   type CreatedOrderDTO,
   type LinkDTO,
   type PageDTO,
@@ -19,20 +20,24 @@ import {
 } from "@henine/shared";
 import type { AppEnv } from "../env";
 import { recordError } from "../lib/audit";
-import { getProductDetail, imageRef, listCategories, listProductCards, type ImageRow } from "../lib/catalog";
+import { featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, variantLabels, type ImageRow } from "../lib/catalog";
 import { cached } from "../lib/edge-cache";
 import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, verifyTurnstile } from "../lib/http";
 import { createOrder, quote } from "../lib/orders";
-import { getSetting, getSettings } from "../lib/settings";
+import { bumpCatalogStmt, getSetting, getSettings } from "../lib/settings";
 import { notifyNewOrder, sendTelegramText } from "../lib/telegram";
 
 export const publicRoutes = new Hono<AppEnv>();
 
-/** Edge cache keyed on the catalogue version: admin edits are visible immediately. */
+/**
+ * Edge cache keyed on the catalogue version (admin edits are visible immediately) and on
+ * how many drop start/end times have passed (a drop's products appear the moment it launches).
+ */
 async function versioned(c: Context<AppEnv>, ttl: number, produce: () => Promise<Response>) {
-  const v = await getSetting(c.env, "catalog_version");
+  const { catalog_version: v, drop_times: drops } = await getSettings(c.env, ["catalog_version", "drop_times"]);
+  const now = Date.now();
   const url = new URL(c.req.url);
-  url.searchParams.set("__v", String(v));
+  url.searchParams.set("__v", `${v}.${drops.filter((t) => t <= now).length}`);
   return cached(new Request(url), c.executionCtx, ttl, produce);
 }
 
@@ -45,7 +50,10 @@ publicRoutes.get("/health", async (c) => {
 
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
-    const s = await getSettings(c.env, ["store", "announcement", "hero", "contact", "checkout", "maintenance", "faq"]);
+    const [s, drop] = await Promise.all([
+      getSettings(c.env, ["store", "announcement", "hero", "contact", "checkout", "maintenance", "faq"]),
+      featuredDrop(c.env),
+    ]);
     const dto: SiteConfigDTO = {
       store: {
         name: s.store.name, taglineFr: s.store.tagline_fr, taglineAr: s.store.tagline_ar,
@@ -64,6 +72,7 @@ publicRoutes.get("/site", (c) =>
       turnstileSiteKey: c.env.TURNSTILE_SITE_KEY,
       maintenance: { active: s.maintenance.active, messageFr: s.maintenance.message_fr, messageAr: s.maintenance.message_ar },
       faq: s.faq.map((x) => ({ qFr: x.q_fr, aFr: x.a_fr, qAr: x.q_ar, aAr: x.a_ar })),
+      drop,
     };
     return c.json(dto);
   }),
@@ -81,6 +90,17 @@ publicRoutes.get("/products/:slug", (c) =>
     return p ? c.json(p) : c.json({ error: "not_found" }, 404);
   }),
 );
+
+/** Collection / drop page. The payload is edge-cached; `now` is always fresh for the countdown. */
+publicRoutes.get("/collections/:slug", async (c) => {
+  const res = await versioned(c, 30, async () => {
+    const col = await getCollection(c.env, c.req.param("slug"));
+    return col ? c.json(col) : c.json({ error: "not_found" }, 404);
+  });
+  if (!res.ok) return res;
+  const data = (await res.json()) as Record<string, unknown>;
+  return c.json({ ...data, now: Date.now() }, 200, { "Cache-Control": "public, max-age=15" });
+});
 
 publicRoutes.get("/pages/:slug", (c) =>
   versioned(c, 600, async () => {
@@ -116,13 +136,13 @@ publicRoutes.get("/geo/wilayas", (c) =>
 publicRoutes.get("/geo/wilayas/:code/communes", (c) => {
   const code = Number(c.req.param("code"));
   if (!Number.isInteger(code) || code < 1 || code > 69) return c.json({ error: "invalid_wilaya" }, 400);
-  return cached(c.req.raw, c.executionCtx, 3600, async () => {
+  return versioned(c, 3600, async () => {
     const { results } = await c.env.DB.prepare(
-      "SELECT id, name_fr AS fr, name_ar AS ar FROM communes WHERE wilaya_code = ? AND is_active = 1 ORDER BY name_fr",
+      "SELECT id, name_fr, name_ar, home_price, home_supported FROM communes WHERE wilaya_code = ? AND is_active = 1 ORDER BY name_fr",
     )
       .bind(code)
-      .all();
-    return c.json(results);
+      .all<{ id: number; name_fr: string; name_ar: string; home_price: number | null; home_supported: number }>();
+    return c.json(results.map((r): CommuneDTO => ({ id: r.id, fr: r.name_fr, ar: r.name_ar, home: r.home_price, homeOk: !!r.home_supported })));
   });
 });
 
@@ -145,6 +165,7 @@ publicRoutes.post("/orders", async (c) => {
   const order = await createOrder(c.env, {
     ...input,
     communeId: input.communeId ?? null,
+    cartId: input.cartId,
     ipHash: await ipHash(c),
     uaShort: uaShort(c),
   });
@@ -162,18 +183,27 @@ publicRoutes.post("/orders", async (c) => {
   return c.json(dto, 201);
 });
 
+/**
+ * Checkout autosave (abandoned checkouts). Called by the checkout form, debounced, once the
+ * phone number is valid. Separate (looser) rate-limit bucket so it can never block ordering.
+ */
 publicRoutes.post("/carts", async (c) => {
-  await rateLimit(c.env.RL_WRITE, `cart:${clientIp(c)}`);
+  await rateLimit(c.env.RL_LOOKUP, `cart:${clientIp(c)}`);
   const input = await body(c, cartSaveInput);
-  const q = await quote(c.env, { lines: input.lines });
+  const q = await quote(c.env, { lines: input.lines, wilaya: input.wilaya, communeId: input.communeId, deliveryType: input.deliveryType });
+  const now = Date.now();
   await c.env.DB.prepare(
-    `INSERT INTO carts (id, items, phone, name, wilaya_code, value, step, consent, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, 'checkout', 1, ?, ?)
+    `INSERT INTO carts (id, items, phone, name, wilaya_code, commune_id, delivery_type, channel, locale, value, step, consent, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
      ON CONFLICT(id) DO UPDATE SET items = excluded.items, phone = excluded.phone, name = excluded.name,
-       wilaya_code = excluded.wilaya_code, value = excluded.value, updated_at = excluded.updated_at
+       wilaya_code = excluded.wilaya_code, commune_id = excluded.commune_id, delivery_type = excluded.delivery_type,
+       channel = excluded.channel, locale = excluded.locale, value = excluded.value, step = excluded.step, updated_at = excluded.updated_at
      WHERE carts.recovered_order_id IS NULL`,
   )
-    .bind(input.id, JSON.stringify(input.lines), input.phone, input.name ?? null, input.wilaya ?? null, q.subtotal, Date.now(), Date.now())
+    .bind(
+      input.id, JSON.stringify(input.lines), input.phone, input.name ?? null, input.wilaya ?? null, input.communeId ?? null,
+      input.deliveryType ?? null, input.channel, input.locale, q.shipping != null ? q.total : q.subtotal, input.step, now, now,
+    )
     .run();
   return c.json({ ok: true });
 });
@@ -182,46 +212,78 @@ publicRoutes.post("/carts", async (c) => {
 
 async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[], withDetails: boolean): Promise<TrackedOrderDTO[]> {
   const { results: orders } = await c.env.DB.prepare(
-    `SELECT o.id, o.public_code, o.status, o.created_at, o.total, o.delivery_type, o.tracking_number, o.name, o.phone, o.address,
-            w.name_fr AS wilaya_fr, w.name_ar AS wilaya_ar, cm.name_fr AS commune_fr
+    `SELECT o.id, o.public_code, o.status, o.created_at, o.subtotal, o.discount_total, o.shipping_price, o.total, o.delivery_type,
+            o.tracking_number, o.name, o.phone, o.address, o.wilaya_code, o.commune_text,
+            w.name_fr AS wilaya_fr, w.name_ar AS wilaya_ar, cm.name_fr AS commune_fr, cm.name_ar AS commune_ar
        FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN communes cm ON cm.id = o.commune_id
       WHERE ${where} ORDER BY o.created_at DESC LIMIT 10`,
   )
     .bind(...binds)
     .all<{
-      id: number; public_code: string; status: TrackedOrderDTO["status"]; created_at: number; total: number; delivery_type: "domicile" | "bureau";
-      tracking_number: string | null; name: string; phone: string; address: string | null; wilaya_fr: string; wilaya_ar: string; commune_fr: string | null;
+      id: number; public_code: string; status: TrackedOrderDTO["status"]; created_at: number; subtotal: number; discount_total: number;
+      shipping_price: number; total: number; delivery_type: "domicile" | "bureau"; tracking_number: string | null; name: string; phone: string;
+      address: string | null; wilaya_code: number; commune_text: string | null; wilaya_fr: string; wilaya_ar: string; commune_fr: string | null; commune_ar: string | null;
     }>();
   if (!orders.length) return [];
   const ids = orders.map((o) => o.id);
   const ph = ids.map(() => "?").join(",");
-  const [items, events, images] = await c.env.DB.batch([
-    c.env.DB.prepare(`SELECT order_id, name_fr, name_ar, options_label, qty, product_id FROM order_items WHERE order_id IN (${ph})`).bind(...ids),
+  const [items, events, images, reviewed] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT oi.order_id, oi.name_fr, oi.name_ar, oi.options_label, oi.qty, oi.unit_price, oi.product_id, oi.variant_id, p.slug
+         FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id WHERE oi.order_id IN (${ph}) ORDER BY oi.id`,
+    ).bind(...ids),
     c.env.DB.prepare(`SELECT order_id, to_status, created_at FROM order_events WHERE kind = 'status' AND order_id IN (${ph}) ORDER BY id`).bind(...ids),
     c.env.DB.prepare(
       `SELECT * FROM product_images WHERE product_id IN (SELECT product_id FROM order_items WHERE order_id IN (${ph})) ORDER BY product_id, sort, id`,
     ).bind(...ids),
+    c.env.DB.prepare(`SELECT order_id, product_id FROM reviews WHERE order_id IN (${ph})`).bind(...ids),
   ]);
   const imgRows = images!.results as unknown as ImageRow[];
+  const variantIds = [...new Set((items!.results as { variant_id: number | null }[]).map((i) => i.variant_id).filter((v): v is number => v != null))];
+  const labels = await variantLabels(c.env, variantIds);
+  const done = new Set((reviewed!.results as { order_id: number; product_id: number }[]).map((r) => `${r.order_id}:${r.product_id}`));
   return orders.map((o) => ({
     code: o.public_code,
     status: o.status,
     createdAt: o.created_at,
+    subtotal: o.subtotal,
+    discount: o.discount_total,
+    shipping: o.shipping_price,
     total: o.total,
+    wilayaCode: o.wilaya_code,
     wilayaFr: o.wilaya_fr,
     wilayaAr: o.wilaya_ar,
+    // the commune only with the private link (phone lookups show less)
+    communeFr: withDetails ? (o.commune_fr ?? o.commune_text) : null,
+    communeAr: withDetails ? (o.commune_ar ?? o.commune_text) : null,
     deliveryType: o.delivery_type,
     trackingNumber: o.tracking_number,
-    items: (items!.results as { order_id: number; name_fr: string; name_ar: string; options_label: string | null; qty: number; product_id: number | null }[])
+    items: (
+      items!.results as {
+        order_id: number; name_fr: string; name_ar: string; options_label: string | null; qty: number; unit_price: number; product_id: number | null;
+        variant_id: number | null; slug: string | null;
+      }[]
+    )
       .filter((i) => i.order_id === o.id)
       .map((i) => {
         const img = imgRows.find((r) => r.product_id === i.product_id);
-        return { nameFr: i.name_fr, nameAr: i.name_ar, options: i.options_label, qty: i.qty, image: img ? imageRef(c.env, img) : null };
+        return {
+          productId: i.product_id,
+          slug: i.slug,
+          nameFr: i.name_fr,
+          nameAr: i.name_ar,
+          options: i.options_label,
+          optionsAr: (i.variant_id != null ? labels.get(i.variant_id)?.ar : null) ?? i.options_label,
+          qty: i.qty,
+          unitPrice: i.unit_price,
+          image: img ? imageRef(c.env, img) : null,
+          canReview: withDetails && o.status === "livree" && i.product_id != null && !done.has(`${o.id}:${i.product_id}`),
+        };
       }),
     events: (events!.results as { order_id: number; to_status: string; created_at: number }[])
       .filter((e) => e.order_id === o.id)
       .map((e) => ({ status: e.to_status, at: e.created_at })),
-    details: withDetails ? { name: o.name, phoneMasked: maskDzPhone(o.phone), address: o.address, communeFr: o.commune_fr } : null,
+    details: withDetails ? { name: o.name, phoneMasked: maskDzPhone(o.phone), address: o.address } : null,
   }));
 }
 
@@ -251,21 +313,52 @@ publicRoutes.get("/track/:code", async (c) => {
 
 /* ───────── Reviews, contact, back-in-stock ───────── */
 
+/** "Amira Benali" → "Amira B." (reviews never show full names) */
+function reviewerName(full: string): string {
+  const parts = full.trim().split(/\s+/);
+  return parts.length > 1 ? `${parts[0]} ${parts[parts.length - 1]!.charAt(0).toUpperCase()}.` : parts[0]!;
+}
+
+/**
+ * Verified reviews only: the customer proves a *delivered* order containing the product,
+ * with the private tracking token (from her link) or the phone number used to order.
+ */
 publicRoutes.post("/reviews", async (c) => {
   await rateLimit(c.env.RL_WRITE, `review:${clientIp(c)}`);
   const input = await body(c, reviewInput);
   await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
-  const exists = await c.env.DB.prepare("SELECT id FROM products WHERE id = ? AND status = 'published'").bind(input.productId).first();
-  if (!exists) throw new HttpError(404, "product_not_found");
-  await c.env.DB.prepare("INSERT INTO reviews (product_id, name, rating, text, status, created_at) VALUES (?, ?, ?, ?, 'pending', ?)")
-    .bind(input.productId, input.name, input.rating, input.text ?? null, Date.now())
-    .run();
-  const notif = await getSetting(c.env, "notifications");
-  if (notif.telegram_review) {
-    c.executionCtx.waitUntil(sendTelegramText(c.env, `⭐ Nouvel avis (${input.rating}/5) de ${input.name.replace(/[<>&]/g, "")} — à valider dans Admin → Avis.`));
+  const o = await c.env.DB.prepare("SELECT id, status, phone, name, track_token_hash FROM orders WHERE public_code = ?")
+    .bind(input.code)
+    .first<{ id: number; status: string; phone: string; name: string; track_token_hash: string }>();
+  const proven =
+    !!o && (input.token ? timingSafeEqual(await sha256Hex(input.token, c.env.TRACK_TOKEN_PEPPER), o.track_token_hash) : input.phone === o.phone);
+  // same answer for "no such order" and "wrong proof": nothing to learn by guessing
+  if (!o || !proven) throw new HttpError(404, "order_not_found");
+  if (o.status !== "livree") throw new HttpError(409, "not_delivered");
+  const item = await c.env.DB.prepare("SELECT 1 AS ok FROM order_items WHERE order_id = ? AND product_id = ?").bind(o.id, input.productId).first();
+  if (!item) throw new HttpError(422, "product_not_in_order");
+
+  const { reviews: cfg, notifications: notif } = await getSettings(c.env, ["reviews", "notifications"]);
+  const status = cfg.auto_approve_verified ? "approved" : "pending";
+  const name = reviewerName(o.name);
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare("INSERT INTO reviews (product_id, order_id, name, rating, text, verified, status, created_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)").bind(
+        input.productId, o.id, name, input.rating, input.text ?? null, status, Date.now(),
+      ),
+      ...(status === "approved" ? [bumpCatalogStmt(c.env)] : []),
+    ]);
+  } catch (err) {
+    if (String((err as Error).message).includes("UNIQUE")) throw new HttpError(409, "already_reviewed");
+    throw err;
   }
-  return c.json({ ok: true }, 201);
+  if (notif.telegram_review) {
+    const what = status === "approved" ? "publié (vous pouvez le masquer dans Admin → Avis)" : "à valider dans Admin → Avis";
+    c.executionCtx.waitUntil(sendTelegramText(c.env, `⭐ Avis vérifié (${input.rating}/5) de ${name.replace(/[<>&]/g, "")}, ${what}.`));
+  }
+  return c.json({ ok: true, status }, 201);
 });
+
 
 publicRoutes.post("/contact", async (c) => {
   await rateLimit(c.env.RL_WRITE, `contact:${clientIp(c)}`);

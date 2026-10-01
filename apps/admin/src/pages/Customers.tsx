@@ -1,8 +1,9 @@
-import { formatDzPhone } from "@henine/shared";
+import { formatDzPhone, OUTCOME_REASON_LABEL, type CustomerSegment, type OutcomeReason, type RiskAssessment, type RiskLevel } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, errorMessage, patch, post, put } from "../api";
 import { ago, da, date, telLink, waLink } from "../lib/format";
+import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useCan } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Sheet, Stat, StatusBadge, TextArea, TextField, Toggle, useToast } from "../ui";
 
@@ -20,33 +21,57 @@ interface CustomerRow {
   points_balance: number;
   is_blacklisted: number;
   last_order_at: number | null;
+  segment: CustomerSegment;
+  risk: { level: RiskLevel; score: number };
 }
+
+const SEGMENTS = [
+  { value: "all", label: "Toutes" },
+  { value: "new", label: "Nouvelles" },
+  { value: "returning", label: "Fidèles" },
+  { value: "vip", label: "VIP" },
+  { value: "high_risk", label: "Risque élevé" },
+  { value: "inactives", label: "Inactives 60 j" },
+  { value: "blacklist", label: "Liste noire" },
+];
 
 export function CustomersPage() {
   const [segment, setSegment] = useState("all");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<number | null>(null);
-  const list = useQuery({ queryKey: ["customers", segment, q], queryFn: () => api<CustomerRow[]>(`/customers?segment=${segment}&q=${encodeURIComponent(q)}`) });
+  const list = useQuery({
+    queryKey: ["customers", segment, q],
+    queryFn: () => api<{ counts: Record<string, number>; rows: CustomerRow[] }>(`/customers?segment=${segment}&q=${encodeURIComponent(q)}`),
+  });
+  const counts = list.data?.counts;
   return (
     <div>
-      <PageHeader group="Commandes" title="Clients" subtitle="Chaque numéro de téléphone = une cliente. Historique, fiabilité, points." />
+      <PageHeader
+        group="Commandes"
+        title="Clients"
+        subtitle="Chaque numéro de téléphone = une cliente. Segments calculés sur l'historique réel (VIP : 3 livrées ou 25 000 DA dépensés)."
+      />
       <Pills
         value={segment}
         onChange={setSegment}
-        options={[
-          { value: "all", label: "Toutes" }, { value: "vip", label: "VIP (3+ livrées)" }, { value: "fideles", label: "Fidèles" }, { value: "nouvelles", label: "Nouvelles" },
-          { value: "risque", label: "À risque (retours)" }, { value: "inactives", label: "Inactives 60 j" }, { value: "blacklist", label: "Liste noire" },
-        ]}
+        options={SEGMENTS.map((s) => ({
+          value: s.value,
+          label: counts && s.value !== "inactives" && s.value !== "blacklist" ? `${s.label} (${s.value === "all" ? counts.all_count : (counts[s.value] ?? 0)})` : s.label,
+        }))}
       />
       <SearchBox value={q} onChange={setQ} placeholder="Nom ou téléphone…" />
-      {list.error ? <ErrorState error={list.error} onRetry={list.refetch} /> : !list.data ? <ListSkeleton /> : list.data.length === 0 ? <Empty title="Aucune cliente" /> : (
+      {list.error ? <ErrorState error={list.error} onRetry={list.refetch} /> : !list.data ? <ListSkeleton /> : list.data.rows.length === 0 ? <Empty title="Aucune cliente" /> : (
         <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
-          {list.data.map((c) => (
+          {list.data.rows.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setOpen(c.id)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30">
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{c.name} {c.is_blacklisted ? "⛔" : ""}</span>
                   <span className="text-xs text-ink-soft">{formatDzPhone(c.phone)} · {c.wilaya ?? "—"} · {ago(c.last_order_at)}</span>
+                  <span className="mt-1 flex flex-wrap gap-1 text-xs">
+                    <SegmentBadge segment={c.segment} />
+                    {c.risk.level !== "low" && <RiskBadge level={c.risk.level} />}
+                  </span>
                 </span>
                 <span className="shrink-0 text-end text-sm">
                   <b className="tabular-nums">{da(c.total_spent)}</b>
@@ -71,8 +96,10 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
     queryFn: () =>
       api<{
         customer: CustomerRow & { notes: string | null; blacklist_reason: string | null; cancelled_count: number; created_at: number };
-        orders: { id: number; public_code: string; status: string; total: number; channel: string; created_at: number }[];
+        orders: { id: number; public_code: string; status: string; total: number; channel: string; created_at: number; outcome_reason: string | null }[];
         ledger: { id: number; delta: number; reason: string; note: string | null; created_at: number }[];
+        risk: RiskAssessment;
+        segment: CustomerSegment;
       }>(`/customers/${id}`),
   });
   const [notes, setNotes] = useState("");
@@ -114,7 +141,9 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
             <a href={telLink(c.phone)} className="rounded-full bg-plum-600 px-3 py-1.5 text-sm font-semibold text-ivory">📞 Appeler</a>
             <a href={waLink(c.phone, `Bonjour ${c.name} 🌸 `)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1.5 text-sm font-semibold text-white">WhatsApp</a>
             {c.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">⛔ Liste noire</Badge> : null}
+            <SegmentBadge segment={q.data.segment} />
           </div>
+          <RiskPanel risk={q.data.risk} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <Stat label="Commandes" value={c.orders_count} />
             <Stat label="Livrées" value={c.delivered_count} tone="good" />
@@ -126,7 +155,10 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
               {q.data.orders.map((o) => (
                 <li key={o.id} className="flex items-center justify-between gap-2">
                   <a href={`/admin/commandes?o=${o.id}`} className="font-mono text-plum-600">{o.public_code}</a>
-                  <span className="text-ink-soft">{date(o.created_at)}</span>
+                  <span className="text-ink-soft">
+                    {date(o.created_at)}
+                    {o.outcome_reason ? ` · ${OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason] ?? o.outcome_reason}` : ""}
+                  </span>
                   <span className="flex items-center gap-2"><b>{da(o.total)}</b><StatusBadge status={o.status} /></span>
                 </li>
               ))}
@@ -176,22 +208,44 @@ interface CartRow {
   phone: string;
   name: string | null;
   wilaya: string | null;
+  commune: string | null;
+  delivery_type: string | null;
+  channel: string | null;
+  step: string | null;
   value: number;
+  created_at: number;
   updated_at: number;
   last_contacted_at: number | null;
   recovered_code: string | null;
+  customer_orders: number;
   items: { variantId: number; qty: number; name: string }[];
 }
+
+const STEP_LABEL: Record<string, [string, number]> = {
+  details: ["Coordonnées saisies", 1],
+  address: ["Wilaya choisie", 2],
+  delivery: ["Commune / livraison", 3],
+  ready: ["Formulaire complet, non envoyé", 4],
+  checkout: ["Coordonnées saisies", 1],
+};
 
 export function CartsPage() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState("abandoned");
-  const q = useQuery({ queryKey: ["carts", filter], queryFn: () => api<{ stats: { total: number; recovered: number; lost_value: number }; rows: CartRow[] }>(`/carts?filter=${filter}`) });
+  const q = useQuery({
+    queryKey: ["carts", filter],
+    queryFn: () => api<{ stats: { total: number; recovered: number; lost_value: number }; rows: CartRow[] }>(`/carts?filter=${filter}`),
+    refetchInterval: 60_000,
+  });
   const s = q.data?.stats;
   const origin = location.origin;
   return (
     <div>
-      <PageHeader group="Commandes" title="Paniers abandonnés" subtitle="Clientes ayant commencé une commande sans la terminer (avec leur accord pour être recontactées)." />
+      <PageHeader
+        group="Commandes"
+        title="Paniers abandonnés"
+        subtitle="Commandes commencées (numéro saisi) mais non envoyées depuis 30 min. Aucun message automatique : c'est vous qui décidez de rappeler."
+      />
       {s && (
         <div className="mb-4 grid grid-cols-3 gap-3">
           <Stat label="Paniers (30 j)" value={s.total} />
@@ -199,37 +253,63 @@ export function CartsPage() {
           <Stat label="Valeur non récupérée" value={da(s.lost_value)} />
         </div>
       )}
-      <Pills value={filter} onChange={setFilter} options={[{ value: "abandoned", label: "À relancer" }, { value: "recovered", label: "Récupérés" }, { value: "all", label: "Tous" }]} />
+      <Pills
+        value={filter}
+        onChange={setFilter}
+        options={[{ value: "abandoned", label: "À relancer" }, { value: "active", label: "En cours (< 30 min)" }, { value: "recovered", label: "Récupérés" }, { value: "all", label: "Tous" }]}
+      />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.rows.length === 0 ? (
-        <Empty title="Aucun panier" icon="🛒">Ils apparaissent quand une cliente saisit son numéro au paiement et coche « me recontacter ».</Empty>
+        <Empty title="Aucun panier" icon="🛒">Ils apparaissent quand une cliente saisit un numéro valide au moment de commander, sans envoyer la commande.</Empty>
       ) : (
         <ul className="space-y-2">
-          {q.data.rows.map((c) => (
+          {q.data.rows.map((c) => {
+            const [stepLabel, stepN] = STEP_LABEL[c.step ?? "details"] ?? ["—", 1];
+            return (
             <li key={c.id} className="rounded-2xl border border-line bg-white/70 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold">{c.name ?? "Sans nom"} · <span className="font-mono text-sm">{formatDzPhone(c.phone)}</span></p>
                   <p className="text-sm text-ink-soft">{c.items.map((i) => `${i.name} ×${i.qty}`).join(", ")}</p>
-                  <p className="text-xs text-ink-soft">{c.wilaya ?? "—"} · {ago(c.updated_at)}{c.last_contacted_at ? ` · relancée ${ago(c.last_contacted_at)}` : ""}</p>
+                  <p className="text-xs text-ink-soft">
+                    📍 {c.wilaya ?? "wilaya non choisie"}{c.commune ? ` › ${c.commune}` : ""}{c.delivery_type ? ` · ${c.delivery_type === "bureau" ? "Bureau" : "Domicile"}` : ""}
+                    {c.channel === "express" ? " · commande express" : ""}
+                  </p>
+                  <p className="text-xs text-ink-soft">
+                    Dernière activité {ago(c.updated_at)}{c.last_contacted_at ? ` · relancée ${ago(c.last_contacted_at)}` : ""}
+                    {c.customer_orders ? ` · ${c.customer_orders} commande(s) passée(s)` : " · jamais commandé"}
+                  </p>
+                  <div className="mt-1.5 flex items-center gap-2 text-xs">
+                    <span className="flex gap-0.5" aria-hidden="true">
+                      {[1, 2, 3, 4].map((n) => <span key={n} className={`h-1.5 w-5 rounded-full ${n <= stepN ? "bg-plum-600" : "bg-line"}`} />)}
+                    </span>
+                    <span className="text-ink-soft">{stepLabel}</span>
+                  </div>
                 </div>
                 <b className="shrink-0">{da(c.value)}</b>
               </div>
               {c.recovered_code ? (
                 <Badge tone="bg-emerald-100 text-emerald-800">✓ Commande {c.recovered_code}</Badge>
               ) : (
+                <div className="mt-2 flex flex-wrap gap-2">
+                <a href={telLink(c.phone)} onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))} className="inline-flex h-9 items-center rounded-full bg-plum-600 px-4 text-sm font-semibold text-ivory">
+                  📞 Appeler
+                </a>
                 <a
                   href={waLink(c.phone, `Bonjour ${c.name ?? ""} 🌸 Ici Henine Boutique. Vous avez laissé des articles dans votre panier : ${c.items.map((i) => i.name).join(", ")}. Besoin d'aide pour finaliser ? ${origin}/panier`)}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
-                  className="mt-2 inline-flex h-9 items-center rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white"
+                  className="inline-flex h-9 items-center rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white"
                 >
-                  Relancer sur WhatsApp
+                  WhatsApp
                 </a>
+                </div>
               )}
             </li>
-          ))}
+            );
+          })}
         </ul>
+
       )}
     </div>
   );

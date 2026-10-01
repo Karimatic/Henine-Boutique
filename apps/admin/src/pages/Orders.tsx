@@ -1,9 +1,19 @@
-import { formatDzPhone, type OrderStatus } from "@henine/shared";
+import {
+  formatDzPhone,
+  OUTCOME_REASON_LABEL,
+  OUTCOME_REASONS,
+  type CustomerSegment,
+  type OrderStatus,
+  type OutcomeReason,
+  type RiskAssessment,
+  type RiskLevel,
+} from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, errorMessage, patch, post } from "../api";
 import { ago, CHANNEL_LABEL, da, dateTime, statusLabel, telLink, waLink } from "../lib/format";
+import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useCan } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
 
@@ -25,7 +35,20 @@ interface OrderRow {
   items: number;
   returned_count: number | null;
   delivered_count: number | null;
+  outcome_reason: string | null;
+  risk: { level: RiskLevel; score: number };
 }
+
+/** Dashboard "needs attention" shortcuts (same keys as the API's attentionSql). */
+export const ATTENTION_LABEL: Record<string, string> = {
+  to_confirm: "À confirmer",
+  callbacks: "À rappeler maintenant",
+  high_risk: "Risque élevé à vérifier",
+  stale_confirmed: "Confirmées depuis plus de 24 h",
+  stale_preparing: "En préparation depuis plus de 48 h",
+  stale_shipped: "Expédiées depuis plus de 7 jours",
+  returns: "Retours à réceptionner",
+};
 
 const TABS = [
   { value: "active", label: "En cours" },
@@ -39,9 +62,11 @@ const TABS = [
 ];
 
 export function OrdersPage() {
-  const search = useSearch({ strict: false }) as { status?: string; o?: number };
+  const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string };
   const navigate = useNavigate();
   const [status, setStatus] = useState(search.status ?? "active");
+  const attention = search.attention && ATTENTION_LABEL[search.attention] ? search.attention : null;
+  const clearAttention = () => void navigate({ to: "/commandes", search: (s: Record<string, unknown>) => ({ ...s, attention: undefined }) });
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
   useEffect(() => {
@@ -49,8 +74,9 @@ export function OrdersPage() {
     return () => clearTimeout(id);
   }, [q]);
   const list = useQuery({
-    queryKey: ["orders", status, debounced],
-    queryFn: () => api<{ rows: OrderRow[]; counts: Record<string, number> }>(`/orders?status=${status}&q=${encodeURIComponent(debounced)}`),
+    queryKey: ["orders", status, debounced, attention],
+    queryFn: () =>
+      api<{ rows: OrderRow[]; counts: Record<string, number> }>(`/orders?status=${status}&q=${encodeURIComponent(debounced)}${attention ? `&attention=${attention}` : ""}`),
     refetchInterval: 20_000,
   });
   const openId = search.o ?? null;
@@ -70,7 +96,14 @@ export function OrdersPage() {
           </a>
         }
       />
-      <Pills value={status} onChange={setStatus} options={TABS.map((t) => ({ value: t.value, label: t.value === "a_confirmer" && toConfirm ? `${t.label} (${toConfirm})` : t.label }))} />
+      {attention ? (
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-plum-600 px-4 py-3 text-sm text-ivory">
+          <span>Filtre : <b>{ATTENTION_LABEL[attention]}</b></span>
+          <button type="button" onClick={clearAttention} className="rounded-full bg-ivory/15 px-3 py-1 font-semibold">Tout afficher ✕</button>
+        </div>
+      ) : (
+        <Pills value={status} onChange={setStatus} options={TABS.map((t) => ({ value: t.value, label: t.value === "a_confirmer" && toConfirm ? `${t.label} (${toConfirm})` : t.label }))} />
+      )}
       <SearchBox value={q} onChange={setQ} placeholder="N° de commande, nom, téléphone…" />
       {list.error ? (
         <ErrorState error={list.error} onRetry={list.refetch} />
@@ -99,8 +132,9 @@ export function OrdersPage() {
                   <span className="font-mono">{o.public_code}</span>·<span>{ago(o.created_at)}</span>·<span>{o.items} article(s)</span>·<span>{CHANNEL_LABEL[o.channel] ?? o.channel}</span>
                   {o.returned_count ? <Badge tone="bg-orange-100 text-orange-800">⚠ {o.returned_count} retour(s)</Badge> : null}
                   {(o.delivered_count ?? 0) >= 2 ? <Badge tone="bg-emerald-100 text-emerald-800">Fidèle</Badge> : null}
-                  {o.risk_score >= 50 ? <Badge tone="bg-red-100 text-red-800">Risque</Badge> : null}
+                  {o.risk.level !== "low" ? <RiskBadge level={o.risk.level} /> : null}
                   {o.status === "injoignable" ? <Badge tone="bg-amber-100 text-amber-800">📵 {o.confirm_attempts} appel(s)</Badge> : null}
+                  {o.outcome_reason ? <Badge tone="bg-stone-100 text-stone-700">{OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason] ?? o.outcome_reason}</Badge> : null}
                 </div>
               </button>
             </li>
@@ -118,12 +152,17 @@ interface OrderDetail {
     commune_text: string | null; address: string | null; delivery_type: string; subtotal: number; discount_total: number; shipping_price: number; total: number;
     coupon_code: string | null; customer_note: string | null; internal_note: string | null; tracking_number: string | null; channel: string; created_at: number;
     orders_count: number | null; delivered_count: number | null; returned_count: number | null; cancelled_count: number | null; is_blacklisted: number | null;
-    customer_id: number; risk_score: number; confirm_attempts: number; ua_short: string | null; locale: string;
+    customer_id: number; risk_score: number; confirm_attempts: number; ua_short: string | null; locale: string; outcome_reason: string | null;
   };
   items: { id: number; name_fr: string; options_label: string | null; sku: string; qty: number; unit_price: number; image: string | null; available: number | null }[];
   events: { id: number; from_status: string | null; to_status: string | null; kind: string; actor: string; source: string; note: string | null; created_at: number }[];
   next: OrderStatus[];
+  risk: RiskAssessment;
+  segment: CustomerSegment;
 }
+
+/** Statuses that ask why (cancellation / return reasons feed the analytics). */
+const NEEDS_REASON: OrderStatus[] = ["annulee", "fausse", "retour"];
 
 const ACTION: Partial<Record<OrderStatus, { label: string; variant: "primary" | "secondary" | "danger" }>> = {
   confirmee: { label: "✅ Confirmer", variant: "primary" },
@@ -156,13 +195,15 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
     void qc.invalidateQueries({ queryKey: ["dashboard"] });
   };
   const status = useMutation({
-    mutationFn: (to: OrderStatus) => post(`/orders/${id}/status`, { to }),
-    onSuccess: (_, to) => {
-      toast(`Statut : ${statusLabel(to)}`);
+    mutationFn: (v: { to: OrderStatus; reason?: OutcomeReason; note?: string; trackingNumber?: string }) => post(`/orders/${id}/status`, v),
+    onSuccess: (_, v) => {
+      toast(`Statut : ${statusLabel(v.to)}`);
+      setAsk(null);
       refresh();
     },
     onError: (e) => toast(errorMessage(e), "error"),
   });
+  const [ask, setAsk] = useState<OrderStatus | null>(null);
   const [note, setNote] = useState("");
   const addNote = useMutation({
     mutationFn: (kind: "note" | "call" | "whatsapp") => post(`/orders/${id}/note`, { note: note || (kind === "call" ? "Appel" : "Message WhatsApp"), kind }),
@@ -193,10 +234,11 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 key={to}
                 variant={ACTION[to]?.variant ?? "secondary"}
                 size="sm"
-                loading={status.isPending && status.variables === to}
+                loading={status.isPending && status.variables?.to === to}
                 onClick={() => {
-                  if ((to === "annulee" || to === "fausse" || to === "doublon") && !confirm(`${ACTION[to]?.label} cette commande ? Le stock réservé sera libéré.`)) return;
-                  status.mutate(to);
+                  if (NEEDS_REASON.includes(to) || to === "expediee") return setAsk(to);
+                  if (to === "doublon" && !confirm("Marquer comme doublon ? Le stock réservé sera libéré.")) return;
+                  status.mutate({ to });
                 }}
               >
                 {ACTION[to]?.label ?? statusLabel(to)}
@@ -212,6 +254,15 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
         <ListSkeleton rows={4} />
       ) : (
         <div className="space-y-4">
+          {ask && (
+            <StatusDialog
+              to={ask}
+              trackingNumber={o.tracking_number}
+              loading={status.isPending}
+              onCancel={() => setAsk(null)}
+              onConfirm={(v) => status.mutate({ to: ask, ...v })}
+            />
+          )}
           <Card>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -235,7 +286,16 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
               {o.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">⛔ Liste noire</Badge> : null}
               <Badge tone="bg-stone-100 text-stone-700">{CHANNEL_LABEL[o.channel] ?? o.channel}</Badge>
               {o.ua_short && <Badge tone="bg-stone-100 text-stone-700">{o.ua_short}</Badge>}
+              <SegmentBadge segment={d.segment} />
             </div>
+            <div className="mt-3">
+              <RiskPanel risk={d.risk} />
+            </div>
+            {o.outcome_reason && (
+              <p className="mt-3 rounded-xl bg-stone-100 p-2.5 text-sm">
+                Motif : <b>{OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason] ?? o.outcome_reason}</b>
+              </p>
+            )}
           </Card>
 
           <Card title={`Articles (${d.items.reduce((s, i) => s + i.qty, 0)})`}>
@@ -302,7 +362,70 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
   );
 }
 
+/**
+ * Asked before a status change: why it was cancelled / returned (feeds Statistiques →
+ * motifs), or the ZR Express tracking number when the parcel ships.
+ */
+function StatusDialog({
+  to,
+  trackingNumber,
+  loading,
+  onCancel,
+  onConfirm,
+}: {
+  to: OrderStatus;
+  trackingNumber: string | null;
+  loading: boolean;
+  onCancel: () => void;
+  onConfirm: (v: { reason?: OutcomeReason; note?: string; trackingNumber?: string }) => void;
+}) {
+  const [reason, setReason] = useState<OutcomeReason | null>(null);
+  const [note, setNote] = useState("");
+  const [tracking, setTracking] = useState(trackingNumber ?? "");
+  const shipping = to === "expediee";
+  const reasons = OUTCOME_REASONS.filter((r) => r !== "duplicate" && (to === "retour" ? r !== "changed_mind" : true));
+  const ref = useRef<HTMLDivElement>(null);
+  // the buttons live in the sheet footer: bring the question into view
+  useEffect(() => {
+    void ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+  return (
+    <div ref={ref}>
+    <Card title={shipping ? "🚚 Expédier la commande" : `${ACTION[to]?.label ?? statusLabel(to)} : pour quelle raison ?`} className="border-plum-600/40 ring-2 ring-plum-600/10">
+      {shipping ? (
+        <TextField label="N° de suivi ZR Express (facultatif)" value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="ex : ZR123456789" autoFocus />
+      ) : (
+        <>
+          <div className="grid gap-1.5 sm:grid-cols-2">
+            {reasons.map((r) => (
+              <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${reason === r ? "border-plum-600 bg-rose-100/60" : "border-line bg-white"}`}>
+                <input type="radio" name="reason" className="accent-plum-600" checked={reason === r} onChange={() => setReason(r)} />
+                {OUTCOME_REASON_LABEL[r]}
+              </label>
+            ))}
+          </div>
+          <TextField label="Précision (facultatif)" className="mt-3" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+          {to !== "retour" && <p className="mt-2 text-xs text-ink-soft">Le stock réservé sera libéré.</p>}
+        </>
+      )}
+      <div className="mt-3 flex gap-2">
+        <Button
+          variant={shipping ? "primary" : "danger"}
+          loading={loading}
+          disabled={!shipping && !reason}
+          onClick={() => onConfirm(shipping ? { trackingNumber: tracking.trim() || undefined } : { reason: reason!, note: note.trim() || undefined })}
+        >
+          Confirmer
+        </Button>
+        <Button onClick={onCancel}>Annuler</Button>
+      </div>
+    </Card>
+    </div>
+  );
+}
+
 function EditOrder({ order, onDone }: { order: OrderDetail["order"]; onDone: () => void }) {
+
   const toast = useToast();
   const [form, setForm] = useState({
     name: order.name,

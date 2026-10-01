@@ -7,6 +7,7 @@ import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { cart, checkoutMemory, saveOrder } from "@/lib/stores";
 import { newIdempotencyKey, Turnstile } from "@/lib/turnstile";
+import { Picker } from "./Picker";
 
 interface Props {
   lines: { variantId: number; qty: number }[];
@@ -14,10 +15,12 @@ interface Props {
   compact?: boolean;
 }
 
-function cartId(): string {
+/** One autosaved checkout per tab and per checkout kind (cart page vs. express on a product). */
+const CART_KEY = (channel: string) => `henine.cartId.${channel}`;
+function cartId(channel: string): string {
   try {
-    let id = sessionStorage.getItem("henine.cartId");
-    if (!id) sessionStorage.setItem("henine.cartId", (id = crypto.randomUUID()));
+    let id = sessionStorage.getItem(CART_KEY(channel));
+    if (!id) sessionStorage.setItem(CART_KEY(channel), (id = crypto.randomUUID()));
     return id;
   } catch {
     return crypto.randomUUID();
@@ -42,7 +45,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState("");
   const [showCoupon, setShowCoupon] = useState(false);
-  const [consent, setConsent] = useState(false);
   const [token, setToken] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,11 +59,14 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   }, [wilaya]);
 
   const selectedWilaya = wilayas.data?.find((w) => w.code === wilaya);
+  const selectedCommune = typeof communeId === "number" ? communes?.find((c) => c.id === communeId) : undefined;
   const deskAllowed = (site.data?.checkout.deskEnabled ?? true) && selectedWilaya?.desk != null;
+  // home delivery: the commune may cost more than its wilaya, or be stop-desk only
+  const homePrice = selectedCommune ? (selectedCommune.homeOk ? (selectedCommune.home ?? selectedWilaya?.home ?? null) : null) : (selectedWilaya?.home ?? null);
   useEffect(() => {
     if (selectedWilaya && deliveryType === "bureau" && !deskAllowed) setDeliveryType("domicile");
-    if (selectedWilaya && deliveryType === "domicile" && selectedWilaya.home == null && deskAllowed) setDeliveryType("bureau");
-  }, [selectedWilaya, deskAllowed, deliveryType]);
+    if (selectedWilaya && deliveryType === "domicile" && homePrice == null && deskAllowed) setDeliveryType("bureau");
+  }, [selectedWilaya, deskAllowed, deliveryType, homePrice]);
 
   // live authoritative price
   const [quote, setQuote] = useState<QuoteDTO | null>(null);
@@ -71,22 +76,43 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
     if (!lines.length) return;
     setQuoting(true);
     const id = setTimeout(() => {
-      apiPost<QuoteDTO>("/quote", { lines, wilaya, deliveryType, coupon: coupon || undefined })
+      apiPost<QuoteDTO>("/quote", { lines, wilaya, communeId: typeof communeId === "number" ? communeId : null, deliveryType, coupon: coupon || undefined })
         .then(setQuote, () => undefined)
         .finally(() => setQuoting(false));
     }, 250);
     return () => clearTimeout(id);
-  }, [linesKey, wilaya, deliveryType, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [linesKey, wilaya, communeId, deliveryType, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // abandoned-cart follow-up, only with explicit consent
+  /*
+   * Checkout autosave (abandoned checkouts): once the phone number is valid, the progress is
+   * saved (debounced, only when something changed) so the team can call back. The notice
+   * under the phone field tells the customer what the number is used for.
+   */
   const normalizedPhone = normalizeDzPhone(phone);
+  const step = !wilaya ? "details" : !communeId ? "address" : deliveryType === "domicile" && address.trim().length < 4 ? "delivery" : name.trim().length >= 2 ? "ready" : "delivery";
+  const lastSaved = useRef("");
   useEffect(() => {
-    if (!consent || !normalizedPhone || channel !== "web") return;
+    if (!normalizedPhone || !lines.length) return;
+    const payload = {
+      id: cartId(channel),
+      lines,
+      phone: normalizedPhone,
+      name: name.trim() || undefined,
+      wilaya,
+      communeId: typeof communeId === "number" ? communeId : null,
+      deliveryType,
+      step,
+      channel,
+      locale,
+    };
+    const key = JSON.stringify(payload);
+    if (key === lastSaved.current) return;
     const id = setTimeout(() => {
-      apiPost("/carts", { id: cartId(), lines, phone: normalizedPhone, name: name || undefined, wilaya, consent: true }).catch(() => undefined);
-    }, 1500);
+      lastSaved.current = key;
+      apiPost("/carts", payload).catch(() => undefined);
+    }, 2000);
     return () => clearTimeout(id);
-  }, [consent, normalizedPhone, linesKey, wilaya]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [normalizedPhone, linesKey, name, wilaya, communeId, deliveryType, step, channel, locale]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const problems = quote?.lines.filter((l) => l.problem) ?? [];
 
@@ -109,6 +135,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
       const params = new URLSearchParams(location.search);
       const order = await apiPost<CreatedOrderDTO>("/orders", {
         idempotencyKey: idem.current,
+        cartId: normalizedPhone ? cartId(channel) : undefined,
         name: name.trim(),
         phone: normalizedPhone,
         wilaya,
@@ -129,6 +156,11 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         },
       });
       saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
+      try {
+        sessionStorage.removeItem(CART_KEY(channel)); // the next checkout is a new one
+      } catch {
+        /* private mode */
+      }
       checkoutMemory.set({ name: name.trim(), phone: normalizedPhone!, wilaya, communeId: communeId === "other" ? null : communeId, address, deliveryType });
       if (channel === "web") cart.clear();
       location.href = href(`/merci?c=${order.code}&t=${encodeURIComponent(order.token)}`);
@@ -142,7 +174,10 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
       } else {
         setFormError(L.errors[e.code] ?? L.errors.generic!);
         if (e.code === "stock_problem" || e.code === "coupon_invalid") {
-          apiPost<QuoteDTO>("/quote", { lines, wilaya, deliveryType, coupon: coupon || undefined }).then(setQuote, () => undefined);
+          apiPost<QuoteDTO>("/quote", { lines, wilaya, communeId: typeof communeId === "number" ? communeId : null, deliveryType, coupon: coupon || undefined }).then(
+            setQuote,
+            () => undefined,
+          );
         }
       }
       idem.current = newIdempotencyKey();
@@ -183,45 +218,54 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
             maxLength={20}
           />
           {err("phone")}
+          <p className="mt-1.5 text-xs leading-relaxed text-ink-soft">{t.checkoutPlus.notice}</p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             {label(L.wilaya, "wilaya")}
-            <select
+            <Picker
               id="f-wilaya"
-              className={`${inputCls} ${invalid("wilaya")}`}
-              value={wilaya ?? ""}
-              onChange={(e) => {
-                setWilaya(e.target.value ? Number(e.target.value) : null);
+              title={t.picker.wilayaTitle}
+              placeholder={L.shippingPick}
+              searchPlaceholder={t.picker.searchWilaya}
+              value={wilaya}
+              invalid={!!fieldErrors.wilaya}
+              loading={!wilayas.data}
+              options={(wilayas.data ?? []).map((w) => ({
+                value: w.code,
+                label: `${w.code} - ${ar ? w.ar : w.fr}`,
+                keywords: `${w.code} ${w.fr} ${w.ar}`,
+                hint: w.home != null ? formatDA(w.home, locale) : w.desk != null ? formatDA(w.desk, locale) : undefined,
+              }))}
+              onChange={(code) => {
+                setWilaya(code);
                 setCommuneId(null);
               }}
-            >
-              <option value="">{L.shippingPick}</option>
-              {wilayas.data?.map((w) => (
-                <option key={w.code} value={w.code}>
-                  {w.code} - {ar ? w.ar : w.fr}
-                </option>
-              ))}
-            </select>
+            />
             {err("wilaya")}
           </div>
           <div>
             {label(L.commune, "communeId")}
-            <select
+            <Picker<number | "other">
               id="f-communeId"
-              className={`${inputCls} ${invalid("communeId")}`}
-              value={communeId ?? ""}
+              title={t.picker.communeTitle}
+              placeholder={wilaya ? "—" : t.picker.pickWilayaFirst}
+              searchPlaceholder={t.picker.searchCommune}
+              value={communeId}
               disabled={!wilaya}
-              onChange={(e) => setCommuneId(e.target.value === "other" ? "other" : e.target.value ? Number(e.target.value) : null)}
-            >
-              <option value="">{wilaya && !communes ? t.common.loading : "—"}</option>
-              {communes?.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {ar ? c.ar : c.fr}
-                </option>
-              ))}
-              <option value="other">{L.communeOther}</option>
-            </select>
+              invalid={!!fieldErrors.communeId}
+              loading={!!wilaya && !communes}
+              options={[
+                ...(communes ?? []).map((c) => ({
+                  value: c.id as number | "other",
+                  label: ar ? c.ar : c.fr,
+                  keywords: `${c.fr} ${c.ar}`,
+                  hint: !c.homeOk ? L.desk : c.home != null ? formatDA(c.home, locale) : undefined,
+                })),
+                { value: "other" as const, label: L.communeOther },
+              ]}
+              onChange={setCommuneId}
+            />
             {communeId === "other" && (
               <input className={`${inputCls} mt-2`} value={communeText} onChange={(e) => setCommuneText(e.target.value)} maxLength={80} aria-label={L.communeOther} />
             )}
@@ -233,7 +277,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
           <legend className="mb-1.5 text-sm font-medium">{L.delivery}</legend>
           <div className="grid grid-cols-2 gap-3">
             {(["domicile", "bureau"] as const).map((type) => {
-              const price = type === "domicile" ? selectedWilaya?.home : selectedWilaya?.desk;
+              const price = type === "domicile" ? homePrice : selectedWilaya?.desk;
               const disabled = !!selectedWilaya && (type === "bureau" ? !deskAllowed : price == null);
               return (
                 <label
@@ -249,7 +293,9 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
               );
             })}
           </div>
+          {selectedCommune && !selectedCommune.homeOk && <p className="mt-1.5 text-xs text-ink-soft">{t.checkoutPlus.homeUnavailable}</p>}
           {deliveryType === "bureau" && <p className="mt-1.5 text-xs text-ink-soft">{L.deskHint}</p>}
+          {quote?.delay && wilaya && <p className="mt-1.5 text-xs font-medium text-plum-700">🚚 {t.checkoutPlus.delay(quote.delay)}</p>}
         </fieldset>
 
         {deliveryType === "domicile" && (
@@ -267,13 +313,8 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
           </div>
         )}
 
-        {channel === "web" && (
-          <label className="flex items-start gap-2 text-sm text-ink-soft">
-            <input type="checkbox" className="mt-1 size-4 accent-plum-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
-            {L.consent}
-          </label>
-        )}
       </div>
+
 
       {/* Summary */}
       <aside className={compact ? "space-y-3" : "h-fit space-y-4 rounded-card border border-line bg-white/70 p-5 lg:sticky lg:top-24"}>

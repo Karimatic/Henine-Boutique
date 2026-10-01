@@ -10,6 +10,7 @@ import { imageRef, mediaUrl, variantLabels, type ImageRow } from "../../lib/cata
 import { randomToken } from "../../lib/crypto";
 import { body, HttpError, intParam } from "../../lib/http";
 import { bumpCatalogStmt } from "../../lib/settings";
+import { notifyRestocked } from "../../lib/telegram";
 import { actorOf, requirePermission } from "../../middleware/access";
 
 export const catalogRoutes = new Hono<AppEnv>();
@@ -80,6 +81,8 @@ async function loadProduct(c: { env: AppEnv["Bindings"] }, id: number) {
     seoTitle: p.seo_title,
     seoDescription: p.seo_description,
     instagramUrl: p.instagram_url,
+    relatedIds: JSON.parse((p.related_ids as string) || "[]") as number[],
+    publishedAt: p.published_at as number | null,
     options: (options!.results as { id: number; kind: string; name_fr: string; name_ar: string }[]).map((o) => ({
       id: o.id,
       kind: o.kind,
@@ -124,6 +127,8 @@ const productInput = z.object({
   seoTitle: optText(120),
   seoDescription: optText(300),
   instagramUrl: optText(300),
+  /** hand-picked "Complétez le look" products */
+  relatedIds: z.array(z.number().int().positive()).max(12).default([]),
   options: z
     .array(
       z.object({
@@ -189,23 +194,26 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
     stmts.push(
       env.DB.prepare(
         `UPDATE products SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, status = ?, category_id = ?, tags = ?,
-           price = ?, compare_at_price = ?, cost_price = ?, seo_title = ?, seo_description = ?, instagram_url = ?, updated_at = ? WHERE id = ?`,
+           price = ?, compare_at_price = ?, cost_price = ?, seo_title = ?, seo_description = ?, instagram_url = ?, related_ids = ?,
+           published_at = COALESCE(published_at, CASE WHEN ? = 'published' THEN ? END), updated_at = ? WHERE id = ?`,
       ).bind(
         slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr, input.descriptionAr, input.status, input.categoryId,
         JSON.stringify(input.tags), input.price, input.compareAtPrice ?? null, input.costPrice ?? null, input.seoTitle ?? null,
-        input.seoDescription ?? null, input.instagramUrl ?? null, now, productId,
+        input.seoDescription ?? null, input.instagramUrl ?? null, JSON.stringify(input.relatedIds.filter((x) => x !== productId)),
+        input.status, now, now, productId,
       ),
     );
   } else {
     stmts.push(
       env.DB.prepare(
         `INSERT INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price,
-           cost_price, seo_title, seo_description, instagram_url, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           cost_price, seo_title, seo_description, instagram_url, related_ids, published_at, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         productId, slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr, input.descriptionAr, input.status, input.categoryId,
         JSON.stringify(input.tags), input.price, input.compareAtPrice ?? null, input.costPrice ?? null, input.seoTitle ?? null,
-        input.seoDescription ?? null, input.instagramUrl ?? null, c.get("member").id, now, now,
+        input.seoDescription ?? null, input.instagramUrl ?? null, JSON.stringify(input.relatedIds), input.status === "published" ? now : null,
+        c.get("member").id, now, now,
       ),
     );
   }
@@ -251,6 +259,7 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
 
   // ── variants
   const currentVariants = new Map(current?.variants.map((v) => [v.id, v]) ?? []);
+  const restocked: number[] = [];
   const keptVariantIds = new Set<number>();
   let nextVariant = ids.variant;
   const labelPrefix = slug.split("-").slice(0, 2).join("-").toUpperCase().slice(0, 12) || `P${productId}`;
@@ -275,6 +284,7 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
           `UPDATE variants SET sku = ?, barcode = ?, option_value_ids = ?, price_override = ?, stock_on_hand = ?, low_stock_threshold = ?, is_active = ?, updated_at = ? WHERE id = ?`,
         ).bind(sku, v.barcode ?? null, JSON.stringify(valueIds), v.priceOverride ?? null, v.stockOnHand, v.lowStockThreshold, v.isActive ? 1 : 0, now, variantId),
       );
+      if (before.stockOnHand - before.stockReserved <= 0 && v.stockOnHand - before.stockReserved > 0) restocked.push(variantId);
       if (before.stockOnHand !== v.stockOnHand) {
         stmts.push(
           env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, note, actor, created_at) VALUES (?, ?, 'ajustement', 'Fiche produit', ?, ?)").bind(
@@ -325,6 +335,7 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
     if (msg.includes("UNIQUE") || msg.includes("PRIMARY KEY")) throw new HttpError(409, "conflict_retry");
     throw err;
   }
+  if (restocked.length) c.executionCtx.waitUntil(notifyRestocked(env, restocked).catch(() => undefined));
   return productId;
 }
 
@@ -356,12 +367,43 @@ catalogRoutes.post("/products/:id/duplicate", requirePermission("products.edit")
     seoTitle: null,
     seoDescription: null,
     instagramUrl: null,
+    relatedIds: src.relatedIds,
     options: src.options.map((o) => ({ kind: o.kind as "taille" | "couleur" | "autre", nameFr: o.nameFr, nameAr: o.nameAr, values: o.values.map((v) => ({ ref: `n:${v.id}`, labelFr: v.labelFr, labelAr: v.labelAr, hex: v.hex })) })),
     variants: src.variants.map((v) => ({ refs: v.refs.map((r) => r.replace("v:", "n:")), priceOverride: v.priceOverride, stockOnHand: 0, lowStockThreshold: v.lowStockThreshold, isActive: v.isActive })),
   };
   const id = await saveProduct(c, null, copy);
+
+  // photos are shared with the original (same files in R2, never deleted while still used);
+  // colour-specific photos follow the copied colour (options and values keep their order)
+  if (src.images.length) {
+    const dst = await loadProduct(c, id);
+    const valueMap = new Map<number, number>();
+    src.options.forEach((o, oi) => o.values.forEach((v, vi) => {
+      const target = dst.options[oi]?.values[vi];
+      if (target) valueMap.set(v.id, target.id);
+    }));
+    const { results: rows } = await c.env.DB.prepare("SELECT * FROM product_images WHERE product_id = ? ORDER BY sort, id").bind(src.id).all<ImageRow>();
+    await c.env.DB.batch([
+      ...rows.map((r) =>
+        c.env.DB.prepare(
+          "INSERT INTO product_images (product_id, option_value_id, base_key, widths, width, height, lqip, alt_fr, alt_ar, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        ).bind(id, r.option_value_id != null ? (valueMap.get(r.option_value_id) ?? null) : null, r.base_key, r.widths, r.width, r.height, r.lqip, r.alt_fr, r.alt_ar, r.sort),
+      ),
+      bumpCatalogStmt(c.env),
+    ]);
+  }
   return c.json({ id }, 201);
 });
+
+/** R2 files of these images that no other product still uses (photos can be shared by duplicates). */
+async function unusedImageKeys(env: AppEnv["Bindings"], imgs: { base_key: string; widths: string }[]): Promise<string[]> {
+  if (!imgs.length) return [];
+  const { results } = await env.DB.prepare(`SELECT DISTINCT base_key FROM product_images WHERE base_key IN (${imgs.map(() => "?").join(",")})`)
+    .bind(...imgs.map((i) => i.base_key))
+    .all<{ base_key: string }>();
+  const stillUsed = new Set(results.map((r) => r.base_key));
+  return imgs.filter((i) => !stillUsed.has(i.base_key)).flatMap((i) => (JSON.parse(i.widths) as number[]).map((w) => i.base_key.replace("{w}", String(w))));
+}
 
 catalogRoutes.delete("/products/:id", requirePermission("products.edit"), async (c) => {
   const id = intParam(c, "id");
@@ -376,7 +418,6 @@ catalogRoutes.delete("/products/:id", requirePermission("products.edit"), async 
     return c.json({ archived: true });
   }
   const { results: imgs } = await c.env.DB.prepare("SELECT base_key, widths FROM product_images WHERE product_id = ?").bind(id).all<{ base_key: string; widths: string }>();
-  const keys = imgs.flatMap((i) => (JSON.parse(i.widths) as number[]).map((w) => i.base_key.replace("{w}", String(w))));
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM stock_movements WHERE variant_id IN (SELECT id FROM variants WHERE product_id = ?)").bind(id),
     c.env.DB.prepare("DELETE FROM stock_alerts WHERE variant_id IN (SELECT id FROM variants WHERE product_id = ?)").bind(id),
@@ -384,6 +425,7 @@ catalogRoutes.delete("/products/:id", requirePermission("products.edit"), async 
     bumpCatalogStmt(c.env),
     auditStmt(c.env, actor, "delete", "product", id),
   ]);
+  const keys = await unusedImageKeys(c.env, imgs);
   if (keys.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(keys));
   return c.json({ deleted: true });
 });
@@ -469,7 +511,8 @@ catalogRoutes.delete("/images/:id", requirePermission("products.edit"), async (c
     bumpCatalogStmt(c.env),
     auditStmt(c.env, actorOf(c.get("member")), "delete", "product_image", id),
   ]);
-  c.executionCtx.waitUntil(c.env.MEDIA.delete((JSON.parse(img.widths) as number[]).map((w) => img.base_key.replace("{w}", String(w)))));
+  const keys = await unusedImageKeys(c.env, [img]);
+  if (keys.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(keys));
   return c.json({ ok: true });
 });
 
@@ -553,6 +596,7 @@ catalogRoutes.get("/stock", requirePermission("stock.view"), async (c) => {
   }
   if (filter === "low") where.push("v.stock_on_hand - v.stock_reserved <= v.low_stock_threshold AND v.stock_on_hand - v.stock_reserved > 0");
   if (filter === "out") where.push("v.stock_on_hand - v.stock_reserved <= 0");
+  if (filter === "waiting") where.push("EXISTS (SELECT 1 FROM stock_alerts a WHERE a.variant_id = v.id AND a.notified_at IS NULL)");
   const { results } = await c.env.DB.prepare(
     `SELECT v.id, v.sku, v.barcode, v.stock_on_hand, v.stock_reserved, v.low_stock_threshold, v.updated_at,
             p.id AS product_id, p.name_fr, p.cost_price, COALESCE(v.price_override, p.price) AS price,
@@ -595,6 +639,10 @@ catalogRoutes.post("/stock/:variantId/adjust", requirePermission("stock.edit"), 
   if (target < v.stock_reserved) throw new HttpError(409, "stock_below_reserved", { reserved: v.stock_reserved });
   const delta = target - v.stock_on_hand;
   if (delta === 0) return c.json({ stockOnHand: target });
+  if (v.stock_on_hand - v.stock_reserved <= 0 && target - v.stock_reserved > 0) {
+    c.executionCtx.waitUntil(notifyRestocked(c.env, [variantId]).catch(() => undefined));
+  }
+
   const actor = actorOf(c.get("member"));
   await c.env.DB.batch([
     c.env.DB.prepare("UPDATE variants SET stock_on_hand = ?, updated_at = ? WHERE id = ? AND stock_on_hand = ?").bind(target, Date.now(), variantId, v.stock_on_hand),

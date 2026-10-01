@@ -134,10 +134,14 @@ interface ProductForm {
   seoTitle: string | null;
   seoDescription: string | null;
   instagramUrl: string | null;
+  relatedIds: number[];
   options: Option[];
   variants: Variant[];
   images?: (ImageRef & { id: number })[];
 }
+
+/** Photos chosen on a product that wasn't saved yet: uploaded right after the first save. */
+let pendingPhotos: File[] | null = null;
 
 const SIZE_PRESETS = ["S", "M", "L", "XL", "XXL"];
 const COLOR_PRESETS: [string, string, string][] = [
@@ -151,7 +155,7 @@ const newRef = () => `n:${Date.now().toString(36)}${refCounter++}`;
 function emptyForm(): ProductForm {
   return {
     slug: "", nameFr: "", nameAr: "", descriptionFr: "", descriptionAr: "", status: "draft", categoryId: null, tags: [],
-    price: null, compareAtPrice: null, costPrice: null, seoTitle: null, seoDescription: null, instagramUrl: null,
+    price: null, compareAtPrice: null, costPrice: null, seoTitle: null, seoDescription: null, instagramUrl: null, relatedIds: [],
     options: [
       { kind: "taille", nameFr: "Taille", nameAr: "المقاس", values: [] },
       { kind: "couleur", nameFr: "Couleur", nameAr: "اللون", values: [] },
@@ -192,14 +196,14 @@ export function ProductEditor() {
       const payload = {
         nameFr: f.nameFr, nameAr: f.nameAr, slug: f.slug || undefined, descriptionFr: f.descriptionFr, descriptionAr: f.descriptionAr,
         status: f.status, categoryId: f.categoryId, tags: f.tags, price: f.price ?? 0, compareAtPrice: f.compareAtPrice, costPrice: f.costPrice,
-        seoTitle: f.seoTitle || null, seoDescription: f.seoDescription || null, instagramUrl: f.instagramUrl || null,
+        seoTitle: f.seoTitle || null, seoDescription: f.seoDescription || null, instagramUrl: f.instagramUrl || null, relatedIds: f.relatedIds ?? [],
         options: f.options.filter((o) => o.values.length).map((o) => ({ id: o.id, kind: o.kind, nameFr: o.nameFr, nameAr: o.nameAr, values: o.values })),
         variants: f.variants.map((v) => ({ id: v.id, refs: v.refs, sku: v.sku || undefined, priceOverride: v.priceOverride, stockOnHand: v.stockOnHand, lowStockThreshold: v.lowStockThreshold, isActive: v.isActive })),
       };
       return isNew ? post<ProductForm>("/products", payload) : put<ProductForm>(`/products/${f.id}`, payload);
     },
     onSuccess: (saved) => {
-      toast("Produit enregistré ✓");
+      toast(saved.status === "published" ? "Produit en ligne ✓" : "Brouillon enregistré ✓");
       void qc.invalidateQueries({ queryKey: ["products"] });
       qc.setQueryData(["product", String(saved.id)], saved);
       setForm(saved);
@@ -215,13 +219,25 @@ export function ProductEditor() {
   const setOptions = (options: Option[]) => setForm((f) => (f ? { ...f, options, variants: buildVariants(options, f.variants) } : f));
   const readOnly = !can("products.edit");
 
-  function submit() {
+  function submit(status?: ProductForm["status"]) {
     setError(null);
-    if (!form) return;
-    if (form.nameFr.trim().length < 2) return setError("Indiquez le nom du produit.");
-    if (!form.price) return setError("Indiquez le prix.");
-    if (!form.variants.length) return setError("Ajoutez au moins une taille ou une couleur (ou laissez vide pour un article unique).");
-    save.mutate(form);
+    if (!form) return false;
+    const problem =
+      form.nameFr.trim().length < 2
+        ? "Indiquez le nom du produit."
+        : !form.price
+          ? "Indiquez le prix."
+          : !form.variants.length
+            ? "Ajoutez au moins une taille ou une couleur (ou laissez vide pour un article unique)."
+            : null;
+    if (problem) {
+      setError(problem);
+      return false;
+    }
+    const next = status ? { ...form, status } : form;
+    if (status) setForm(next);
+    save.mutate(next);
+    return true;
   }
 
   return (
@@ -262,8 +278,29 @@ export function ProductEditor() {
           <OptionsEditor options={form.options} onChange={setOptions} disabled={readOnly} />
           <VariantsTable form={form} onChange={(variants) => set("variants", variants)} disabled={readOnly} />
           {!isNew ? <ImagesEditor productId={form.id!} images={form.images ?? []} options={form.options} onChange={(images) => set("images", images)} /> : (
-            <Card title="Photos"><p className="text-sm text-ink-soft">Enregistrez d'abord le produit, puis ajoutez les photos (depuis la galerie ou l'appareil photo).</p></Card>
+            <Card title="Photos">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white/60 p-6 text-center text-sm text-ink-soft hover:border-plum-600">
+                <span className="text-2xl">＋</span>
+                Ajouter des photos
+                <span className="text-xs">Le produit est d'abord enregistré en brouillon, puis les photos sont envoyées.</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  disabled={readOnly || save.isPending}
+                  onChange={(e) => {
+                    const files = e.target.files ? [...e.target.files] : [];
+                    e.target.value = "";
+                    if (!files.length) return;
+                    pendingPhotos = files;
+                    if (!submit()) pendingPhotos = null;
+                  }}
+                />
+              </label>
+            </Card>
           )}
+          {!readOnly && <RelatedPicker productId={form.id} ids={form.relatedIds ?? []} onChange={(ids) => set("relatedIds", ids)} />}
         </div>
 
         <div className="space-y-4">
@@ -306,9 +343,27 @@ export function ProductEditor() {
         <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-ivory/95 p-3 backdrop-blur md:bottom-0 md:ps-[15rem]">
           <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-1 md:px-8">
             <p className="min-w-0 truncate text-sm text-red-700">{error}</p>
-            <Button variant="primary" loading={save.isPending} onClick={submit} className="shrink-0">
-              {isNew ? "Créer le produit" : "Enregistrer"}
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              {form.status === "published" ? (
+                <>
+                  <Button loading={save.isPending && save.variables?.status === "draft"} onClick={() => confirm("Retirer ce produit de la boutique ?") && submit("draft")}>
+                    Mettre hors ligne
+                  </Button>
+                  <Button variant="primary" loading={save.isPending && save.variables?.status === "published"} onClick={() => submit()}>
+                    Enregistrer
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button loading={save.isPending && save.variables?.status !== "published"} onClick={() => submit(form.status === "archived" ? "archived" : "draft")}>
+                    {form.status === "archived" ? "Enregistrer" : "Enregistrer le brouillon"}
+                  </Button>
+                  <Button variant="primary" loading={save.isPending && save.variables?.status === "published"} onClick={() => submit("published")}>
+                    Publier
+                  </Button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -418,6 +473,110 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
   );
 }
 
+/** Hand-picked "Complétez le look" products (otherwise: bought together, then same category). */
+function RelatedPicker({ productId, ids, onChange }: { productId?: number; ids: number[]; onChange: (ids: number[]) => void }) {
+  const [q, setQ] = useState("");
+  const products = useQuery({ queryKey: ["products", "published", ""], queryFn: () => api<ProductRow[]>("/products?status=published&q=") });
+  const byId = new Map((products.data ?? []).map((p) => [p.id, p]));
+  const matches = q ? (products.data ?? []).filter((p) => p.id !== productId && !ids.includes(p.id) && p.name_fr.toLowerCase().includes(q.toLowerCase())).slice(0, 8) : [];
+  return (
+    <Card title="Complétez le look" actions={<span className="text-xs text-ink-soft">facultatif</span>}>
+      <p className="mb-3 text-sm text-ink-soft">
+        Choisissez les pièces à proposer avec celle-ci (ex : une robe → la lingerie assortie). Sans choix, la boutique montre les articles achetés ensemble, puis ceux de la même catégorie.
+      </p>
+      {ids.length > 0 && (
+        <ul className="mb-3 flex flex-wrap gap-2">
+          {ids.map((id) => (
+            <li key={id} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white ps-1 pe-1 text-sm">
+              {byId.get(id)?.image ? <img src={byId.get(id)!.image!} alt="" className="size-7 rounded-full object-cover" /> : <span className="grid size-7 place-items-center rounded-full bg-rose-100 text-xs">👗</span>}
+              {byId.get(id)?.name_fr ?? `#${id}`}
+              <button type="button" onClick={() => onChange(ids.filter((x) => x !== id))} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100" aria-label="Retirer">
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {ids.length < 8 && (
+        <>
+          <input className={inputCls} placeholder="Ajouter une pièce : tapez son nom…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+            {matches.map((p) => (
+              <li key={p.id}>
+                <button type="button" onClick={() => { onChange([...ids, p.id]); setQ(""); }} className="flex w-full items-center gap-2 rounded-xl border border-dashed border-line px-2 py-1.5 text-start text-sm hover:border-plum-600">
+                  {p.image ? <img src={p.image} alt="" className="h-9 w-7 rounded object-cover" /> : <span className="grid h-9 w-7 place-items-center rounded bg-rose-100 text-xs">👗</span>}
+                  <span className="truncate">+ {p.name_fr}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * Colour × size grid (the way the team counts stock), used when a product has exactly
+ * one colour option and one size option. Each cell is one variant's stock.
+ */
+function StockGrid({ form, onChange, disabled }: { form: ProductForm; onChange: (v: Variant[]) => void; disabled: boolean }) {
+  const colors = form.options.find((o) => o.kind === "couleur")!.values;
+  const sizes = form.options.find((o) => o.kind === "taille")!.values;
+  const cell = (c: string, s: string) => form.variants.findIndex((v) => v.refs.includes(c) && v.refs.includes(s));
+  const setStock = (i: number, n: number) => onChange(form.variants.map((v, k) => (k === i ? { ...v, stockOnHand: Math.max(n, v.stockReserved ?? 0) } : v)));
+  const rowTotal = (c: string) => form.variants.filter((v) => v.isActive && v.refs.includes(c)).reduce((s, v) => s + v.stockOnHand, 0);
+  return (
+    <div className="-mx-1 overflow-x-auto px-1">
+      <table className="w-full border-separate border-spacing-1 text-sm">
+        <thead>
+          <tr>
+            <th className="text-start text-xs font-medium text-ink-soft">Couleur \ Taille</th>
+            {sizes.map((s) => <th key={s.ref} className="min-w-14 text-center text-xs font-semibold">{s.labelFr}</th>)}
+            <th className="text-center text-xs font-medium text-ink-soft">Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          {colors.map((c) => (
+            <tr key={c.ref}>
+              <th className="whitespace-nowrap pe-2 text-start font-medium">
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="size-3.5 rounded-full border border-line" style={{ background: c.hex ?? "#eee" }} />
+                  {c.labelFr}
+                </span>
+              </th>
+              {sizes.map((s) => {
+                const i = cell(c.ref, s.ref);
+                const v = form.variants[i];
+                if (!v) return <td key={s.ref} />;
+                return (
+                  <td key={s.ref}>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={v.stockReserved ?? 0}
+                      disabled={disabled || !v.isActive}
+                      aria-label={`Stock ${c.labelFr} ${s.labelFr}`}
+                      title={v.stockReserved ? `${v.stockReserved} réservé(s) par des commandes` : undefined}
+                      className={`h-11 w-full min-w-14 rounded-lg border text-center tabular-nums outline-none focus:border-plum-600 ${
+                        !v.isActive ? "border-line bg-stone-100 text-ink-soft" : v.stockOnHand - (v.stockReserved ?? 0) <= 0 ? "border-red-200 bg-red-50" : v.stockOnHand - (v.stockReserved ?? 0) <= v.lowStockThreshold ? "border-amber-200 bg-amber-50" : "border-line bg-white"
+                      }`}
+                      value={v.stockOnHand}
+                      onChange={(e) => setStock(i, Math.round(Number(e.target.value) || 0))}
+                    />
+                  </td>
+                );
+              })}
+              <td className="text-center font-semibold tabular-nums">{rowTotal(c.ref)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <p className="mt-1 text-xs text-ink-soft">Rouge = épuisé, orange = stock bas. Les quantités réservées par des commandes en cours ne peuvent pas être retirées.</p>
+    </div>
+  );
+}
+
 function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChange: (v: Variant[]) => void; disabled: boolean }) {
   const label = useMemo(() => {
     const map = new Map(form.options.flatMap((o) => o.values.map((v) => [v.ref, v] as const)));
@@ -427,9 +586,37 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
   const [bulk, setBulk] = useState<number | null>(null);
   const total = form.variants.reduce((s, v) => s + (v.isActive ? v.stockOnHand : 0), 0);
   const update = (i: number, patch: Partial<Variant>) => onChange(form.variants.map((v, k) => (k === i ? { ...v, ...patch } : v)));
+  const gridable =
+    form.options.filter((o) => o.values.length).length === 2 &&
+    !!form.options.find((o) => o.kind === "couleur" && o.values.length) &&
+    !!form.options.find((o) => o.kind === "taille" && o.values.length);
+  const [view, setView] = useState<"grid" | "list">("grid");
 
   return (
-    <Card title={`Variantes & stock (${form.variants.length})`} actions={<span className="text-sm text-ink-soft">Total : <b className="text-ink">{total}</b></span>}>
+    <Card
+      title={`Variantes & stock (${form.variants.length})`}
+      actions={
+        <span className="flex items-center gap-3 text-sm text-ink-soft">
+          {gridable && (
+            <span className="inline-flex rounded-full border border-line p-0.5 text-xs">
+              {(["grid", "list"] as const).map((k) => (
+                <button key={k} type="button" onClick={() => setView(k)} className={`rounded-full px-2.5 py-1 font-semibold ${view === k ? "bg-plum-600 text-ivory" : ""}`}>
+                  {k === "grid" ? "Tableau" : "Liste"}
+                </button>
+              ))}
+            </span>
+          )}
+          <span>Total : <b className="text-ink">{total}</b></span>
+        </span>
+      }
+    >
+      {gridable && view === "grid" ? (
+        <>
+          <StockGrid form={form} onChange={onChange} disabled={disabled} />
+          {!disabled && <p className="mt-2 text-xs text-ink-soft">Prix spécifique ou désactivation d'une variante : vue « Liste ».</p>}
+        </>
+      ) : (
+      <>
       {!disabled && form.variants.length > 1 && (
         <div className="mb-3 flex items-end gap-2">
           <NumberField label="Mettre le même stock partout" value={bulk} onChange={setBulk} className="flex-1" />
@@ -477,9 +664,12 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
           </li>
         ))}
       </ul>
+      </>
+      )}
     </Card>
   );
 }
+
 
 function ImagesEditor({ productId, images, options, onChange }: { productId: number; images: (ImageRef & { id: number })[]; options: Option[]; onChange: (i: (ImageRef & { id: number })[]) => void }) {
   const toast = useToast();
@@ -488,7 +678,15 @@ function ImagesEditor({ productId, images, options, onChange }: { productId: num
   const colors = options.find((o) => o.kind === "couleur")?.values ?? [];
   const colorIdOf = (ref: string) => (ref.startsWith("v:") ? Number(ref.slice(2)) : null);
 
-  async function handleFiles(list: FileList | null) {
+  // photos picked before the product's first save
+  useEffect(() => {
+    if (!pendingPhotos) return;
+    const files = pendingPhotos;
+    pendingPhotos = null;
+    void handleFiles(files);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function handleFiles(list: FileList | File[] | null) {
     if (!list?.length) return;
     let current = images;
     for (const [n, file] of [...list].entries()) {

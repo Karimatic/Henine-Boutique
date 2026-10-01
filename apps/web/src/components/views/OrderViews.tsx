@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { dateLocale, formatDA, normalizeDzPhone, TRACKING_STEPS, trackingStepIndex, type SiteConfigDTO, type TrackedOrderDTO } from "@henine/shared";
+import { dateLocale, formatDA, normalizeDzPhone, toE164, TRACKING_STEPS, trackingStepIndex, type SiteConfigDTO, type TrackedOrderDTO } from "@henine/shared";
+import { ReviewForm } from "@/components/product/ReviewForm";
 import { ErrorBox, inputCls, PageTitle, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
@@ -59,73 +60,201 @@ export function ThankYouView() {
 
 /* ───────── Tracking ───────── */
 
+const CANCELLED = ["annulee", "doublon", "fausse"];
+const RETURNED = ["retour", "retour_recu"];
+
 function Timeline({ o }: { o: TrackedOrderDTO }) {
   const { t, locale } = useLocale();
+  const T = t.trackPlus;
   const current = trackingStepIndex(o.status);
-  const cancelled = current === -1;
   const when = (status: string) => o.events.find((e) => e.status === status)?.at;
   const fmt = (ts: number) => new Date(ts).toLocaleString(dateLocale(locale), { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
-  if (cancelled) return <p className="rounded-xl bg-ink/5 p-3 text-sm font-medium">{t.status[o.status]}</p>;
+
+  if (CANCELLED.includes(o.status) || RETURNED.includes(o.status)) {
+    return (
+      <div className="rounded-2xl bg-ink/5 p-4">
+        <p className="font-semibold">{t.status[o.status]}</p>
+        <p className="mt-1 text-sm text-ink-soft">{CANCELLED.includes(o.status) ? T.cancelled : T.returned}</p>
+      </div>
+    );
+  }
   return (
-    <ol className="relative space-y-4 ps-7">
-      <span aria-hidden="true" className="absolute bottom-2 start-[0.6rem] top-2 w-px bg-line" />
-      {TRACKING_STEPS.map((s, i) => {
-        const done = i <= current;
-        const ts = when(s);
-        return (
-          <li key={s} className="relative">
-            <span
-              aria-hidden="true"
-              className={`absolute -start-7 top-0.5 grid size-5 place-items-center rounded-full border-2 text-[10px] ${done ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-ivory"} ${i === current ? "ring-4 ring-plum-600/15" : ""}`}
-            >
-              {done ? "✓" : ""}
-            </span>
-            <p className={`text-sm ${done ? "font-semibold text-ink" : "text-ink-soft"}`}>{t.status[s]}</p>
-            {ts && <p className="text-xs text-ink-soft">{fmt(ts)}</p>}
-          </li>
-        );
-      })}
-    </ol>
+    <div>
+      {o.status === "injoignable" && <p className="mb-4 rounded-2xl bg-amber-50 p-3 text-sm font-medium text-amber-900">📞 {T.waiting}</p>}
+      <ol className="relative space-y-5 ps-9">
+        <span aria-hidden="true" className="absolute bottom-3 start-[0.85rem] top-3 w-0.5 rounded bg-line" />
+        {TRACKING_STEPS.map((s, i) => {
+          const done = i <= current;
+          const active = i === current;
+          const ts = when(s) ?? (i === 0 ? o.createdAt : undefined);
+          return (
+            <li key={s} className="relative" aria-current={active ? "step" : undefined}>
+              <span
+                aria-hidden="true"
+                className={`absolute -start-9 top-0 grid size-7 place-items-center rounded-full border-2 text-xs font-bold ${done ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-ivory text-ink-soft"} ${active ? "ring-4 ring-plum-600/15" : ""}`}
+              >
+                {done ? "✓" : i + 1}
+              </span>
+              <p className={`text-sm ${done ? "font-semibold text-ink" : "text-ink-soft"}`}>{T.steps[s]}</p>
+              {ts && done && (
+                <p className="text-xs text-ink-soft">{fmt(ts)}</p>
+              )}
+              {active && <p className="mt-0.5 text-xs text-plum-700">{T.stepHint[s]}</p>}
+            </li>
+          );
+        })}
+      </ol>
+    </div>
   );
 }
 
-function OrderCard({ o }: { o: TrackedOrderDTO }) {
-  const { t, ar, locale } = useLocale();
+function OrderCard({ o, token }: { o: TrackedOrderDTO; token?: string }) {
+  const { t, ar, locale, href } = useLocale();
+  const T = t.trackPlus;
+  const site = useApi<SiteConfigDTO>("/site");
+  const [reviewing, setReviewing] = useState<number | null>(null);
+  const [reviewed, setReviewed] = useState<number[]>([]);
+  const wa = site.data?.contact.whatsapp ? toE164(site.data.contact.whatsapp)?.replace("+", "") : null;
+  const money = (n: number) => <span dir="ltr">{formatDA(n, locale)}</span>;
+  const closed = CANCELLED.includes(o.status) || RETURNED.includes(o.status);
+  const settled = o.status === "livree" || closed;
+
   return (
-    <article className="rounded-card border border-line bg-white/70 p-5">
-      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-        <p className="font-mono text-lg font-bold text-plum-700" dir="ltr">{o.code}</p>
-        <p className="text-sm text-ink-soft">
-          {t.track.placedOn} {new Date(o.createdAt).toLocaleDateString(dateLocale(locale))} · <span dir="ltr">{formatDA(o.total, locale)}</span>
-        </p>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2">
-        <Timeline o={o} />
-        <div className="space-y-3">
-          <ul className="space-y-2">
-            {o.items.map((i, k) => (
-              <li key={k} className="flex items-center gap-3 text-sm">
-                <ProductImage image={i.image} alt="" className="aspect-[4/5] w-11 shrink-0 rounded-md" />
-                <span>
-                  {ar ? i.nameAr : i.nameFr}
-                  {i.options && <span className="text-ink-soft"> · {i.options}</span>} × {i.qty}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-sm text-ink-soft">
-            📍 {ar ? o.wilayaAr : o.wilayaFr} · {o.deliveryType === "bureau" ? t.track.desk : t.track.home}
+    <article className="overflow-hidden rounded-card border border-line bg-white/70">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-ivory-deep/60 px-5 py-4">
+        <div>
+          <p className="font-mono text-lg font-bold tracking-wide text-plum-700" dir="ltr">
+            {o.code}
           </p>
-          {o.details && (
-            <p className="text-sm text-ink-soft">
-              👤 {o.details.name} · <span dir="ltr">{o.details.phoneMasked}</span>
-              {o.details.address && <><br />🏠 {o.details.address}</>}
+          <p className="text-xs text-ink-soft">
+            {t.track.placedOn} {new Date(o.createdAt).toLocaleDateString(dateLocale(locale), { day: "numeric", month: "long", year: "numeric" })}
+          </p>
+        </div>
+        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${closed ? "bg-ink/10 text-ink" : o.status === "livree" ? "bg-emerald-100 text-emerald-800" : "bg-rose-100 text-plum-700"}`}>
+          {t.status[o.status]}
+        </span>
+      </header>
+
+      <div className="grid gap-6 p-5 md:grid-cols-2">
+        <div className="space-y-4">
+          <Timeline o={o} />
+          {o.trackingNumber && (
+            <p className="rounded-2xl bg-rose-100 p-3 text-sm">
+              {t.track.trackingNumber} :{" "}
+              <b dir="ltr" className="font-mono">
+                {o.trackingNumber}
+              </b>
             </p>
           )}
-          {o.trackingNumber && (
-            <p className="rounded-xl bg-rose-100 p-3 text-sm">
-              {t.track.trackingNumber} : <b dir="ltr">{o.trackingNumber}</b>
-            </p>
+        </div>
+
+        <div className="space-y-4">
+          <section>
+            <h3 className="mb-2 text-sm font-semibold">{T.items}</h3>
+            <ul className="divide-y divide-line">
+              {o.items.map((i, k) => (
+                <li key={k} className="py-2.5">
+                  <div className="flex items-center gap-3 text-sm">
+                    <ProductImage image={i.image} alt="" className="aspect-[4/5] w-12 shrink-0 rounded-lg" />
+                    <div className="min-w-0 flex-1">
+                      {i.slug ? (
+                        <a href={href(`/produit/${i.slug}`)} className="line-clamp-1 font-medium hover:text-plum-700">
+                          {ar ? i.nameAr : i.nameFr}
+                        </a>
+                      ) : (
+                        <p className="line-clamp-1 font-medium">{ar ? i.nameAr : i.nameFr}</p>
+                      )}
+                      {(ar ? i.optionsAr : i.options) && <p className="text-ink-soft">{ar ? i.optionsAr : i.options}</p>}
+                      <p className="text-ink-soft" dir="ltr" style={{ textAlign: ar ? "right" : "left" }}>
+                        {i.qty} × {formatDA(i.unitPrice, locale)}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-medium">{money(i.unitPrice * i.qty)}</span>
+                  </div>
+                  {token && i.canReview && i.productId != null && !reviewed.includes(i.productId) ? (
+                    reviewing === i.productId ? (
+                      <div className="mt-3 rounded-2xl border border-line bg-ivory p-3">
+                        <ReviewForm
+                          productId={i.productId}
+                          code={o.code}
+                          token={token}
+                          onDone={() => {
+                            setReviewed((r) => [...r, i.productId!]);
+                            setReviewing(null);
+                          }}
+                        />
+                      </div>
+                    ) : (
+                      <button type="button" onClick={() => setReviewing(i.productId)} className="mt-2 text-sm font-semibold text-plum-600">
+                        ★ {t.reviewsPlus.leave}
+                      </button>
+                    )
+                  ) : null}
+                  {i.productId != null && reviewed.includes(i.productId) && <p className="mt-2 text-sm text-success">{t.reviewsPlus.sent}</p>}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <dl className="space-y-1.5 rounded-2xl bg-ivory-deep/60 p-4 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">{T.subtotal}</dt>
+              <dd>{money(o.subtotal)}</dd>
+            </div>
+            {o.discount > 0 && (
+              <div className="flex justify-between text-success">
+                <dt>{T.discount}</dt>
+                <dd dir="ltr">−{formatDA(o.discount, locale)}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-ink-soft">{T.shipping}</dt>
+              <dd>{o.shipping === 0 ? t.checkout.free : money(o.shipping)}</dd>
+            </div>
+            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
+              <dt>{settled ? T.total : T.toPay}</dt>
+              <dd>{money(o.total)}</dd>
+            </div>
+          </dl>
+
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+            <dt className="text-ink-soft">{T.method}</dt>
+            <dd>{o.deliveryType === "bureau" ? t.track.desk : t.track.home}</dd>
+            <dt className="text-ink-soft">{T.wilaya}</dt>
+            <dd>
+              {o.wilayaCode} - {ar ? o.wilayaAr : o.wilayaFr}
+            </dd>
+            {(o.communeFr || o.communeAr) && (
+              <>
+                <dt className="text-ink-soft">{T.commune}</dt>
+                <dd>{ar ? (o.communeAr ?? o.communeFr) : o.communeFr}</dd>
+              </>
+            )}
+            {o.details?.address && (
+              <>
+                <dt className="text-ink-soft">{T.address}</dt>
+                <dd>{o.details.address}</dd>
+              </>
+            )}
+            {o.details && (
+              <>
+                <dt className="text-ink-soft">{T.recipient}</dt>
+                <dd>
+                  {o.details.name} · <span dir="ltr">{o.details.phoneMasked}</span>
+                </dd>
+              </>
+            )}
+          </dl>
+
+          {wa && (
+            <a
+              href={`https://wa.me/${wa}?text=${encodeURIComponent(`${ar ? "مرحبا، بخصوص طلبي" : "Bonjour, à propos de ma commande"} ${o.code}`)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex min-h-11 items-center justify-center gap-2 rounded-full border border-[#25D366] px-4 py-2 text-center text-sm font-semibold text-[#128C7E]"
+            >
+              💬 {T.help} {T.whatsappUs}
+            </a>
           )}
         </div>
       </div>
@@ -138,6 +267,7 @@ export function TrackView() {
   const saved = useSavedOrders();
   const site = useApi<SiteConfigDTO>("/site");
   const [linkOrder, setLinkOrder] = useState<TrackedOrderDTO | null>(null);
+  const [linkToken, setLinkToken] = useState<string | undefined>();
   const [mine, setMine] = useState<TrackedOrderDTO[]>([]);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -150,7 +280,10 @@ export function TrackView() {
     const p = new URLSearchParams(location.search);
     const c = p.get("c");
     const tk = p.get("t");
-    if (c && tk) apiGet<TrackedOrderDTO>(`/track/${c}?t=${encodeURIComponent(tk)}`).then(setLinkOrder, () => undefined);
+    if (c && tk) {
+      setLinkToken(tk);
+      apiGet<TrackedOrderDTO>(`/track/${c}?t=${encodeURIComponent(tk)}`).then(setLinkOrder, () => undefined);
+    }
   }, []);
   // 2) orders placed on this device
   useEffect(() => {
@@ -180,10 +313,14 @@ export function TrackView() {
     <div className="mx-auto max-w-3xl px-4 py-8">
       <PageTitle>{t.track.pageTitle}</PageTitle>
       <div className="space-y-4">
-        {linkOrder && dedupe([linkOrder]).map((o) => <OrderCard key={o.code} o={o} />)}
+        {linkOrder && dedupe([linkOrder]).map((o) => <OrderCard key={o.code} o={o} token={linkToken} />)}
+        {linkOrder && <p className="text-center text-xs text-ink-soft">🔒 {t.trackPlus.privateLink}</p>}
       </div>
 
-      <form onSubmit={lookup} className="my-6 space-y-3 rounded-card border border-line bg-white/60 p-5">
+      {/* with a private link open, the phone lookup folds away under "track another order" */}
+      <details open={!linkOrder} className="group my-6 rounded-card border border-line bg-white/60">
+        <summary className={`cursor-pointer list-none px-5 py-4 text-sm font-semibold text-plum-700 ${linkOrder ? "" : "hidden"}`}>{t.trackPlus.other}</summary>
+        <form onSubmit={lookup} className="space-y-3 p-5">
         <p className="text-sm text-ink-soft">{t.track.text}</p>
         <div className="grid gap-3 sm:grid-cols-[1fr_12rem]">
           <input className={inputCls} type="tel" inputMode="tel" dir="ltr" placeholder={t.track.phone} value={phone} onChange={(e) => setPhone(e.target.value)} aria-label={t.track.phone} />
@@ -196,7 +333,8 @@ export function TrackView() {
           {state === "loading" && <Spinner className="size-4" />}
           {t.track.search}
         </button>
-      </form>
+        </form>
+      </details>
 
       {results && (
         <div className="space-y-4">
@@ -207,7 +345,9 @@ export function TrackView() {
       {mine.length > 0 && (
         <section className="mt-8 space-y-4">
           <h2 className="text-lg font-semibold">{t.track.mine}</h2>
-          {dedupe(mine).map((o) => <OrderCard key={o.code} o={o} />)}
+          {dedupe(mine).map((o) => (
+            <OrderCard key={o.code} o={o} token={saved.find((x) => x.code === o.code)?.token} />
+          ))}
         </section>
       )}
     </div>

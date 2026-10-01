@@ -7,6 +7,7 @@ import { Blossom, PackageIcon } from "@/components/ui/icons";
 import { ErrorBox, ProductImage } from "@/components/ui/kit";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
 import { Faq, HowToOrder, InstagramCard, Reveal } from "./Sections";
 
@@ -23,7 +24,11 @@ export function HomePage() {
 
   const products = catalog.data ?? [];
   const newest = [...products].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
-  const favorites = products.filter((p) => p.tags.includes("best-seller") || (p.rating?.count ?? 0) > 0).slice(0, 4);
+  // "Les plus demandées" only when real sales back it; otherwise the team's own picks
+  const RANK = { bestseller: 0, trending: 1, popular: 2 } as const;
+  const selling = products.filter((p) => p.badge).sort((a, b) => RANK[a.badge!] - RANK[b.badge!]).slice(0, 4);
+  const picks = products.filter((p) => p.tags.includes("best-seller")).slice(0, 4);
+  const favorites = selling.length ? selling : picks;
   const heroProduct = products.find((p) => p.image) ?? products.find((p) => p.tags.includes("best-seller")) ?? products[0];
 
   return (
@@ -73,6 +78,8 @@ export function HomePage() {
         </div>
       </section>
 
+      {site.data?.drop && <DropBanner drop={site.data.drop} />}
+
       {/* Categories */}
       <section id="univers" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-8">
         <div className="mb-5 flex items-end justify-between">
@@ -94,7 +101,10 @@ export function HomePage() {
 
       {/* New arrivals */}
       <section id="nouveautes" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-8">
-        <h2 className="heading-display mb-5 text-3xl md:text-4xl">{t.home.newArrivals}</h2>
+        <div className="mb-5 flex items-end justify-between">
+          <h2 className="heading-display text-3xl md:text-4xl">{t.home.newArrivals}</h2>
+          <a href={href("/nouveautes")} className="text-sm font-semibold text-plum-600">{t.home.seeAll}</a>
+        </div>
         {catalog.error ? <ErrorBox onRetry={catalog.reload} /> : catalog.data ? <ProductGrid products={newest} /> : <ProductGridSkeleton count={4} />}
       </section>
 
@@ -102,7 +112,8 @@ export function HomePage() {
 
       {favorites.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-8">
-          <h2 className="heading-display mb-5 text-3xl md:text-4xl">{t.home.bestSellers}</h2>
+          <h2 className="heading-display mb-5 text-3xl md:text-4xl">{selling.length ? t.home.bestSellers : t.badges.pick}</h2>
+
           <ProductGrid products={favorites} />
         </section>
       )}

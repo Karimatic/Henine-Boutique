@@ -8,3 +8,5 @@ export * from "./phone";
 export * from "./pricing";
 export * from "./schemas";
 export * from "./text";
+export * from "./insights";
+export * from "./risk";

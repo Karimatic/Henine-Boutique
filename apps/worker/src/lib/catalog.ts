@@ -1,4 +1,16 @@
-import type { CategoryDTO, ImageRef, OptionDTO, ProductCardDTO, ProductDetailDTO, ReviewDTO, VariantDTO } from "@henine/shared";
+import {
+  productBadge,
+  type CategoryDTO,
+  type CollectionDTO,
+  type DropTeaserDTO,
+  type ImageRef,
+  type OptionDTO,
+  type ProductBadge,
+  type ProductCardDTO,
+  type ProductDetailDTO,
+  type ReviewDTO,
+  type VariantDTO,
+} from "@henine/shared";
 import type { Env } from "../env";
 
 interface ProductRow {
@@ -17,6 +29,7 @@ interface ProductRow {
   seo_title: string | null;
   seo_description: string | null;
   created_at: number;
+  related_ids: string;
 }
 
 export interface ImageRow {
@@ -51,7 +64,24 @@ export function imageRef(env: Env, r: ImageRow): ImageRef {
 }
 
 const PRODUCT_COLS = `p.id, p.slug, p.name_fr, p.name_ar, p.description_fr, p.description_ar, p.status, p.category_id,
-  c.slug AS category_slug, p.tags, p.price, p.compare_at_price, p.seo_title, p.seo_description, p.created_at`;
+  c.slug AS category_slug, p.tags, p.price, p.compare_at_price, p.seo_title, p.seo_description,
+  COALESCE(p.published_at, p.created_at) AS created_at, p.related_ids`;
+
+const CANCELLED = "('annulee','doublon','fausse')";
+
+/**
+ * SQL (0/1) telling whether product `alias` belongs to a published drop that locks its
+ * products and hasn't launched yet. `now` is a number we generate, never user input.
+ */
+export function lockedSql(alias: string, now: number): string {
+  return `EXISTS (SELECT 1 FROM collection_products lcp JOIN collections lco ON lco.id = lcp.collection_id
+    WHERE lcp.product_id = ${alias}.id AND lco.is_active = 1 AND lco.lock_products = 1 AND lco.starts_at > ${Math.floor(now)})`;
+}
+
+/** Visible on the storefront right now. */
+function visibleSql(alias: string, now: number): string {
+  return `(${alias}.status = 'published' OR (${alias}.status = 'scheduled' AND ${alias}.publish_at <= ${Math.floor(now)})) AND NOT ${lockedSql(alias, now)}`;
+}
 
 function toCard(
   p: ProductRow,
@@ -59,6 +89,7 @@ function toCard(
   colors: string[],
   available: number,
   rating: { avg: number; count: number } | undefined,
+  badge: ProductBadge | null,
   env: Env,
 ): ProductCardDTO {
   return {
@@ -75,26 +106,60 @@ function toCard(
     inStock: available > 0,
     createdAt: p.created_at,
     rating: rating && rating.count > 0 ? { avg: Math.round(rating.avg * 10) / 10, count: rating.count } : null,
+    badge,
   };
 }
 
-/** All published products as cards. One D1 round trip (batch of 5 reads). */
+/**
+ * Real sales of the last 30 days (non-cancelled orders) → badge per product.
+ * Uses orders_created_idx + order_items_order_idx; one small aggregate.
+ */
+function salesStmt(env: Env, now: number) {
+  return env.DB.prepare(
+    `SELECT oi.product_id,
+            SUM(oi.qty) AS u30,
+            SUM(CASE WHEN o.created_at > ?2 THEN oi.qty ELSE 0 END) AS u7,
+            SUM(CASE WHEN o.created_at > ?3 AND o.created_at <= ?2 THEN oi.qty ELSE 0 END) AS prev7
+       FROM orders o JOIN order_items oi ON oi.order_id = o.id
+      WHERE o.created_at > ?1 AND o.status NOT IN ${CANCELLED} AND oi.product_id IS NOT NULL
+      GROUP BY oi.product_id`,
+  ).bind(now - 30 * 86400_000, now - 7 * 86400_000, now - 14 * 86400_000);
+}
+
+function badgeMap(rows: { product_id: number; u30: number; u7: number; prev7: number }[]): Map<number, { badge: ProductBadge | null; units30: number }> {
+  const ranked = [...rows].sort((a, b) => b.u30 - a.u30);
+  return new Map(ranked.map((r, i) => [r.product_id, { badge: productBadge({ units30: r.u30, units7: r.u7, unitsPrev7: r.prev7 }, i), units30: r.u30 }]));
+}
+
+/** All published products as cards. */
 export async function listProductCards(env: Env): Promise<ProductCardDTO[]> {
-  const [products, images, colors, stock, ratings] = await env.DB.batch([
+  return productCards(env);
+}
+
+/**
+ * Product cards, optionally only for some ids (kept in the order given).
+ * One D1 round trip (batch of 6 reads).
+ */
+export async function productCards(env: Env, ids?: number[]): Promise<ProductCardDTO[]> {
+  if (ids && !ids.length) return [];
+  const now = Date.now();
+  const only = (col: string) => (ids ? ` AND ${col} IN (${ids.map(Number).join(",")})` : ""); // ids are integers
+  const [products, images, colors, stock, ratings, sales] = await env.DB.batch([
     env.DB.prepare(
       `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
-        WHERE p.status = 'published' OR (p.status = 'scheduled' AND p.publish_at <= ?)
-        ORDER BY p.sort, p.created_at DESC`,
-    ).bind(Date.now()),
-    env.DB.prepare("SELECT * FROM product_images ORDER BY product_id, sort, id"),
+        WHERE ${visibleSql("p", now)}${only("p.id")}
+        ORDER BY p.sort, COALESCE(p.published_at, p.created_at) DESC`,
+    ),
+    env.DB.prepare(`SELECT * FROM product_images WHERE 1 = 1${only("product_id")} ORDER BY product_id, sort, id`),
     env.DB.prepare(
       `SELECT o.product_id, v.hex FROM option_values v JOIN product_options o ON o.id = v.option_id
-        WHERE o.kind = 'couleur' AND v.hex IS NOT NULL ORDER BY o.product_id, v.sort`,
+        WHERE o.kind = 'couleur' AND v.hex IS NOT NULL${only("o.product_id")} ORDER BY o.product_id, v.sort`,
     ),
     env.DB.prepare(
-      "SELECT product_id, SUM(MAX(stock_on_hand - stock_reserved, 0)) AS available FROM variants WHERE is_active = 1 GROUP BY product_id",
+      `SELECT product_id, SUM(MAX(stock_on_hand - stock_reserved, 0)) AS available FROM variants WHERE is_active = 1${only("product_id")} GROUP BY product_id`,
     ),
-    env.DB.prepare("SELECT product_id, AVG(rating) AS avg, COUNT(*) AS count FROM reviews WHERE status = 'approved' GROUP BY product_id"),
+    env.DB.prepare(`SELECT product_id, AVG(rating) AS avg, COUNT(*) AS count FROM reviews WHERE status = 'approved'${only("product_id")} GROUP BY product_id`),
+    salesStmt(env, now),
   ]);
 
   const firstImage = new Map<number, ImageRow>();
@@ -107,22 +172,53 @@ export async function listProductCards(env: Env): Promise<ProductCardDTO[]> {
   }
   const stockMap = new Map((stock!.results as { product_id: number; available: number }[]).map((r) => [r.product_id, r.available]));
   const ratingMap = new Map((ratings!.results as { product_id: number; avg: number; count: number }[]).map((r) => [r.product_id, r]));
+  const badges = badgeMap(sales!.results as { product_id: number; u30: number; u7: number; prev7: number }[]);
 
-  return (products!.results as unknown as ProductRow[]).map((p) =>
-    toCard(p, firstImage.get(p.id), colorMap.get(p.id) ?? [], stockMap.get(p.id) ?? 0, ratingMap.get(p.id), env),
+  const cards = (products!.results as unknown as ProductRow[]).map((p) =>
+    toCard(p, firstImage.get(p.id), colorMap.get(p.id) ?? [], stockMap.get(p.id) ?? 0, ratingMap.get(p.id), badges.get(p.id)?.badge ?? null, env),
   );
+  if (!ids) return cards;
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  return ids.map((id) => byId.get(id)).filter((c): c is ProductCardDTO => !!c);
+}
+
+/**
+ * "Complétez le look": hand-picked products first, then products really bought together
+ * (same non-cancelled orders), then the best sellers of the same category.
+ */
+async function relatedProducts(env: Env, p: ProductRow): Promise<{ cards: ProductCardDTO[]; kind: "look" | "similar" }> {
+  const manual = (JSON.parse(p.related_ids || "[]") as number[]).filter((id) => Number.isInteger(id) && id !== p.id);
+  const [together, sameCategory] = await env.DB.batch([
+    env.DB.prepare(
+      `SELECT oi2.product_id, COUNT(DISTINCT oi2.order_id) AS n
+         FROM order_items oi1 JOIN order_items oi2 ON oi2.order_id = oi1.order_id AND oi2.product_id != oi1.product_id
+         JOIN orders o ON o.id = oi1.order_id
+        WHERE oi1.product_id = ? AND o.status NOT IN ${CANCELLED} AND oi2.product_id IS NOT NULL
+        GROUP BY oi2.product_id ORDER BY n DESC LIMIT 8`,
+    ).bind(p.id),
+    env.DB.prepare(
+      `SELECT p.id, (SELECT COALESCE(SUM(oi.qty), 0) FROM order_items oi JOIN orders o ON o.id = oi.order_id
+                      WHERE oi.product_id = p.id AND o.status NOT IN ${CANCELLED} AND o.created_at > ?) AS units
+         FROM products p WHERE p.category_id = ? AND p.id != ? AND p.status = 'published'
+        ORDER BY units DESC, COALESCE(p.published_at, p.created_at) DESC LIMIT 8`,
+    ).bind(Date.now() - 60 * 86400_000, p.category_id ?? 0, p.id),
+  ]);
+  const look = [...manual, ...(together!.results as { product_id: number }[]).map((r) => r.product_id)];
+  const ids = [...new Set([...look, ...(sameCategory!.results as { id: number }[]).map((r) => r.id)])].slice(0, 12);
+  const cards = (await productCards(env, ids)).slice(0, 4);
+  return { cards, kind: cards.length && look.includes(cards[0]!.id) ? "look" : "similar" };
 }
 
 export async function getProductDetail(env: Env, slug: string): Promise<ProductDetailDTO | null> {
   const p = await env.DB.prepare(
     `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
-      WHERE p.slug = ? AND (p.status = 'published' OR (p.status = 'scheduled' AND p.publish_at <= ?))`,
+      WHERE p.slug = ? AND ${visibleSql("p", Date.now())}`,
   )
-    .bind(slug, Date.now())
+    .bind(slug)
     .first<ProductRow>();
   if (!p) return null;
 
-  const [images, options, values, variants, reviews, category] = await env.DB.batch([
+  const detail = env.DB.batch([
     env.DB.prepare("SELECT * FROM product_images WHERE product_id = ? ORDER BY sort, id").bind(p.id),
     env.DB.prepare("SELECT id, kind, name_fr, name_ar FROM product_options WHERE product_id = ? ORDER BY sort, id").bind(p.id),
     env.DB.prepare(
@@ -136,7 +232,9 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
       "SELECT id, name, rating, text, verified, reply, created_at FROM reviews WHERE product_id = ? AND status = 'approved' ORDER BY is_featured DESC, created_at DESC LIMIT 30",
     ).bind(p.id),
     env.DB.prepare("SELECT id, slug, name_fr, name_ar, image FROM categories WHERE id = ?").bind(p.category_id ?? 0),
+    salesStmt(env, Date.now()),
   ]);
+  const [[images, options, values, variants, reviews, category, sales], related] = await Promise.all([detail, relatedProducts(env, p)]);
 
   const imageRows = images!.results as unknown as ImageRow[];
   const valueRows = values!.results as { id: number; option_id: number; label_fr: string; label_ar: string; hex: string | null }[];
@@ -164,8 +262,10 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
   const available = vars.reduce((s, v) => s + v.available, 0);
   const rating = revs.length ? { avg: revs.reduce((s, r) => s + r.rating, 0) / revs.length, count: revs.length } : undefined;
 
+  const badge = badgeMap(sales!.results as { product_id: number; u30: number; u7: number; prev7: number }[]).get(p.id)?.badge ?? null;
+
   return {
-    ...toCard(p, imageRows[0], colorHexes, available, rating, env),
+    ...toCard(p, imageRows[0], colorHexes, available, rating, badge, env),
     descriptionFr: p.description_fr,
     descriptionAr: p.description_ar,
     category: cat ? { id: cat.id, slug: cat.slug, nameFr: cat.name_fr, nameAr: cat.name_ar, image: cat.image } : null,
@@ -175,8 +275,68 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
     reviews: revs,
     seoTitle: p.seo_title,
     seoDescription: p.seo_description,
+    related: related.cards,
+    relatedKind: related.kind,
   };
 }
+
+/* ───────────── Collections / drops ───────────── */
+
+interface CollectionRow {
+  id: number;
+  slug: string;
+  name_fr: string;
+  name_ar: string;
+  description_fr: string | null;
+  description_ar: string | null;
+  starts_at: number | null;
+  ends_at: number | null;
+  show_countdown: number;
+  lock_products: number;
+}
+
+const teaser = (r: CollectionRow): DropTeaserDTO => ({
+  slug: r.slug,
+  nameFr: r.name_fr,
+  nameAr: r.name_ar,
+  startsAt: r.starts_at,
+  endsAt: r.ends_at,
+  showCountdown: !!r.show_countdown,
+});
+
+export async function getCollection(env: Env, slug: string): Promise<CollectionDTO | null> {
+  const now = Date.now();
+  const r = await env.DB.prepare("SELECT * FROM collections WHERE slug = ? AND is_active = 1").bind(slug).first<CollectionRow>();
+  if (!r) return null;
+  const launched = !r.starts_at || r.starts_at <= now;
+  const { results } = await env.DB.prepare("SELECT product_id FROM collection_products WHERE collection_id = ? ORDER BY sort, product_id")
+    .bind(r.id)
+    .all<{ product_id: number }>();
+  // a locked drop shows nothing but its countdown until launch
+  const products = !launched && r.lock_products ? [] : await productCards(env, results.map((x) => x.product_id));
+  return {
+    ...teaser(r),
+    descriptionFr: r.description_fr,
+    descriptionAr: r.description_ar,
+    launched,
+    now,
+    image: products.find((p) => p.image)?.image ?? null,
+    products,
+  };
+}
+
+/** Upcoming drop, or one launched in the last 3 days, for the home page banner. */
+export async function featuredDrop(env: Env): Promise<DropTeaserDTO | null> {
+  const now = Date.now();
+  const r = await env.DB.prepare(
+    `SELECT * FROM collections WHERE is_active = 1 AND starts_at IS NOT NULL AND starts_at > ? AND (ends_at IS NULL OR ends_at > ?)
+      ORDER BY (starts_at <= ?) ASC, ABS(starts_at - ?) ASC LIMIT 1`,
+  )
+    .bind(now - 3 * 86400_000, now, now, now)
+    .first<CollectionRow>();
+  return r ? teaser(r) : null;
+}
+
 
 export async function listCategories(env: Env): Promise<CategoryDTO[]> {
   const { results } = await env.DB.prepare(

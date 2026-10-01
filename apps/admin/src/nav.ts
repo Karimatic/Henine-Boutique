@@ -35,6 +35,7 @@ export const NAV: NavGroup[] = [
     label: "Marketing",
     items: [
       { path: "/accueil", label: "Page d'accueil", permission: "marketing.edit" },
+      { path: "/collections", label: "Collections", permission: "marketing.edit" },
       { path: "/avis", label: "Avis", permission: "reviews.moderate" },
       { path: "/notifier", label: "Notifier", permission: "marketing.edit" },
       { path: "/liens", label: "Liens", permission: "marketing.edit" },

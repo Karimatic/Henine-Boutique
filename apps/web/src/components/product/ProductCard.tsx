@@ -4,6 +4,7 @@ import type { ProductCardDTO } from "@henine/shared";
 import { HeartIcon } from "@/components/ui/icons";
 import { Price, ProductImage, Stars } from "@/components/ui/kit";
 import { useLocale } from "@/lib/locale";
+import { Badges } from "./Badges";
 import { toggleFavorite, useFavorites } from "@/lib/stores";
 
 export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priority?: boolean }) {
@@ -11,7 +12,6 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
   const favorites = useFavorites();
   const fav = favorites.includes(p.slug);
   const name = ar ? p.nameAr : p.nameFr;
-  const isNew = p.tags.includes("nouveaute");
 
   return (
     <article className="group relative">
@@ -19,9 +19,8 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
       <a href={href(`/produit/${p.slug}`)} className="block">
         <div className="relative">
           <ProductImage image={p.image} alt={name} category={p.categorySlug} color={p.colors[0]} priority={priority} className="aspect-[4/5] rounded-card transition duration-300 group-hover:shadow-soft" />
-          <div className="pointer-events-none absolute start-2 top-2 flex flex-col gap-1">
-            {isNew && <span className="rounded-full bg-ivory/90 px-2 py-0.5 text-[11px] font-semibold text-plum-700 backdrop-blur">{ar ? "جديد" : "Nouveau"}</span>}
-            {!p.inStock && <span className="rounded-full bg-ink/80 px-2 py-0.5 text-[11px] font-semibold text-ivory">{t.product.outOfStock}</span>}
+          <div className="pointer-events-none absolute start-2 top-2 flex flex-col items-start gap-1">
+            {p.inStock ? <Badges p={p} className="flex-col items-start" /> : <span className="rounded-full bg-ink/80 px-2 py-0.5 text-[11px] font-semibold text-ivory">{t.product.outOfStock}</span>}
           </div>
         </div>
         <div className="mt-2 space-y-1 px-0.5">

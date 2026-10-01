@@ -35,7 +35,9 @@ function DevCode({ code }: { code?: string }) {
 function CodeInput({ onComplete, disabled }: { onComplete: (code: string) => void; disabled?: boolean }) {
   const [value, setValue] = useState("");
   const ref = useRef<HTMLInputElement>(null);
-  useEffect(() => ref.current?.focus(), []);
+  useEffect(() => {
+    ref.current?.focus();
+  }, []);
   return (
     <input
       ref={ref}

@@ -525,3 +525,84 @@ Every `/api/admin/*` request: verify the **`Cf-Access-Jwt-Assertion`** JWT (RS25
 **Architecture change vs. §2:** product/category/content pages are pre-built "_" shells that load their data from the API (edge-cached, versioned on every admin change), so admin edits and new products are live instantly with no rebuild. The Worker injects the product's title/OpenGraph tags for link previews.
 
 **Open finding:** the storefront currently ships ~177 KB gz of JS on the home page (Next 16 app-router runtime + React), against the 90 KB budget in §4.5. The pages have no client components yet, so this is framework baseline. To address in Phase 1 (audit chunks, consider trimming the router runtime) before adding interactivity.
+
+---
+
+## 13. Phase 4: growth & operations upgrade (2026-10-01)
+
+### 13.1 Audit: what already existed
+
+| Area | Already in place | Gap |
+|---|---|---|
+| COD verification | statuses `nouvelle → injoignable → confirmee → en_preparation → expediee → en_livraison → livree / retour / annulee / doublon / fausse`; zod validation on both sides; Turnstile; per-phone hourly limit; naive `risk_score` | risk score opaque (3 hard-coded terms), no reasons, not shown consistently |
+| Checkout | wilaya → commune (loaded per wilaya, edge-cached) → domicile/bureau with prices; server-side quote | native `<select>` of 69/≈30 entries is slow on phones; no search; no commune-level pricing; delay not shown |
+| Tracking | private link `code + token` (SHA-256 + pepper, timing-safe), phone lookup with limited data, timeline | no money breakdown, no commune, no unit prices, cancelled/returned shown as one line |
+| Sharing / OG | Worker injects title/description/og:image (1440 px) into product shells | no share button; no og:url/site_name/price/twitter card; image larger than needed |
+| Abandoned checkout | `carts` table + admin "Paniers", saved only with an opt-in checkbox, web checkout only | most checkouts never captured; no commune/delivery/step; express checkout ignored; recovery matched lazily by phone |
+| Risk in admin | badges for returns / "Fidèle" / risk ≥ 50 | no 🟢🟡🔴 level, no explanation |
+| Dashboard | KPIs, pipeline, recent orders, low stock, reviews/messages | no "needs attention" list (stale orders, high risk, abandoned, restock waitlists) |
+| Order actions | one-tap status buttons, `tel:` and WhatsApp, notes, edit | no cancel/return reason, no tracking-number prompt on "Expédiée" |
+| Performance | static shells, edge cache, responsive WebP + LQIP, lazy images | product page downloads the whole `/catalog` just for 4 related products |
+| Related products | same category from the full catalogue (client side) | no "complete the look" logic |
+| Badges | manual tags `nouveaute`, `best-seller` ("Coup de cœur") | nothing data-driven |
+| New arrivals | home section sorted by `created_at` | no publication date, no dedicated page |
+| Reviews | anyone can post (moderated), `verified` flag unused | not tied to delivered orders |
+| Variants / stock | options × values → auto variants, per-variant stock, CHECK constraint prevents overselling | list only (no colour × size grid) |
+| Stock alerts | `/stock` low/out filters, dashboard top-8 | no variant labels on dashboard, no waitlist link |
+| Analytics | `/stats` (7–365 days, wilaya top-20, channels, hours, funnel) | no today/custom range, no reasons, no delivery durations, wilaya table incomplete |
+| Segments | vip / fidèles / nouvelles / risque / inactives / blacklist | "risque" = any return; not aligned with the risk score |
+| Product editor | duplicate, options presets, bulk stock | photos only after first save, no explicit draft/publish buttons |
+| Drops | `collections` + `collection_products` tables (unused) | no dates, no page, no admin |
+| Restock | "Prévenez-moi" → `stock_alerts`, admin Notifier waitlists | not surfaced when stock comes back |
+
+### 13.2 Plan (smallest change that fits the existing architecture)
+
+**Database: migration `0001_growth.sql`, additive only (`ALTER TABLE … ADD COLUMN`, `CREATE INDEX`)**
+- `orders.risk_flags` (JSON reason codes captured at creation), `orders.outcome_reason`; index `orders(created_at)`, `orders(wilaya_code, created_at)`
+- `customers.fake_count`
+- `products.published_at`, `products.related_ids` (JSON); index `order_items(product_id)`
+- `communes.home_price` (optional per-commune override)
+- `carts.commune_id`, `carts.delivery_type`, `carts.channel`, `carts.locale`, `carts.subtotal`, `carts.shipping`
+- `collections.description_fr/ar`, `starts_at`, `ends_at`, `show_countdown`, `lock_products`, `sort`, `created_at`
+- `reviews` unique `(order_id, product_id)`
+
+**Shared (`@henine/shared`)**: `risk.ts` (transparent weights → score, level 🟢🟡🔴, reasons; same weights produce the SQL used for the "high risk" segment), `insights.ts` (data-driven product badges with thresholds), `OUTCOME_REASONS`, DTO extensions.
+
+**Features → files**
+1. COD verification: `lib/orders.ts` computes risk flags at creation (history, same-IP burst, repeated orders, free-text commune, unusual basket); never blocks except the existing abuse rate limit.
+2. Checkout: `CheckoutForm.tsx` gets a searchable bottom-sheet picker (wilaya by number/FR/AR name, communes of that wilaya only), delivery cards with price and delay, commune price override in `quote()`.
+3. Tracking: `TrackedOrderDTO` + money breakdown, commune, unit prices; redesigned `/suivi` order card with a 6-step timeline and clear cancelled/returned states; review prompt for delivered items.
+4. Sharing: Share button (Web Share API → fallback sheet: WhatsApp, Facebook, copy link) with `utm_source=share`; richer OG/Twitter tags (960 px image).
+6. Abandoned checkout: autosave (debounced, after a valid phone) for web + express checkouts with a visible notice; `cartId` sent with the order marks the cart recovered; admin "Paniers" shows name, phone, items, total, wilaya/commune, step, last activity.
+7. Risk: level + reasons in orders list, order sheet, customers, Telegram line.
+8. Command center: `/dashboard` returns an `attention` list (to confirm, callbacks due, high risk, confirmed > 24 h, preparing > 48 h, shipped > 7 days, returns to check in, abandoned 24 h, restocked with waitlist, low/out of stock); `/orders?attention=…` filters.
+9. Actions: reason picker on cancel / return / fake, tracking-number prompt on "Expédiée".
+10. Performance: product detail returns `related` (no more full-catalogue download on product pages); audit bundle afterwards.
+11. Complete the look: manual picks (`related_ids`) → bought together (co-occurrence in real orders) → same category best sellers.
+13. Badges: best-seller / trending / popular from 30-day and 7-day sales of non-cancelled orders; manual "Coup de cœur" stays separate.
+14. New arrivals: `published_at` set on first publication; `/nouveautes` page in AR + FR.
+15. Verified reviews: only from a delivered order (private link token or phone + order code), one per product per order; auto-publish setting; admin hide/delete.
+17. Variants: colour × size stock grid in the product editor; sold-out variants not addable (still selectable for "Prévenez-moi").
+18. Stock alerts: dashboard stock section with variant labels and waitlists.
+19–22. Analytics: today / 7 / 30 / 90 days / custom range; KPI set; full wilaya table; reasons breakdown; delivery durations (only with ≥ 5 samples).
+23. Segments: new / returning / VIP / high-risk from history and the shared risk weights.
+24. Product editor: "Enregistrer le brouillon" / "Publier", photos usable on a new product (auto-creates the draft), duplicate.
+25. Drops: admin Marketing → Collections; public `/collection/<slug>` shell with OG tags and client countdown from server time; products of an unlaunched drop are hidden and unorderable when "lock" is on.
+26. Restock: dashboard + Stock page show restocked variants with waiting customers; WhatsApp links per phone; Telegram notice to the team when a variant with a waitlist is restocked.
+
+### 13.3 Result (2026-10-01)
+
+Done and verified: typecheck ✓, 64 unit tests ✓ (new: risk score, segments, badges), build ✓, 23 storefront API checks, 40 admin API checks, phone-viewport browser runs of the storefront (AR + FR) and the admin, all green. Migration `0001_growth.sql` applied to the local D1 (backup taken first); it only adds columns/indexes and backfills `published_at` / `fake_count`.
+
+Decisions taken while building (easy to revisit):
+- **Abandoned checkouts** are now saved as soon as a valid phone number is typed (web + express checkouts), with a visible notice under the phone field; the old opt-in checkbox is gone. Saved checkouts are deleted after 30 days; nothing is ever sent automatically.
+- **Statuses**: the existing ones cover the requested states (New = `nouvelle`, Pending verification = `injoignable`, …); no new status was added.
+- **Risk score** = customer history + signals captured at checkout (`orders.risk_flags`). The "same connection" signal is deliberately weak (Algerian mobile networks share IPs). Never blocks an order.
+- **Reviews**: only verified (delivered order, one per product per order, first name + initial), published automatically by default (switch in Admin → Avis). The old anonymous review form was removed; existing reviews are kept.
+- **"Les plus demandées" / الأكثر طلبا** only appears when real sales back it; otherwise the section shows the team's "Coup de cœur" picks under that name.
+- **Duplicate product** now shares the original's photos (R2 files are only deleted when no product uses them any more).
+- **Drops**: the public cache key includes how many drop start/end times have passed, so a drop unlocks at the exact minute without a cron.
+
+Performance: `@henine/shared` is marked `sideEffects: false`, so the storefront no longer ships Zod: **~240 KB → ~151 KB gz JS per page**. Product pages no longer download the whole catalogue (related products come with the product).
+
+Known/open: ESLint 10 crashes with eslint-plugin-react (tooling, not run in CI). Commune-level delivery prices are supported by the API but have no admin editor yet (set `communes.home_price` / `home_supported`). Stop-desk addresses per wilaya still need ZR's list.
