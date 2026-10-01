@@ -1,23 +1,25 @@
 import { dirOf, type Locale } from "@henine/shared";
 import { getDictionary } from "@/lib/dictionary";
-import { cormorant, dmSans, plexArabic } from "@/lib/fonts";
+import { dmSans, playfair, plexArabic } from "@/lib/fonts";
 import { LocaleProvider } from "@/lib/locale";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { BottomNav } from "./BottomNav";
 import { ErrorReporter } from "./ErrorReporter";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
+import { SplashScreen } from "./SplashScreen";
 import "@/styles/globals.css";
 
 /** Shared <html> shell for the Arabic (/, main) and French (/fr) root layouts. */
 export function RootDocument({ locale, children }: { locale: Locale; children: React.ReactNode }) {
-  const fonts = [cormorant.variable, dmSans.variable, plexArabic.variable].join(" ");
+  const fonts = [playfair.variable, dmSans.variable, plexArabic.variable].join(" ");
   return (
     <html lang={locale} dir={dirOf(locale)} className={fonts}>
       <body className="flex min-h-dvh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <noscript>
           <style>{".reveal{opacity:1!important;transform:none!important}"}</style>
         </noscript>
+        <SplashScreen />
         <LocaleProvider locale={locale}>
           <a
             href="#main"

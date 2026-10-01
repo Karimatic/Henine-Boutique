@@ -46,7 +46,7 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 md:h-16">
         <a href={href("/")} className="flex shrink-0 items-center gap-2" aria-label="Henine Boutique">
           <Blossom size={26} className="animate-bloom" />
-          <span className="heading-display whitespace-nowrap text-xl leading-none tracking-wide text-plum-700 sm:text-2xl" dir="ltr">
+          <span className="brand-mark heading-display whitespace-nowrap text-xl italic leading-none tracking-wide sm:text-2xl" dir="ltr">
             Henine Boutique
           </span>
         </a>

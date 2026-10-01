@@ -1,29 +1,29 @@
 @import "tailwindcss";
 
 /*
- * Henine design tokens: soft, feminine, premium-but-accessible.
- * Pearl-white ground (warm, never pure #fff), deep plum ink, blush-rose accent, gold hairlines.
- * WCAG contrast on pearl: ink 16.1:1, ink-soft 8.4:1, plum-600 9.7:1, rose-700 5.6:1 (all AA ✓).
- * rose-300/500 are decorative only, never text on pearl.
+ * Henine design tokens: luxury pink & white, feminine, premium-but-accessible.
+ * Blush-white ground (warm, never pure #fff), deep rose ink, vivid pink accent, gold hairlines.
+ * WCAG contrast on blush-white: ink 16.1:1, ink-soft 7.3:1, plum-600 5.4:1, plum-700 7.5:1,
+ * rose-700 5.6:1 (all AA ✓). rose-300/500 are decorative only, never text on blush-white.
  */
 @theme {
-  --color-ivory: #fefcf9;
-  --color-ivory-deep: #f8f3ee;
-  --color-ink: #2a1a24;
-  --color-ink-soft: #5b4652;
-  --color-line: #eee4dc;
-  --color-rose-800: #8f3a55;
-  --color-plum-600: #6b2d52;
-  --color-plum-700: #57223f;
-  --color-rose-100: #fbe7ec;
-  --color-rose-300: #f2b8c6;
-  --color-rose-500: #d9738c;
-  --color-rose-700: #a8445e;
+  --color-ivory: #fff7fa;
+  --color-ivory-deep: #ffeef5;
+  --color-ink: #2b1620;
+  --color-ink-soft: #6b4a57;
+  --color-line: #f6d2e0;
+  --color-rose-800: #ad1457;
+  --color-plum-600: #c2255f;
+  --color-plum-700: #9d174d;
+  --color-rose-100: #fde3ec;
+  --color-rose-300: #f48fb1;
+  --color-rose-500: #ec407a;
+  --color-rose-700: #c2185b;
   --color-gold: #b08d57;
   --color-success: #2f7a55;
   --color-danger: #b3261e;
 
-  --font-display: var(--font-cormorant), "Times New Roman", serif;
+  --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
   --font-arabic: var(--font-plex-arabic), "Segoe UI", Tahoma, sans-serif;
 
@@ -42,6 +42,87 @@
     60% { transform: scale(1.08) rotate(4deg); opacity: 1; }
     100% { transform: scale(1) rotate(0); opacity: 1; }
   }
+}
+
+/* ── Animated brand wordmark (header logo): rises in once, then a slow gold-pink shine ──
+ * Same gradient-clip technique as the hero tagline, paced slower (8s) since the header is
+ * visible on every page rather than once on the home hero. */
+.brand-mark {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.35em);
+  color: transparent;
+  background: linear-gradient(100deg, var(--color-plum-700) 0%, var(--color-plum-700) 40%, var(--color-gold) 50%, var(--color-rose-500) 58%, var(--color-plum-700) 68%, var(--color-plum-700) 100%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: brand-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s forwards, brand-shine 8s ease-in-out 1s infinite;
+}
+@keyframes brand-rise {
+  to { opacity: 1; transform: none; }
+}
+@keyframes brand-shine {
+  0% { background-position: 160% 0; }
+  20% { background-position: -30% 0; }
+  100% { background-position: -30% 0; }
+}
+
+/* ── Splash screen: brand intro shown once per tab, for ~1s (see SplashScreen.tsx) ── */
+.henine-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.9rem;
+  background: radial-gradient(ellipse at 50% 38%, var(--color-rose-100) 0%, var(--color-ivory) 62%, var(--color-ivory) 100%);
+  /* 1s hold, then a quick fade: a single compositor-only (opacity) animation, so the timing
+     stays accurate even if the main thread is busy hydrating — a JS timer could run late. */
+  animation: henine-splash-cycle 1.15s ease forwards;
+}
+@keyframes henine-splash-cycle {
+  0%, 87% { opacity: 1; }
+  100% { opacity: 0; visibility: hidden; pointer-events: none; }
+}
+.henine-splash-mark { animation: splash-pop 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+@keyframes splash-pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.henine-splash-word {
+  font-style: italic;
+  font-size: 1.5rem;
+  letter-spacing: 0.02em;
+  color: var(--color-plum-700);
+  opacity: 0;
+  animation: splash-fade 0.6s ease 0.2s both;
+}
+@keyframes splash-fade {
+  to { opacity: 1; }
+}
+.henine-splash-bar {
+  display: block;
+  width: 7rem;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--color-line);
+  overflow: hidden;
+}
+.henine-splash-bar-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(0);
+  background: linear-gradient(90deg, var(--color-gold), var(--color-rose-500));
+  animation: splash-progress 1s linear forwards; /* fills exactly as the 1s hold ends */
+}
+[dir="rtl"] .henine-splash-bar-fill { transform-origin: right; }
+@keyframes splash-progress {
+  to { transform: scaleX(1); }
 }
 
 @layer base {
@@ -243,6 +324,9 @@
 @media (prefers-reduced-motion: reduce) {
   .announce, .announce-track, .announce-sparkle, .step-line, .step-line-v, .step-icon, .ig-card, .ig-btn::after { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
+  .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-plum-700); background: none; }
+  /* reduced motion: skip the splash entirely rather than leaving it stuck on screen */
+  .henine-splash { animation: none; display: none; }
 }
 
 /* sheet / drawer entrance */
