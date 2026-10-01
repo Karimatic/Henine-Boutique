@@ -1,0 +1,6 @@
+# Store text files with LF everywhere (matches .editorconfig); avoids CRLF noise on Windows.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.webp binary
+*.ico binary
