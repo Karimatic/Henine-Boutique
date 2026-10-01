@@ -1,0 +1,361 @@
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { formatDA, normalizeDzPhone, type CommuneDTO, type CreatedOrderDTO, type QuoteDTO, type SiteConfigDTO, type WilayaDTO } from "@henine/shared";
+import { inputCls, ProductImage, Spinner } from "@/components/ui/kit";
+import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
+import { useLocale } from "@/lib/locale";
+import { cart, checkoutMemory, saveOrder } from "@/lib/stores";
+import { newIdempotencyKey, Turnstile } from "@/lib/turnstile";
+
+interface Props {
+  lines: { variantId: number; qty: number }[];
+  channel: "web" | "express";
+  compact?: boolean;
+}
+
+function cartId(): string {
+  try {
+    let id = sessionStorage.getItem("henine.cartId");
+    if (!id) sessionStorage.setItem("henine.cartId", (id = crypto.randomUUID()));
+    return id;
+  } catch {
+    return crypto.randomUUID();
+  }
+}
+
+export function CheckoutForm({ lines, channel, compact = false }: Props) {
+  const { t, href, ar, locale } = useLocale();
+  const L = t.checkout;
+  const site = useApi<SiteConfigDTO>("/site");
+  const wilayas = useApi<WilayaDTO[]>("/geo/wilayas");
+
+  const memory = useMemo(() => checkoutMemory.get(), []);
+  const [name, setName] = useState(memory?.name ?? "");
+  const [phone, setPhone] = useState(memory?.phone ?? "");
+  const [wilaya, setWilaya] = useState<number | null>(memory?.wilaya ?? null);
+  const [communeId, setCommuneId] = useState<number | "other" | null>(memory?.communeId ?? null);
+  const [communeText, setCommuneText] = useState("");
+  const [deliveryType, setDeliveryType] = useState<"domicile" | "bureau">(memory?.deliveryType ?? "domicile");
+  const [address, setAddress] = useState(memory?.address ?? "");
+  const [note, setNote] = useState("");
+  const [couponInput, setCouponInput] = useState("");
+  const [coupon, setCoupon] = useState("");
+  const [showCoupon, setShowCoupon] = useState(false);
+  const [consent, setConsent] = useState(false);
+  const [token, setToken] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const idem = useRef(newIdempotencyKey());
+
+  const [communes, setCommunes] = useState<CommuneDTO[] | null>(null);
+  useEffect(() => {
+    setCommunes(null);
+    if (!wilaya) return;
+    apiGet<CommuneDTO[]>(`/geo/wilayas/${wilaya}/communes`).then(setCommunes, () => setCommunes([]));
+  }, [wilaya]);
+
+  const selectedWilaya = wilayas.data?.find((w) => w.code === wilaya);
+  const deskAllowed = (site.data?.checkout.deskEnabled ?? true) && selectedWilaya?.desk != null;
+  useEffect(() => {
+    if (selectedWilaya && deliveryType === "bureau" && !deskAllowed) setDeliveryType("domicile");
+    if (selectedWilaya && deliveryType === "domicile" && selectedWilaya.home == null && deskAllowed) setDeliveryType("bureau");
+  }, [selectedWilaya, deskAllowed, deliveryType]);
+
+  // live authoritative price
+  const [quote, setQuote] = useState<QuoteDTO | null>(null);
+  const [quoting, setQuoting] = useState(false);
+  const linesKey = JSON.stringify(lines);
+  useEffect(() => {
+    if (!lines.length) return;
+    setQuoting(true);
+    const id = setTimeout(() => {
+      apiPost<QuoteDTO>("/quote", { lines, wilaya, deliveryType, coupon: coupon || undefined })
+        .then(setQuote, () => undefined)
+        .finally(() => setQuoting(false));
+    }, 250);
+    return () => clearTimeout(id);
+  }, [linesKey, wilaya, deliveryType, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // abandoned-cart follow-up, only with explicit consent
+  const normalizedPhone = normalizeDzPhone(phone);
+  useEffect(() => {
+    if (!consent || !normalizedPhone || channel !== "web") return;
+    const id = setTimeout(() => {
+      apiPost("/carts", { id: cartId(), lines, phone: normalizedPhone, name: name || undefined, wilaya, consent: true }).catch(() => undefined);
+    }, 1500);
+    return () => clearTimeout(id);
+  }, [consent, normalizedPhone, linesKey, wilaya]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const problems = quote?.lines.filter((l) => l.problem) ?? [];
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (name.trim().length < 2) errs.name = L.errors.name_required!;
+    if (!normalizedPhone) errs.phone = L.errors.phone_invalid!;
+    if (!wilaya) errs.wilaya = L.shippingPick;
+    if (!communeId || (communeId === "other" && communeText.trim().length < 2)) errs.communeId = L.errors.commune_required!;
+    if (deliveryType === "domicile" && address.trim().length < 4) errs.address = L.errors.address_required!;
+    setFieldErrors(errs);
+    setFormError(null);
+    if (Object.keys(errs).length) {
+      document.getElementById(`f-${Object.keys(errs)[0]}`)?.focus();
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const params = new URLSearchParams(location.search);
+      const order = await apiPost<CreatedOrderDTO>("/orders", {
+        idempotencyKey: idem.current,
+        name: name.trim(),
+        phone: normalizedPhone,
+        wilaya,
+        communeId: communeId === "other" ? null : communeId,
+        communeText: communeId === "other" ? communeText.trim() : undefined,
+        deliveryType,
+        address: deliveryType === "domicile" ? address.trim() : undefined,
+        note: note.trim() || undefined,
+        coupon: coupon || undefined,
+        lines,
+        channel,
+        locale,
+        turnstileToken: token || "pending",
+        utm: {
+          source: params.get("utm_source") ?? undefined,
+          medium: params.get("utm_medium") ?? undefined,
+          campaign: params.get("utm_campaign") ?? undefined,
+        },
+      });
+      saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
+      checkoutMemory.set({ name: name.trim(), phone: normalizedPhone!, wilaya, communeId: communeId === "other" ? null : communeId, address, deliveryType });
+      if (channel === "web") cart.clear();
+      location.href = href(`/merci?c=${order.code}&t=${encodeURIComponent(order.token)}`);
+    } catch (err) {
+      const e = err instanceof ApiError ? err : new ApiError(0, "generic");
+      if (e.code === "validation_failed" && e.details && typeof e.details === "object") {
+        const d = e.details as Record<string, string>;
+        setFieldErrors(Object.fromEntries(Object.entries(d).map(([k, v]) => [k, L.errors[v] ?? L.errors.generic!])));
+      } else if (e.code === "duplicate_order") {
+        location.href = href("/suivi");
+      } else {
+        setFormError(L.errors[e.code] ?? L.errors.generic!);
+        if (e.code === "stock_problem" || e.code === "coupon_invalid") {
+          apiPost<QuoteDTO>("/quote", { lines, wilaya, deliveryType, coupon: coupon || undefined }).then(setQuote, () => undefined);
+        }
+      }
+      idem.current = newIdempotencyKey();
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const label = (text: string, id: string, extra?: React.ReactNode) => (
+    <label htmlFor={`f-${id}`} className="mb-1.5 flex items-baseline justify-between text-sm font-medium text-ink">
+      {text}
+      {extra}
+    </label>
+  );
+  const err = (k: string) => fieldErrors[k] && <p className="mt-1 text-sm text-danger">{fieldErrors[k]}</p>;
+  const invalid = (k: string) => (fieldErrors[k] ? "border-danger focus:border-danger" : "");
+
+  return (
+    <form onSubmit={submit} noValidate className={compact ? "space-y-4" : "grid gap-8 lg:grid-cols-[1fr_22rem]"}>
+      <div className="space-y-4">
+        <div>
+          {label(L.name, "name")}
+          <input id="f-name" className={`${inputCls} ${invalid("name")}`} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          {err("name")}
+        </div>
+        <div>
+          {label(L.phone, "phone", <span className="text-xs font-normal text-ink-soft">{L.phoneHint}</span>)}
+          <input
+            id="f-phone"
+            className={`${inputCls} ${invalid("phone")}`}
+            type="tel"
+            inputMode="tel"
+            autoComplete="tel"
+            dir="ltr"
+            placeholder="05 55 12 34 56"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            maxLength={20}
+          />
+          {err("phone")}
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            {label(L.wilaya, "wilaya")}
+            <select
+              id="f-wilaya"
+              className={`${inputCls} ${invalid("wilaya")}`}
+              value={wilaya ?? ""}
+              onChange={(e) => {
+                setWilaya(e.target.value ? Number(e.target.value) : null);
+                setCommuneId(null);
+              }}
+            >
+              <option value="">{L.shippingPick}</option>
+              {wilayas.data?.map((w) => (
+                <option key={w.code} value={w.code}>
+                  {w.code} - {ar ? w.ar : w.fr}
+                </option>
+              ))}
+            </select>
+            {err("wilaya")}
+          </div>
+          <div>
+            {label(L.commune, "communeId")}
+            <select
+              id="f-communeId"
+              className={`${inputCls} ${invalid("communeId")}`}
+              value={communeId ?? ""}
+              disabled={!wilaya}
+              onChange={(e) => setCommuneId(e.target.value === "other" ? "other" : e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">{wilaya && !communes ? t.common.loading : "—"}</option>
+              {communes?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {ar ? c.ar : c.fr}
+                </option>
+              ))}
+              <option value="other">{L.communeOther}</option>
+            </select>
+            {communeId === "other" && (
+              <input className={`${inputCls} mt-2`} value={communeText} onChange={(e) => setCommuneText(e.target.value)} maxLength={80} aria-label={L.communeOther} />
+            )}
+            {err("communeId")}
+          </div>
+        </div>
+
+        <fieldset>
+          <legend className="mb-1.5 text-sm font-medium">{L.delivery}</legend>
+          <div className="grid grid-cols-2 gap-3">
+            {(["domicile", "bureau"] as const).map((type) => {
+              const price = type === "domicile" ? selectedWilaya?.home : selectedWilaya?.desk;
+              const disabled = !!selectedWilaya && (type === "bureau" ? !deskAllowed : price == null);
+              return (
+                <label
+                  key={type}
+                  className={`flex cursor-pointer flex-col rounded-xl border p-3 transition ${deliveryType === type ? "border-plum-600 bg-rose-100/60 ring-2 ring-plum-600/15" : "border-line bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                >
+                  <input type="radio" name="delivery" value={type} className="sr-only" checked={deliveryType === type} disabled={disabled} onChange={() => setDeliveryType(type)} />
+                  <span className="text-sm font-semibold">{type === "domicile" ? L.home : L.desk}</span>
+                  <span className="text-sm text-ink-soft" dir="ltr">
+                    {selectedWilaya ? (price != null ? formatDA(price, locale) : "—") : "…"}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
+          {deliveryType === "bureau" && <p className="mt-1.5 text-xs text-ink-soft">{L.deskHint}</p>}
+        </fieldset>
+
+        {deliveryType === "domicile" && (
+          <div>
+            {label(L.address, "address")}
+            <input id="f-address" className={`${inputCls} ${invalid("address")}`} autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} />
+            {err("address")}
+          </div>
+        )}
+
+        {!compact && (
+          <div>
+            {label(L.note, "note")}
+            <textarea id="f-note" className={`${inputCls} h-20 py-3`} value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} />
+          </div>
+        )}
+
+        {channel === "web" && (
+          <label className="flex items-start gap-2 text-sm text-ink-soft">
+            <input type="checkbox" className="mt-1 size-4 accent-plum-600" checked={consent} onChange={(e) => setConsent(e.target.checked)} />
+            {L.consent}
+          </label>
+        )}
+      </div>
+
+      {/* Summary */}
+      <aside className={compact ? "space-y-3" : "h-fit space-y-4 rounded-card border border-line bg-white/70 p-5 lg:sticky lg:top-24"}>
+        {!compact && <h2 className="text-lg font-semibold">{L.summary}</h2>}
+        {!compact && quote && (
+          <ul className="space-y-3">
+            {quote.lines.map((l) => (
+              <li key={l.variantId} className="flex gap-3">
+                <ProductImage image={l.image} alt="" className="aspect-[4/5] w-14 shrink-0 rounded-lg" />
+                <div className="min-w-0 flex-1 text-sm">
+                  <p className="line-clamp-1 font-medium">{ar ? l.nameAr : l.nameFr}</p>
+                  <p className="text-ink-soft">
+                    {ar ? l.optionsAr : l.optionsFr} × {l.qty}
+                  </p>
+                  {l.problem && <p className="text-danger">{l.problem === "insufficient_stock" ? t.cart.onlyLeft(l.available) : t.cart.unavailable}</p>}
+                </div>
+                <span className="text-sm font-medium" dir="ltr">
+                  {formatDA(l.lineTotal, locale)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {showCoupon ? (
+          <div className="flex gap-2">
+            <input className={`${inputCls} h-11 uppercase`} placeholder={L.coupon} value={couponInput} onChange={(e) => setCouponInput(e.target.value)} maxLength={32} dir="ltr" />
+            <button type="button" onClick={() => setCoupon(couponInput.trim().toUpperCase())} className="h-11 shrink-0 rounded-xl border border-ink/15 px-4 text-sm font-semibold">
+              {L.apply}
+            </button>
+          </div>
+        ) : (
+          <button type="button" onClick={() => setShowCoupon(true)} className="text-sm font-semibold text-plum-600 underline-offset-4 hover:underline">
+            + {L.coupon}
+          </button>
+        )}
+        {quote?.coupon && (
+          <p className={`text-sm ${quote.coupon.valid ? "text-success" : "text-danger"}`}>
+            {quote.coupon.valid ? `${L.couponOk} (${quote.coupon.label})` : L.couponBad[quote.coupon.reason ?? "unknown"] ?? L.couponBad.unknown}
+          </p>
+        )}
+
+        <dl className="space-y-1.5 border-t border-line pt-3 text-sm">
+          <div className="flex justify-between">
+            <dt className="text-ink-soft">{t.cart.subtotal}</dt>
+            <dd dir="ltr">{quote ? formatDA(quote.subtotal, locale) : "…"}</dd>
+          </div>
+          {quote && quote.discount > 0 && (
+            <div className="flex justify-between text-success">
+              <dt>{L.discount}</dt>
+              <dd dir="ltr">−{formatDA(quote.discount, locale)}</dd>
+            </div>
+          )}
+          <div className="flex justify-between">
+            <dt className="text-ink-soft">{L.shipping}</dt>
+            <dd dir="ltr">{!wilaya ? <span className="text-ink-soft">{L.shippingPick}</span> : quote?.shipping === 0 ? L.free : quote?.shipping != null ? formatDA(quote.shipping, locale) : "—"}</dd>
+          </div>
+          <div className="flex items-center justify-between border-t border-line pt-2 text-base font-semibold">
+            <dt>{L.total}</dt>
+            <dd dir="ltr" className="flex items-center gap-2">
+              {quoting && <Spinner className="size-3.5 text-ink-soft" />}
+              {quote ? formatDA(quote.total, locale) : "…"}
+            </dd>
+          </div>
+        </dl>
+        <p className="text-sm font-medium text-ink-soft">{L.cod}</p>
+
+        <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={setToken} locale={locale} />
+        {formError && (
+          <p role="alert" className="rounded-xl bg-rose-100 p-3 text-sm text-rose-700">
+            {formError}
+          </p>
+        )}
+        <button
+          type="submit"
+          disabled={submitting || problems.length > 0 || !lines.length}
+          className="flex h-13 w-full items-center justify-center gap-2 rounded-full bg-plum-600 px-6 py-3.5 text-base font-semibold text-ivory shadow-soft transition hover:bg-plum-700 active:scale-[0.99] disabled:opacity-50"
+        >
+          {submitting && <Spinner className="size-4" />}
+          {submitting ? L.submitting : L.submit}
+        </button>
+      </aside>
+    </form>
+  );
+}

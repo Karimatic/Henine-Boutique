@@ -1,0 +1,620 @@
+/**
+ * Admin → Catalogue: products (with option/variant matrix), photos, categories, stock.
+ */
+import { Hono } from "hono";
+import { z } from "zod";
+import { slugify } from "@henine/shared";
+import type { AppEnv } from "../../env";
+import { auditStmt } from "../../lib/audit";
+import { imageRef, mediaUrl, variantLabels, type ImageRow } from "../../lib/catalog";
+import { randomToken } from "../../lib/crypto";
+import { body, HttpError, intParam } from "../../lib/http";
+import { bumpCatalogStmt } from "../../lib/settings";
+import { actorOf, requirePermission } from "../../middleware/access";
+
+export const catalogRoutes = new Hono<AppEnv>();
+
+const text = (max: number) => z.string().trim().max(max);
+const optText = (max: number) => z.string().trim().max(max).nullable().optional();
+const money = z.number().int().min(0).max(10_000_000);
+
+/* ───────────── Products ───────────── */
+
+catalogRoutes.get("/products", requirePermission("products.view"), async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  const status = c.req.query("status");
+  const category = c.req.query("category");
+  const where: string[] = [];
+  const binds: unknown[] = [];
+  if (q) {
+    where.push("(p.name_fr LIKE ? OR p.name_ar LIKE ? OR p.slug LIKE ? OR EXISTS (SELECT 1 FROM variants v WHERE v.product_id = p.id AND v.sku LIKE ?))");
+    binds.push(`%${q}%`, `%${q}%`, `%${q}%`, `%${q}%`);
+  }
+  if (status && status !== "all") {
+    where.push("p.status = ?");
+    binds.push(status);
+  } else where.push("p.status != 'archived'");
+  if (category) {
+    where.push("p.category_id = ?");
+    binds.push(Number(category));
+  }
+  const { results } = await c.env.DB.prepare(
+    `SELECT p.id, p.slug, p.name_fr, p.name_ar, p.status, p.price, p.compare_at_price, p.updated_at, c.name_fr AS category,
+            (SELECT base_key FROM product_images i WHERE i.product_id = p.id ORDER BY sort, id LIMIT 1) AS image_key,
+            (SELECT COUNT(*) FROM variants v WHERE v.product_id = p.id AND v.is_active = 1) AS variant_count,
+            (SELECT COALESCE(SUM(v.stock_on_hand - v.stock_reserved), 0) FROM variants v WHERE v.product_id = p.id AND v.is_active = 1) AS available,
+            (SELECT COALESCE(SUM(oi.qty), 0) FROM order_items oi JOIN orders o ON o.id = oi.order_id
+              WHERE oi.product_id = p.id AND o.status NOT IN ('annulee','doublon','fausse')) AS sold
+       FROM products p LEFT JOIN categories c ON c.id = p.category_id
+      ${where.length ? `WHERE ${where.join(" AND ")}` : ""}
+      ORDER BY p.updated_at DESC LIMIT 200`,
+  )
+    .bind(...binds)
+    .all<Record<string, unknown> & { image_key: string | null }>();
+  return c.json(results.map((r) => ({ ...r, image: r.image_key ? mediaUrl(c.env, r.image_key).replace("{w}", "480") : null })));
+});
+
+async function loadProduct(c: { env: AppEnv["Bindings"] }, id: number) {
+  const p = await c.env.DB.prepare("SELECT * FROM products WHERE id = ?").bind(id).first<Record<string, unknown>>();
+  if (!p) throw new HttpError(404, "not_found");
+  const [options, values, variants, images] = await c.env.DB.batch([
+    c.env.DB.prepare("SELECT * FROM product_options WHERE product_id = ? ORDER BY sort, id").bind(id),
+    c.env.DB.prepare("SELECT v.* FROM option_values v JOIN product_options o ON o.id = v.option_id WHERE o.product_id = ? ORDER BY v.sort, v.id").bind(id),
+    c.env.DB.prepare("SELECT * FROM variants WHERE product_id = ? ORDER BY id").bind(id),
+    c.env.DB.prepare("SELECT * FROM product_images WHERE product_id = ? ORDER BY sort, id").bind(id),
+  ]);
+  const vals = values!.results as { id: number; option_id: number; label_fr: string; label_ar: string; hex: string | null; sort: number }[];
+  return {
+    id: p.id,
+    slug: p.slug,
+    nameFr: p.name_fr,
+    nameAr: p.name_ar,
+    descriptionFr: p.description_fr ?? "",
+    descriptionAr: p.description_ar ?? "",
+    status: p.status,
+    categoryId: p.category_id,
+    tags: JSON.parse((p.tags as string) || "[]"),
+    price: p.price,
+    compareAtPrice: p.compare_at_price,
+    costPrice: p.cost_price,
+    seoTitle: p.seo_title,
+    seoDescription: p.seo_description,
+    instagramUrl: p.instagram_url,
+    options: (options!.results as { id: number; kind: string; name_fr: string; name_ar: string }[]).map((o) => ({
+      id: o.id,
+      kind: o.kind,
+      nameFr: o.name_fr,
+      nameAr: o.name_ar,
+      values: vals.filter((v) => v.option_id === o.id).map((v) => ({ ref: `v:${v.id}`, id: v.id, labelFr: v.label_fr, labelAr: v.label_ar, hex: v.hex })),
+    })),
+    variants: (
+      variants!.results as {
+        id: number; sku: string; barcode: string | null; option_value_ids: string; price_override: number | null;
+        stock_on_hand: number; stock_reserved: number; low_stock_threshold: number; is_active: number;
+      }[]
+    ).map((v) => ({
+      id: v.id,
+      sku: v.sku,
+      barcode: v.barcode,
+      refs: (JSON.parse(v.option_value_ids) as number[]).map((x) => `v:${x}`),
+      priceOverride: v.price_override,
+      stockOnHand: v.stock_on_hand,
+      stockReserved: v.stock_reserved,
+      lowStockThreshold: v.low_stock_threshold,
+      isActive: !!v.is_active,
+    })),
+    images: (images!.results as unknown as ImageRow[]).map((r) => ({ id: r.id, ...imageRef(c.env, r) })),
+  };
+}
+
+catalogRoutes.get("/products/:id", requirePermission("products.view"), async (c) => c.json(await loadProduct(c, intParam(c, "id"))));
+
+const productInput = z.object({
+  nameFr: text(120).min(2),
+  nameAr: text(120),
+  slug: text(90).optional(),
+  descriptionFr: text(5000).default(""),
+  descriptionAr: text(5000).default(""),
+  status: z.enum(["draft", "published", "archived"]),
+  categoryId: z.number().int().positive().nullable(),
+  tags: z.array(text(30)).max(10).default([]),
+  price: money,
+  compareAtPrice: money.nullable().optional(),
+  costPrice: money.nullable().optional(),
+  seoTitle: optText(120),
+  seoDescription: optText(300),
+  instagramUrl: optText(300),
+  options: z
+    .array(
+      z.object({
+        id: z.number().int().positive().optional(),
+        kind: z.enum(["taille", "couleur", "autre"]),
+        nameFr: text(40).min(1),
+        nameAr: text(40),
+        values: z
+          .array(
+            z.object({
+              ref: text(40).min(1),
+              labelFr: text(40).min(1),
+              labelAr: text(40),
+              hex: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+            }),
+          )
+          .min(1)
+          .max(30),
+      }),
+    )
+    .max(3),
+  variants: z
+    .array(
+      z.object({
+        id: z.number().int().positive().optional(),
+        refs: z.array(text(40)).max(3),
+        sku: text(60).optional(),
+        barcode: optText(60),
+        priceOverride: money.nullable().optional(),
+        stockOnHand: z.number().int().min(0).max(100_000),
+        lowStockThreshold: z.number().int().min(0).max(1000).default(2),
+        isActive: z.boolean().default(true),
+      }),
+    )
+    .min(1)
+    .max(200),
+});
+type ProductInput = z.infer<typeof productInput>;
+
+async function nextIds(env: AppEnv["Bindings"]) {
+  const r = await env.DB.prepare(
+    `SELECT (SELECT COALESCE(MAX(id), 0) FROM products) AS p, (SELECT COALESCE(MAX(id), 0) FROM product_options) AS o,
+            (SELECT COALESCE(MAX(id), 0) FROM option_values) AS v, (SELECT COALESCE(MAX(id), 0) FROM variants) AS var`,
+  ).first<{ p: number; o: number; v: number; var: number }>();
+  return { product: r!.p + 1, option: r!.o + 1, value: r!.v + 1, variant: r!.var + 1 };
+}
+
+async function saveProduct(c: Parameters<typeof body>[0], existingId: number | null, input: ProductInput) {
+  const env = c.env;
+  const actor = actorOf(c.get("member"));
+  const now = Date.now();
+  const ids = await nextIds(env);
+  const productId = existingId ?? ids.product;
+  const slug = slugify(input.slug || input.nameFr) || `produit-${productId}`;
+
+  const dup = await env.DB.prepare("SELECT id FROM products WHERE slug = ? AND id != ?").bind(slug, productId).first();
+  if (dup) throw new HttpError(409, "slug_taken");
+
+  const current = existingId ? await loadProduct(c, existingId) : null;
+  const stmts: D1PreparedStatement[] = [];
+
+  if (existingId) {
+    stmts.push(
+      env.DB.prepare(
+        `UPDATE products SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, status = ?, category_id = ?, tags = ?,
+           price = ?, compare_at_price = ?, cost_price = ?, seo_title = ?, seo_description = ?, instagram_url = ?, updated_at = ? WHERE id = ?`,
+      ).bind(
+        slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr, input.descriptionAr, input.status, input.categoryId,
+        JSON.stringify(input.tags), input.price, input.compareAtPrice ?? null, input.costPrice ?? null, input.seoTitle ?? null,
+        input.seoDescription ?? null, input.instagramUrl ?? null, now, productId,
+      ),
+    );
+  } else {
+    stmts.push(
+      env.DB.prepare(
+        `INSERT INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price,
+           cost_price, seo_title, seo_description, instagram_url, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      ).bind(
+        productId, slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr, input.descriptionAr, input.status, input.categoryId,
+        JSON.stringify(input.tags), input.price, input.compareAtPrice ?? null, input.costPrice ?? null, input.seoTitle ?? null,
+        input.seoDescription ?? null, input.instagramUrl ?? null, c.get("member").id, now, now,
+      ),
+    );
+  }
+
+  // ── options & values: upsert with explicit ids, delete what disappeared
+  const refToId = new Map<string, number>();
+  const keptOptionIds = new Set<number>();
+  const keptValueIds = new Set<number>();
+  const existingOptionIds = new Set(current?.options.map((o) => o.id) ?? []);
+  const existingValueIds = new Set(current?.options.flatMap((o) => o.values.map((v) => v.id)) ?? []);
+  let nextOption = ids.option;
+  let nextValue = ids.value;
+  input.options.forEach((o, oi) => {
+    const optionId = o.id && existingOptionIds.has(o.id) ? o.id : nextOption++;
+    keptOptionIds.add(optionId);
+    stmts.push(
+      env.DB.prepare(
+        `INSERT INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET kind = excluded.kind, name_fr = excluded.name_fr, name_ar = excluded.name_ar, sort = excluded.sort`,
+      ).bind(optionId, productId, o.kind, o.nameFr, o.nameAr || o.nameFr, oi),
+    );
+    o.values.forEach((v, vi) => {
+      const m = /^v:(\d+)$/.exec(v.ref);
+      const existing = m && existingValueIds.has(Number(m[1])) ? Number(m[1]) : null;
+      const valueId = existing ?? nextValue++;
+      refToId.set(v.ref, valueId);
+      keptValueIds.add(valueId);
+      stmts.push(
+        env.DB.prepare(
+          `INSERT INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET option_id = excluded.option_id, label_fr = excluded.label_fr, label_ar = excluded.label_ar, hex = excluded.hex, sort = excluded.sort`,
+        ).bind(valueId, optionId, v.labelFr, v.labelAr || v.labelFr, v.hex ?? null, vi),
+      );
+    });
+  });
+  for (const id of existingValueIds) {
+    if (!keptValueIds.has(id)) {
+      stmts.push(env.DB.prepare("UPDATE product_images SET option_value_id = NULL WHERE option_value_id = ?").bind(id));
+      stmts.push(env.DB.prepare("DELETE FROM option_values WHERE id = ?").bind(id));
+    }
+  }
+  for (const id of existingOptionIds) if (!keptOptionIds.has(id)) stmts.push(env.DB.prepare("DELETE FROM product_options WHERE id = ?").bind(id));
+
+  // ── variants
+  const currentVariants = new Map(current?.variants.map((v) => [v.id, v]) ?? []);
+  const keptVariantIds = new Set<number>();
+  let nextVariant = ids.variant;
+  const labelPrefix = slug.split("-").slice(0, 2).join("-").toUpperCase().slice(0, 12) || `P${productId}`;
+  const seenSku = new Set<string>();
+  for (const v of input.variants) {
+    const valueIds = v.refs.map((r) => {
+      const id = refToId.get(r);
+      if (!id) throw new HttpError(422, "variant_unknown_value", { ref: r });
+      return id;
+    });
+    const isExisting = v.id != null && currentVariants.has(v.id);
+    const variantId = isExisting ? v.id! : nextVariant++;
+    keptVariantIds.add(variantId);
+    const valueLabels = v.refs.map((r) => input.options.flatMap((o) => o.values).find((x) => x.ref === r)?.labelFr ?? "");
+    let sku = (v.sku || `${labelPrefix}-${valueLabels.map((l) => slugify(l).toUpperCase()).join("-")}` || `${labelPrefix}-${variantId}`).toUpperCase();
+    if (seenSku.has(sku)) sku = `${sku}-${variantId}`;
+    seenSku.add(sku);
+    if (isExisting) {
+      const before = currentVariants.get(v.id!)!;
+      stmts.push(
+        env.DB.prepare(
+          `UPDATE variants SET sku = ?, barcode = ?, option_value_ids = ?, price_override = ?, stock_on_hand = ?, low_stock_threshold = ?, is_active = ?, updated_at = ? WHERE id = ?`,
+        ).bind(sku, v.barcode ?? null, JSON.stringify(valueIds), v.priceOverride ?? null, v.stockOnHand, v.lowStockThreshold, v.isActive ? 1 : 0, now, variantId),
+      );
+      if (before.stockOnHand !== v.stockOnHand) {
+        stmts.push(
+          env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, note, actor, created_at) VALUES (?, ?, 'ajustement', 'Fiche produit', ?, ?)").bind(
+            variantId, v.stockOnHand - before.stockOnHand, actor, now,
+          ),
+        );
+      }
+    } else {
+      stmts.push(
+        env.DB.prepare(
+          `INSERT INTO variants (id, product_id, sku, barcode, option_value_ids, price_override, stock_on_hand, stock_reserved, low_stock_threshold, is_active, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?)`,
+        ).bind(variantId, productId, sku, v.barcode ?? null, JSON.stringify(valueIds), v.priceOverride ?? null, v.stockOnHand, v.lowStockThreshold, v.isActive ? 1 : 0, now),
+      );
+      if (v.stockOnHand > 0) {
+        stmts.push(
+          env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, note, actor, created_at) VALUES (?, ?, 'reception', 'Création', ?, ?)").bind(
+            variantId, v.stockOnHand, actor, now,
+          ),
+        );
+      }
+    }
+  }
+  // removed variants: delete if never ordered, otherwise deactivate (order history keeps its link)
+  const removed = [...currentVariants.keys()].filter((id) => !keptVariantIds.has(id));
+  if (removed.length) {
+    const ph = removed.map(() => "?").join(",");
+    const { results: used } = await env.DB.prepare(`SELECT DISTINCT variant_id FROM order_items WHERE variant_id IN (${ph})`).bind(...removed).all<{ variant_id: number }>();
+    const usedSet = new Set(used.map((u) => u.variant_id));
+    for (const id of removed) {
+      if (usedSet.has(id)) stmts.push(env.DB.prepare("UPDATE variants SET is_active = 0, updated_at = ? WHERE id = ?").bind(now, id));
+      else {
+        stmts.push(env.DB.prepare("DELETE FROM stock_movements WHERE variant_id = ?").bind(id));
+        stmts.push(env.DB.prepare("DELETE FROM stock_alerts WHERE variant_id = ?").bind(id));
+        stmts.push(env.DB.prepare("DELETE FROM variants WHERE id = ?").bind(id));
+      }
+    }
+  }
+
+  stmts.push(bumpCatalogStmt(env), auditStmt(env, actor, existingId ? "update" : "create", "product", productId, { name: input.nameFr, status: input.status }));
+
+  try {
+    await env.DB.batch(stmts);
+  } catch (err) {
+    const msg = String((err as Error).message);
+    if (msg.includes("variants_stock_ok")) throw new HttpError(409, "stock_below_reserved");
+    if (msg.includes("variants.sku")) throw new HttpError(409, "sku_taken");
+    if (msg.includes("UNIQUE") || msg.includes("PRIMARY KEY")) throw new HttpError(409, "conflict_retry");
+    throw err;
+  }
+  return productId;
+}
+
+catalogRoutes.post("/products", requirePermission("products.edit"), async (c) => {
+  const id = await saveProduct(c, null, await body(c, productInput));
+  return c.json(await loadProduct(c, id), 201);
+});
+
+catalogRoutes.put("/products/:id", requirePermission("products.edit"), async (c) => {
+  const id = intParam(c, "id");
+  await saveProduct(c, id, await body(c, productInput));
+  return c.json(await loadProduct(c, id));
+});
+
+catalogRoutes.post("/products/:id/duplicate", requirePermission("products.edit"), async (c) => {
+  const src = await loadProduct(c, intParam(c, "id"));
+  const copy: ProductInput = {
+    nameFr: `${src.nameFr} (copie)`,
+    nameAr: String(src.nameAr),
+    slug: `${src.slug}-copie-${Date.now().toString(36).slice(-4)}`,
+    descriptionFr: String(src.descriptionFr),
+    descriptionAr: String(src.descriptionAr),
+    status: "draft",
+    categoryId: (src.categoryId as number | null) ?? null,
+    tags: src.tags as string[],
+    price: src.price as number,
+    compareAtPrice: src.compareAtPrice as number | null,
+    costPrice: src.costPrice as number | null,
+    seoTitle: null,
+    seoDescription: null,
+    instagramUrl: null,
+    options: src.options.map((o) => ({ kind: o.kind as "taille" | "couleur" | "autre", nameFr: o.nameFr, nameAr: o.nameAr, values: o.values.map((v) => ({ ref: `n:${v.id}`, labelFr: v.labelFr, labelAr: v.labelAr, hex: v.hex })) })),
+    variants: src.variants.map((v) => ({ refs: v.refs.map((r) => r.replace("v:", "n:")), priceOverride: v.priceOverride, stockOnHand: 0, lowStockThreshold: v.lowStockThreshold, isActive: v.isActive })),
+  };
+  const id = await saveProduct(c, null, copy);
+  return c.json({ id }, 201);
+});
+
+catalogRoutes.delete("/products/:id", requirePermission("products.edit"), async (c) => {
+  const id = intParam(c, "id");
+  const actor = actorOf(c.get("member"));
+  const ordered = await c.env.DB.prepare("SELECT 1 FROM order_items WHERE product_id = ? LIMIT 1").bind(id).first();
+  if (ordered) {
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE products SET status = 'archived', updated_at = ? WHERE id = ?").bind(Date.now(), id),
+      bumpCatalogStmt(c.env),
+      auditStmt(c.env, actor, "archive", "product", id),
+    ]);
+    return c.json({ archived: true });
+  }
+  const { results: imgs } = await c.env.DB.prepare("SELECT base_key, widths FROM product_images WHERE product_id = ?").bind(id).all<{ base_key: string; widths: string }>();
+  const keys = imgs.flatMap((i) => (JSON.parse(i.widths) as number[]).map((w) => i.base_key.replace("{w}", String(w))));
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM stock_movements WHERE variant_id IN (SELECT id FROM variants WHERE product_id = ?)").bind(id),
+    c.env.DB.prepare("DELETE FROM stock_alerts WHERE variant_id IN (SELECT id FROM variants WHERE product_id = ?)").bind(id),
+    c.env.DB.prepare("DELETE FROM products WHERE id = ?").bind(id),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actor, "delete", "product", id),
+  ]);
+  if (keys.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(keys));
+  return c.json({ deleted: true });
+});
+
+/* ───────────── Photos (R2) ─────────────
+ * The admin browser resizes and encodes each photo (480/960/1440 px, WebP or JPEG) and strips
+ * EXIF/GPS by re-drawing it on a canvas. The Worker only validates and stores the files.
+ */
+
+const MAX_FILE = 1_500_000;
+const SIGNATURES: [string, (b: Uint8Array) => boolean][] = [
+  ["webp", (b) => b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 && b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50],
+  ["jpg", (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
+];
+
+catalogRoutes.post("/products/:id/images", requirePermission("products.edit"), async (c) => {
+  const productId = intParam(c, "id");
+  const exists = await c.env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(productId).first();
+  if (!exists) throw new HttpError(404, "not_found");
+  const form = await c.req.formData();
+  const width = Number(form.get("width"));
+  const height = Number(form.get("height"));
+  const lqip = String(form.get("lqip") ?? "");
+  const optionValueId = form.get("optionValueId") ? Number(form.get("optionValueId")) : null;
+  if (!width || !height || width > 10000 || height > 10000) throw new HttpError(422, "invalid_dimensions");
+  if (lqip && (!lqip.startsWith("data:image/") || lqip.length > 3000)) throw new HttpError(422, "invalid_lqip");
+
+  const files: { w: number; data: Uint8Array; ext: string }[] = [];
+  for (const w of [480, 960, 1440]) {
+    const f = form.get(`w${w}`);
+    if (!(f instanceof File)) continue;
+    if (f.size > MAX_FILE) throw new HttpError(413, "file_too_large");
+    const data = new Uint8Array(await f.arrayBuffer());
+    const ext = SIGNATURES.find(([, test]) => test(data))?.[0];
+    if (!ext) throw new HttpError(415, "unsupported_image"); // magic bytes, not the declared type
+    files.push({ w, data, ext });
+  }
+  if (!files.length) throw new HttpError(422, "no_files");
+  const ext = files[0]!.ext;
+  if (files.some((f) => f.ext !== ext)) throw new HttpError(422, "mixed_formats");
+
+  const baseKey = `p/${productId}/${randomToken(9)}-{w}.${ext}`;
+  await Promise.all(
+    files.map((f) =>
+      c.env.MEDIA.put(baseKey.replace("{w}", String(f.w)), f.data, {
+        httpMetadata: { contentType: ext === "webp" ? "image/webp" : "image/jpeg", cacheControl: "public, max-age=31536000, immutable" },
+      }),
+    ),
+  );
+  const sort = await c.env.DB.prepare("SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM product_images WHERE product_id = ?").bind(productId).first<{ s: number }>();
+  const row = await c.env.DB.prepare(
+    "INSERT INTO product_images (product_id, option_value_id, base_key, widths, width, height, lqip, sort) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING *",
+  )
+    .bind(productId, optionValueId, baseKey, JSON.stringify(files.map((f) => f.w)), width, height, lqip || null, sort?.s ?? 0)
+    .first<ImageRow>();
+  await c.env.DB.batch([bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "upload", "product_image", row!.id, { productId })]);
+  return c.json({ id: row!.id, ...imageRef(c.env, row!) }, 201);
+});
+
+catalogRoutes.put("/products/:id/images", requirePermission("products.edit"), async (c) => {
+  const productId = intParam(c, "id");
+  const input = await body(
+    c,
+    z.array(z.object({ id: z.number().int().positive(), optionValueId: z.number().int().positive().nullable(), altFr: optText(160), altAr: optText(160) })).max(40),
+  );
+  await c.env.DB.batch([
+    ...input.map((img, i) =>
+      c.env.DB.prepare("UPDATE product_images SET sort = ?, option_value_id = ?, alt_fr = ?, alt_ar = ? WHERE id = ? AND product_id = ?").bind(
+        i, img.optionValueId, img.altFr ?? null, img.altAr ?? null, img.id, productId,
+      ),
+    ),
+    bumpCatalogStmt(c.env),
+  ]);
+  return c.json({ ok: true });
+});
+
+catalogRoutes.delete("/images/:id", requirePermission("products.edit"), async (c) => {
+  const id = intParam(c, "id");
+  const img = await c.env.DB.prepare("SELECT base_key, widths FROM product_images WHERE id = ?").bind(id).first<{ base_key: string; widths: string }>();
+  if (!img) throw new HttpError(404, "not_found");
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM product_images WHERE id = ?").bind(id),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), "delete", "product_image", id),
+  ]);
+  c.executionCtx.waitUntil(c.env.MEDIA.delete((JSON.parse(img.widths) as number[]).map((w) => img.base_key.replace("{w}", String(w)))));
+  return c.json({ ok: true });
+});
+
+/* ───────────── Categories ───────────── */
+
+catalogRoutes.get("/categories", requirePermission("products.view"), async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT c.*, (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.status != 'archived') AS product_count
+       FROM categories c ORDER BY c.sort, c.id`,
+  ).all();
+  return c.json(results);
+});
+
+const categoryInput = z.object({
+  nameFr: text(60).min(2),
+  nameAr: text(60),
+  slug: text(60).optional(),
+  descriptionFr: optText(500),
+  descriptionAr: optText(500),
+  sort: z.number().int().min(0).max(1000).default(0),
+  isActive: z.boolean().default(true),
+});
+
+catalogRoutes.post("/categories", requirePermission("content.edit"), async (c) => {
+  const input = await body(c, categoryInput);
+  const slug = slugify(input.slug || input.nameFr);
+  try {
+    const row = await c.env.DB.prepare(
+      "INSERT INTO categories (slug, name_fr, name_ar, description_fr, description_ar, sort, is_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+    )
+      .bind(slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.sort, input.isActive ? 1 : 0, Date.now())
+      .first<{ id: number }>();
+    await c.env.DB.batch([bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "create", "category", row!.id, { slug })]);
+    return c.json({ id: row!.id }, 201);
+  } catch (err) {
+    if (String((err as Error).message).includes("UNIQUE")) throw new HttpError(409, "slug_taken");
+    throw err;
+  }
+});
+
+catalogRoutes.put("/categories/:id", requirePermission("content.edit"), async (c) => {
+  const id = intParam(c, "id");
+  const input = await body(c, categoryInput);
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare(
+        "UPDATE categories SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, sort = ?, is_active = ?, updated_at = ? WHERE id = ?",
+      ).bind(slugify(input.slug || input.nameFr), input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.sort, input.isActive ? 1 : 0, Date.now(), id),
+      bumpCatalogStmt(c.env),
+      auditStmt(c.env, actorOf(c.get("member")), "update", "category", id),
+    ]);
+  } catch (err) {
+    if (String((err as Error).message).includes("UNIQUE")) throw new HttpError(409, "slug_taken");
+    throw err;
+  }
+  return c.json({ ok: true });
+});
+
+catalogRoutes.delete("/categories/:id", requirePermission("content.edit"), async (c) => {
+  const id = intParam(c, "id");
+  const used = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM products WHERE category_id = ?").bind(id).first<{ n: number }>();
+  if (used?.n) throw new HttpError(409, "category_not_empty", { products: used.n });
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM categories WHERE id = ?").bind(id),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), "delete", "category", id),
+  ]);
+  return c.json({ ok: true });
+});
+
+/* ───────────── Stock ───────────── */
+
+catalogRoutes.get("/stock", requirePermission("stock.view"), async (c) => {
+  const q = (c.req.query("q") ?? "").trim();
+  const filter = c.req.query("filter") ?? "all";
+  const where = ["v.is_active = 1", "p.status != 'archived'"];
+  const binds: unknown[] = [];
+  if (q) {
+    where.push("(p.name_fr LIKE ? OR v.sku LIKE ? OR v.barcode = ?)");
+    binds.push(`%${q}%`, `%${q}%`, q);
+  }
+  if (filter === "low") where.push("v.stock_on_hand - v.stock_reserved <= v.low_stock_threshold AND v.stock_on_hand - v.stock_reserved > 0");
+  if (filter === "out") where.push("v.stock_on_hand - v.stock_reserved <= 0");
+  const { results } = await c.env.DB.prepare(
+    `SELECT v.id, v.sku, v.barcode, v.stock_on_hand, v.stock_reserved, v.low_stock_threshold, v.updated_at,
+            p.id AS product_id, p.name_fr, p.cost_price, COALESCE(v.price_override, p.price) AS price,
+            (SELECT COUNT(*) FROM stock_alerts a WHERE a.variant_id = v.id AND a.notified_at IS NULL) AS waiting
+       FROM variants v JOIN products p ON p.id = v.product_id
+      WHERE ${where.join(" AND ")}
+      ORDER BY (v.stock_on_hand - v.stock_reserved) ASC, p.name_fr LIMIT 500`,
+  )
+    .bind(...binds)
+    .all<{ id: number } & Record<string, unknown>>();
+  const labels = await variantLabels(c.env, results.map((r) => r.id));
+  const totals = await c.env.DB.prepare(
+    `SELECT COALESCE(SUM(v.stock_on_hand), 0) AS units, COALESCE(SUM(v.stock_on_hand * COALESCE(p.cost_price, 0)), 0) AS cost_value,
+            COALESCE(SUM(v.stock_on_hand * COALESCE(v.price_override, p.price)), 0) AS retail_value,
+            SUM(CASE WHEN v.stock_on_hand - v.stock_reserved <= 0 THEN 1 ELSE 0 END) AS out_count,
+            SUM(CASE WHEN v.stock_on_hand - v.stock_reserved > 0 AND v.stock_on_hand - v.stock_reserved <= v.low_stock_threshold THEN 1 ELSE 0 END) AS low_count
+       FROM variants v JOIN products p ON p.id = v.product_id WHERE v.is_active = 1 AND p.status != 'archived'`,
+  ).first();
+  const canSeeCost = c.get("member").permissions.includes("*") || c.get("member").permissions.includes("cost.view");
+  return c.json({
+    totals: canSeeCost ? totals : { ...totals, cost_value: null },
+    rows: results.map((r) => ({ ...r, cost_price: canSeeCost ? r.cost_price : null, options: labels.get(r.id)?.fr ?? "" })),
+  });
+});
+
+catalogRoutes.post("/stock/:variantId/adjust", requirePermission("stock.edit"), async (c) => {
+  const variantId = intParam(c, "variantId");
+  const input = await body(
+    c,
+    z.object({
+      mode: z.enum(["add", "remove", "set"]),
+      qty: z.number().int().min(0).max(100_000),
+      reason: z.enum(["reception", "ajustement", "casse", "retour", "inventaire"]),
+      note: optText(200),
+    }),
+  );
+  const v = await c.env.DB.prepare("SELECT stock_on_hand, stock_reserved FROM variants WHERE id = ?").bind(variantId).first<{ stock_on_hand: number; stock_reserved: number }>();
+  if (!v) throw new HttpError(404, "not_found");
+  const target = input.mode === "set" ? input.qty : input.mode === "add" ? v.stock_on_hand + input.qty : v.stock_on_hand - input.qty;
+  if (target < v.stock_reserved) throw new HttpError(409, "stock_below_reserved", { reserved: v.stock_reserved });
+  const delta = target - v.stock_on_hand;
+  if (delta === 0) return c.json({ stockOnHand: target });
+  const actor = actorOf(c.get("member"));
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE variants SET stock_on_hand = ?, updated_at = ? WHERE id = ? AND stock_on_hand = ?").bind(target, Date.now(), variantId, v.stock_on_hand),
+    c.env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, note, actor, created_at) VALUES (?, ?, ?, ?, ?, ?)").bind(
+      variantId, delta, input.reason, input.note ?? null, actor, Date.now(),
+    ),
+    bumpCatalogStmt(c.env),
+  ]);
+  return c.json({ stockOnHand: target });
+});
+
+catalogRoutes.get("/stock/movements", requirePermission("stock.view"), async (c) => {
+  const variantId = c.req.query("variant");
+  const { results } = await c.env.DB.prepare(
+    `SELECT m.id, m.variant_id, m.delta, m.reason, m.note, m.actor, m.created_at, v.sku, p.name_fr, o.public_code
+       FROM stock_movements m JOIN variants v ON v.id = m.variant_id JOIN products p ON p.id = v.product_id
+       LEFT JOIN orders o ON o.id = m.order_id
+      ${variantId ? "WHERE m.variant_id = ?" : ""} ORDER BY m.id DESC LIMIT 100`,
+  )
+    .bind(...(variantId ? [Number(variantId)] : []))
+    .all();
+  return c.json(results);
+});

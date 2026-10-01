@@ -1,227 +1,76 @@
-<p align="center">
-  <a href="https://bagisto.com/en/headless-ecommerce/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/bagisto/temp-media/0b0984778fae92633f57e625c5494ead1fe320c3/dark-logo-P5H7MBtx.svg">
-      <source media="(prefers-color-scheme: light)" srcset="https://bagisto.com/wp-content/themes/bagisto/images/logo.png">
-      <img src="https://bagisto.com/wp-content/themes/bagisto/images/logo.png" alt="Bagisto logo">
-    </picture>
-  </a>
-</p>
+# Henine Boutique
 
-<p align="center">
-    <a href="https://bagisto.com/en/headless-ecommerce/">Website</a> | <a href="https://bagisto.com/en/bagisto-headless-ecommerce-installation-guide/">Documentation</a> | <a href="https://forums.bagisto.com/">Forums</a> | <a href="https://www.facebook.com/groups/bagisto/">Community</a>
-</p>
+Storefront + admin panel for **Henine Boutique** (Boumerdès), running entirely on the Cloudflare free tier.
+The full product/architecture plan is in [`PLAN.md`](PLAN.md).
 
-<p align="center">
-    <a href="https://twitter.com/intent/follow?screen_name=bagistoshop"><img src="https://img.shields.io/twitter/follow/bagistoshop?style=social"></a>
-    <a href="https://www.youtube.com/channel/UCbrfqnhyiDv-bb9QuZtonYQ"><img src="https://img.shields.io/youtube/channel/subscribers/UCbrfqnhyiDv-bb9QuZtonYQ?style=social"></a>
-</p>
-
-<p align="center">
-    <a href="https://packagist.org/packages/bagisto/bagisto"><img src="https://poser.pugx.org/bagisto/bagisto/license.svg" alt="License"></a>
-</p>
-
-#  Bagisto Next.js Commerce
-
-A [**headless eCommerce framework**](https://bagisto.com/en/headless-ecommerce/) built with **Next.js** and powered by **Bagisto**, designed for modern scalability and flexibility.
-Through layered caching and optimized rendering strategies, it consistently achieves a **100/100 Core Web Vitals score**, delivering lightning-fast performance and seamless shopping experiences.
-
-Check the [Documentation](https://headless-doc.bagisto.com/) to quickly set up your Headless eCommerce store.
-
-**Bagisto Version:** v2.4.x
-
-**Bagisto API:** v1.0.3
-
-![Bagisto Headless Commerce Image](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-home.png)
-## Features
-
-- **Ultra-fast storefront** with 100/100 Core Web Vitals score.  
-- **Layered caching** for API responses and page rendering.  
-- Fully **responsive and mobile-friendly** design.  
-- SEO optimized with meta tags, OpenGraph, and Twitter cards.  
-- Secure authentication via **NextAuth.js**.  
-- Powered by **Bagisto** GraphQL APIs for robust commerce functionality.  
-- **Incremental Static Regeneration (ISR)** with revalidation.
-  
-Bagisto Open Source Headless eCommerce is optimized to deliver a **100/100 Core Web Vitals score** across devices, ensuring top-tier performance and user experience.
-
-![Bagisto Headless Commerce Image](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-performance.png)
-
-## Prerequisites
-
-Before you begin, ensure you have the following installed:
-
-- **Node.js** 20+ and **npm**
-- Check Bagisto [backend requirement detail](https://devdocs.bagisto.com/2.3/introduction/requirements.html#server-configuration)
-
----
-
-## Installation
-
-1) Install Bagisto
- 
-    Begin by [installing the Bagisto](https://devdocs.bagisto.com/) eCommerce platform on your server or local environment.
-
-2) Install the Bagisto Headless Extension
-
-    After installing Bagisto, install the [Bagisto Headless Extension](https://github.com/bagisto/bagisto-api) to expose the required APIs for your frontend.
-
-3) Get your storefront up and running in one command:
-   
-   ```bash
-   npx -y @bagisto-headless/create your-storefront
-   ```
-   
-4) Configure `.env.local` in the Next.js Project
-
-   In your Next.js frontend project, create or update your `.env.local` file with the following variables:
-
-| Variable | Description | Example |
-|----------|-------------|---------|
-| `NEXT_PUBLIC_BAGISTO_ENDPOINT` | Enter Your Bagisto Shop URL | `https://your-store.bagisto.com/` |
-| `NEXT_PUBLIC_BAGISTO_STOREFRONT_KEY` | Enter Your Bagisto Storefront Key | `pk_storefront_*************************` |
-| `NEXTAUTH_URL` | Enter Your Headless Shop URL | `https://headless-store.com/` |
-| `NEXTAUTH_SECRET` | Enter Your Headless Shop Secret | Generate with `openssl rand -base64 32` |
-| `COMPANY_NAME` | Enter Your company name | Bagisto Headless Store |
-
-
-**Important Notes**  
-- You will need to use the environment variables defined in `.env.example` to run Next.js Commerce.  
-- It’s recommended to use **Vercel Environment Variables**, but a `.env` file is sufficient for local development.  
-- **Never commit your `.env` file** to version control — it contains secrets that would allow others to control your Bagisto store.
-
-
-## One-Click Deploy to Netlify
-
-Click the button above to deploy your own copy of Bagisto Headless eCommerce to Netlify instantly!
-
-[![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=https://github.com/bagisto/nextjs-commerce)
-
----
-
-**Vercel Setup**
-
-Install the Vercel CLI:
-
-```bash
-npm i -g vercel
+```
+apps/web      Next.js 16 storefront, static export (Arabic at /, French at /fr)
+apps/admin    Vite + React admin SPA at /admin (login: email + password + emailed code)
+apps/worker   Cloudflare Worker: Hono API (/api), cron jobs, serves both static builds
+packages/db   Drizzle schema, D1 migrations, seeds (69 wilayas, 1541 communes, roles)
+packages/shared  phone/money/i18n utils, order state machine, zod schemas, permissions
 ```
 
-Link your local instance with Vercel and GitHub accounts (this creates the `.vercel` directory):
+## Local development
 
-```bash
-vercel link
-```
-
-Download your environment variables:
-
-```bash
-vercel env pull
-```
-
----
-
-**Run the development server:**
-
-```bash
-npm run dev
-```
-
-**Build for production:**
-
-```bash
-npm run build
-npm run start
-```
-
----
-
-## Usage
-
-Install dependencies:
+Requirements: Node ≥ 22.
 
 ```bash
 npm install
+cp apps/worker/.dev.vars.example apps/worker/.dev.vars
+npm run db:migrate:local          # create tables in the local D1
+npm run db:seed:local             # wilayas, communes, roles, settings + 6 demo products
+
+# create your admin account (prints a one-time invitation link)
+npm run admin:invite -- --email you@example.com --name "Ilyas" --role owner
+
+npm run build                     # storefront + admin → dist/
+npm run dev                       # Worker on http://127.0.0.1:8787 (site, /admin, /api)
 ```
 
-Start the development server:
+Faster UI iteration: `npm run dev:web` (Next on :3000) or `npm run dev:admin` (Vite on :5174, proxies `/api` to :8787).
 
-```bash
-npm run dev
-```
-Access the store at: [http://localhost:3000](http://localhost:3000)
+Checks: `npm run typecheck`, `npm test`.
 
-### Available Scripts
+In development no email is sent: login codes are printed in the terminal **and shown on the login screen** (localhost only).
 
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start the Next.js development server |
-| `npm run build` | Create an optimized production build |
-| `npm run start` | Run the production server |
-| `npm run lint` | Lint the codebase with ESLint |
-| `npm run lint:fix` | Lint and auto-fix issues |
-| `npm run typecheck` | Type-check the project with `tsc` |
+## Admin login
 
----
+Email + password, then a 6-digit code sent by email (valid 10 min, 5 attempts). 5 wrong passwords lock the account 15 min.
+The password is stretched in the browser (PBKDF2-SHA256, 600 000 iterations) and the Worker stores a salted, peppered
+hash of that key, which keeps each login within the free plan's 10 ms CPU limit.
+New members are invited from **Système → Équipe** (or `npm run admin:invite`).
 
-## Products
+## Telegram orders
 
-The Open Source Headless eCommerce allows users to browse a wide range of products with built-in pagination and search functionality. Each product has its own detailed page showcasing images, descriptions, pricing, reviews, and availability.
+Admin → **Système → Comptes → Telegram**:
+1. Create a bot with **@BotFather** (`/newbot`), copy the token, paste it.
+2. Add the bot to the team's group and send `/start` there, then click **Détecter le groupe** and pick it.
+3. **Envoyer un message test**. Every new order now arrives with ✅ Confirmer / 📵 Injoignable / ❌ Annuler buttons.
 
-Bagisto Headless Commerce APIs support multiple product types, including simple, configurable, bundled, and downloadable products, ensuring flexibility for different business needs.
+Locally the buttons work while the admin panel is open (it polls Telegram). In production click **Activer les boutons** (webhook).
+Bot commands: `/id` (your Telegram ID, to link it in Équipe), `/jour` (today's numbers), `/cmd HN-XXXXXX`.
 
-![Bagisto Headless Commerce Image](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-product-page.png)
+## First deploy (one-time Cloudflare setup)
 
-## Categories
+1. `npx wrangler login`
+2. `npx wrangler d1 create henine-db --location weur` → paste the `database_id` into `apps/worker/wrangler.jsonc`
+3. `npx wrangler r2 bucket create henine-media`
+4. Secrets (from `apps/worker`): `npx wrangler secret put <NAME>` for `TURNSTILE_SECRET`, `IP_HASH_SALT`, `TRACK_TOKEN_PEPPER`, `AUTH_PEPPER`,
+   `SETTINGS_KEY` (32 random bytes, base64) and `MAIL_API_KEY`. Set `MAIL_PROVIDER` (`brevo` or `resend`), `MAIL_FROM` and `TURNSTILE_SITE_KEY` in `wrangler.jsonc` vars.
+5. Set `PUBLIC_ORIGIN` (your `*.workers.dev` URL for now) in `wrangler.jsonc` vars.
+6. `npm run migrate:remote --workspace @henine/worker`, `npm run seed:remote --workspace @henine/worker`, then `npm run deploy`
+7. Create the owner: `npm run admin:invite -- --email <email> --name Ilyas --role owner --remote --origin https://<your-url>`
+8. Optional extra wall: Cloudflare Access on `/admin*` (set `ACCESS_AUD` + `ACCESS_TEAM_DOMAIN`).
 
-Products are neatly organized into hierarchical categories, making it easy for customers to navigate the store. Each category page displays relevant product listings with filtering and sorting options for a better shopping experience.
+After that, pushes to `main` deploy automatically via GitHub Actions (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` repo secrets).
 
-The Open Source Headless eCommerce also ensures SEO-friendly category URLs with meta titles, descriptions, and breadcrumbs for improved discoverability.
+## Data notes
 
-![Bagisto Headless Commerce Image](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commercecategory.png)
- 
-## Checkout
+- **Wilayas:** 69 (loi 26-06, décret 26-206). New wilayas 59–69 carry `parent_code`, because carriers still using the 58-wilaya layout ship to the parent.
+- **Shipping prices** in the seed are **estimates from Boumerdès by zone**. Replace them with the real ZR Express grid (Admin → Contenu → Livraison) before launch.
+- Regenerate the geo seed with `npm run seed:geo --workspace @henine/db`.
 
-The checkout process is fully functional, featuring complete cart management where customers can add, update, or remove items.
+## Licence
 
-Both guest and logged-in users can proceed through checkout, selecting shipping addresses and preferred payment methods.
-
-Once the order is placed, it is instantly synchronized with the Bagisto backend, enabling smooth order processing and management.
-
-![Bagisto Headless Commerce Image](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-cart-checkout.png)
-
-## Customer Panel
-
-Registered customers get a dedicated account dashboard to manage their profile and activity across the store. Authentication is handled securely via **NextAuth.js**, ensuring each customer's data stays protected. On desktop the panel renders as a full-page layout with a persistent sidebar, while on mobile it opens as a slide-in drawer for a native, app-like experience.
-
-The customer panel includes:
-
-- **Profile** – View and edit personal details such as name, email, and password.
-
-  ![Customer profile page](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-customer-profile.png)
-
-- **Addresses** – Create, edit, and remove multiple shipping and billing addresses for faster checkout.
-- **Orders** – Browse the complete order history and open any order to view its detailed summary, items, and current status.
-
-  ![Customer order history](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-customer-order.png)
-
-- **Downloadable Products** – Access and re-download purchased digital products from a single place.
-- **Reviews** – Track and manage the product reviews submitted by the customer.
-- **Wishlist** – Save favorite products to revisit, move to the cart, or purchase later.
-
-  ![Customer wishlist](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-customer-wishlist.png)
-
-- **Compare** – Add products to a comparison list to evaluate their attributes side by side.
-
-  ![Product comparison](https://raw.githubusercontent.com/bagisto/temp-media/refs/heads/master/bagisto-headless-commerce-customer-compare.png)
-
-All customer actions are synchronized in real time with the Bagisto backend through its GraphQL APIs.
-
-## Community
-Get Bagisto Headless Commerce support on [Facebook Group](https://www.facebook.com/groups/bagisto) and [Forum](https://forums.bagisto.com/)
-
-## License
-Bagisto headless eCommerce framework that will always remain free under the [MIT License](https://github.com/bagisto/nextjs-commerce/blob/main/license.md).
-
-## Security Vulnerabilities
-If you think that you have found a security issue in Bagisto Headless Commerce, please do not use the issue tracker and do not post it publicly. Instead, all security issues must be sent to [mailto:support@bagisto.com](mailto:support@bagisto.com).
+Initially forked from [bagisto/nextjs-commerce](https://github.com/bagisto/nextjs-commerce) (MIT, see `LICENSE.upstream.md`); the Bagisto layer has since been removed.

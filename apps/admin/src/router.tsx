@@ -1,0 +1,64 @@
+import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
+import { ForgotPage, InvitationPage, LoginPage } from "./pages/auth/AuthPages";
+import { Dashboard } from "./pages/Dashboard";
+import { MoreMenu, Shell } from "./Shell";
+
+// Each screen is its own chunk: the phone only downloads the screens it opens.
+type Loader = () => Promise<Record<string, unknown>>;
+const lazy = (load: Loader, name: string) => lazyRouteComponent(load as () => Promise<Record<string, () => React.ReactNode>>, name);
+const Products: Loader = () => import("./pages/Products");
+const Customers: Loader = () => import("./pages/Customers");
+const Marketing: Loader = () => import("./pages/Marketing");
+const System: Loader = () => import("./pages/System");
+
+const rootRoute = createRootRoute({ component: Outlet });
+
+// Public (no session): login, invitation, password reset
+const publicRoutes = [
+  createRoute({ getParentRoute: () => rootRoute, path: "/connexion", component: LoginPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/invitation", component: InvitationPage }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/mot-de-passe-oublie", component: ForgotPage }),
+];
+
+// Everything else lives inside the authenticated shell
+const shellRoute = createRoute({ getParentRoute: () => rootRoute, id: "app", component: Shell });
+const page = (path: string, component: unknown) => createRoute({ getParentRoute: () => shellRoute, path, component: component as () => React.ReactNode });
+
+const appRoutes = [
+  page("/", Dashboard),
+  page("/plus", MoreMenu),
+  page("/produits", lazy(Products, "ProductsPage")),
+  page("/produits/nouveau", lazy(Products, "ProductEditor")),
+  page("/produits/$id", lazy(Products, "ProductEditor")),
+  page("/stock", lazy(() => import("./pages/Stock"), "StockPage")),
+  page("/ventes", lazy(() => import("./pages/Sales"), "SalesPage")),
+  page("/commandes", lazy(() => import("./pages/Orders"), "OrdersPage")),
+  page("/clients", lazy(Customers, "CustomersPage")),
+  page("/paniers", lazy(Customers, "CartsPage")),
+  page("/promos", lazy(Marketing, "PromosPage")),
+  page("/fidelite", lazy(Customers, "LoyaltyPage")),
+  page("/accueil", lazy(Marketing, "HomePageSettings")),
+  page("/avis", lazy(Marketing, "ReviewsPage")),
+  page("/notifier", lazy(Marketing, "NotifierPage")),
+  page("/liens", lazy(Marketing, "LinksPage")),
+  page("/contact", lazy(Marketing, "ContactPage")),
+  page("/statistiques", lazy(() => import("./pages/Stats"), "StatsPage")),
+  page("/equipe", lazy(System, "TeamPage")),
+  page("/comptes", lazy(System, "AccountsPage")),
+  page("/contenu", lazy(System, "ContentPage")),
+  page("/erreurs", lazy(System, "ErrorsPage")),
+];
+
+export const router = createRouter({
+  routeTree: rootRoute.addChildren([...publicRoutes, shellRoute.addChildren(appRoutes)]),
+  basepath: "/admin",
+  defaultPreload: "intent",
+  // ?o=12 style params: parse numbers so links like search={{ o: id }} round-trip
+  parseSearch: (s) => Object.fromEntries([...new URLSearchParams(s)].map(([k, v]) => [k, /^\d+$/.test(v) ? Number(v) : v])),
+  stringifySearch: (o) => {
+    const p = new URLSearchParams();
+    for (const [k, v] of Object.entries(o)) if (v !== undefined && v !== null && v !== "") p.set(k, String(v));
+    const s = p.toString();
+    return s ? `?${s}` : "";
+  },
+});

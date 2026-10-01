@@ -1,0 +1,263 @@
+@import "tailwindcss";
+
+/*
+ * Henine design tokens: soft, feminine, premium-but-accessible.
+ * Pearl-white ground (warm, never pure #fff), deep plum ink, blush-rose accent, gold hairlines.
+ * WCAG contrast on pearl: ink 16.1:1, ink-soft 8.4:1, plum-600 9.7:1, rose-700 5.6:1 (all AA ✓).
+ * rose-300/500 are decorative only, never text on pearl.
+ */
+@theme {
+  --color-ivory: #fefcf9;
+  --color-ivory-deep: #f8f3ee;
+  --color-ink: #2a1a24;
+  --color-ink-soft: #5b4652;
+  --color-line: #eee4dc;
+  --color-rose-800: #8f3a55;
+  --color-plum-600: #6b2d52;
+  --color-plum-700: #57223f;
+  --color-rose-100: #fbe7ec;
+  --color-rose-300: #f2b8c6;
+  --color-rose-500: #d9738c;
+  --color-rose-700: #a8445e;
+  --color-gold: #b08d57;
+  --color-success: #2f7a55;
+  --color-danger: #b3261e;
+
+  --font-display: var(--font-cormorant), "Times New Roman", serif;
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
+  --font-arabic: var(--font-plex-arabic), "Segoe UI", Tahoma, sans-serif;
+
+  --radius-card: 1rem;
+  --shadow-soft: 0 1px 2px rgb(42 26 36 / 0.04), 0 8px 24px rgb(42 26 36 / 0.06);
+
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
+  --animate-bloom: bloom 2.4s ease-out 1;
+
+  @keyframes shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  @keyframes bloom {
+    0% { transform: scale(0.85) rotate(-20deg); opacity: 0; }
+    60% { transform: scale(1.08) rotate(4deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+}
+
+@layer base {
+  html {
+    background: var(--color-ivory);
+    color: var(--color-ink);
+    -webkit-tap-highlight-color: transparent;
+    text-size-adjust: 100%;
+  }
+  body {
+    font-family: var(--font-sans);
+    min-height: 100dvh;
+    -webkit-font-smoothing: antialiased;
+  }
+  html[lang="ar"] body {
+    font-family: var(--font-arabic);
+  }
+  /* 16px minimum on inputs: iOS never zooms on focus */
+  input, select, textarea {
+    font-size: max(16px, 1rem);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-plum-600);
+    outline-offset: 2px;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .skeleton {
+    background: linear-gradient(90deg, var(--color-ivory-deep) 25%, var(--color-rose-100) 50%, var(--color-ivory-deep) 75%);
+    background-size: 200% 100%;
+    animation: var(--animate-shimmer);
+    border-radius: 0.5rem;
+  }
+  .heading-display {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  /* Latin brand text (dir="ltr") keeps the display serif on Arabic pages */
+  html[lang="ar"] .heading-display:not([dir="ltr"]) {
+    font-family: var(--font-arabic);
+    font-weight: 600;
+    letter-spacing: 0;
+  }
+}
+
+/* ── Animated brand tagline ──
+ * 1) the words rise in one after another;
+ * 2) then a golden light travels through the letters themselves (gradient clipped to the
+ *    text, each word starting slightly after the previous one), so the sweep reads as one
+ *    wave along the line and nothing is drawn on the background. Animation delays are set
+ *    per word in AnimatedTagline.tsx. */
+.tagline-word {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.55em);
+  filter: blur(6px);
+  color: transparent;
+  background: linear-gradient(100deg, var(--color-ink) 0%, var(--color-ink) 42%, var(--color-gold) 50%, var(--color-rose-500) 56%, var(--color-ink) 64%, var(--color-ink) 100%);
+  background-size: 300% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation-name: tagline-rise, tagline-shine;
+  animation-duration: 0.9s, 6s;
+  animation-timing-function: cubic-bezier(0.2, 0.7, 0.2, 1), ease-in-out;
+  animation-iteration-count: 1, infinite;
+  animation-fill-mode: forwards, none;
+}
+@keyframes tagline-rise {
+  to { opacity: 1; transform: none; filter: none; }
+}
+@keyframes tagline-shine {
+  0% { background-position: 100% 0; }
+  22% { background-position: 0% 0; }
+  100% { background-position: 0% 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tagline-word { opacity: 1; transform: none; filter: none; animation: none; color: var(--color-ink); background: none; }
+}
+
+/* ── Announcement bar: flowing rose gradient + endless marquee ── */
+.announce {
+  background: linear-gradient(90deg, var(--color-rose-700), var(--color-rose-800), var(--color-plum-600), var(--color-rose-800), var(--color-rose-700));
+  background-size: 300% 100%;
+  animation: announce-flow 14s ease-in-out infinite alternate;
+}
+.announce-track {
+  display: flex;
+  width: max-content;
+  animation: marquee 32s linear infinite;
+}
+.announce:hover .announce-track { animation-play-state: paused; }
+[dir="rtl"] .announce-track { animation-name: marquee-rtl; }
+@keyframes announce-flow {
+  from { background-position: 0% 0; }
+  to { background-position: 100% 0; }
+}
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+@keyframes marquee-rtl {
+  from { transform: translateX(0); }
+  to { transform: translateX(50%); }
+}
+.announce-sparkle { animation: sparkle 2.4s ease-in-out infinite; display: inline-block; }
+@keyframes sparkle {
+  0%, 100% { opacity: 0.55; transform: scale(0.85) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
+}
+
+/* ── Scroll reveal (class toggled by <Reveal>) ── */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.reveal.is-visible { opacity: 1; transform: none; }
+
+/* ── "Comment commander" steps ── */
+.step-num {
+  background: linear-gradient(135deg, var(--color-gold), var(--color-rose-500) 55%, var(--color-plum-600));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.step-line {
+  background: repeating-linear-gradient(90deg, var(--color-rose-300) 0 8px, transparent 8px 16px);
+  background-size: 32px 2px;
+  animation: dash-flow 1.2s linear infinite;
+}
+[dir="rtl"] .step-line { animation-direction: reverse; }
+@keyframes dash-flow {
+  to { background-position: 32px 0; }
+}
+/* vertical variant (phones: steps are stacked) */
+.step-line-v {
+  background: repeating-linear-gradient(180deg, var(--color-rose-300) 0 8px, transparent 8px 16px);
+  background-size: 2px 32px;
+  animation: dash-flow-v 1.2s linear infinite;
+}
+@keyframes dash-flow-v {
+  to { background-position: 0 32px; }
+}
+.step-icon { animation: float 4s ease-in-out infinite; }
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+
+/* ── Instagram card: slowly rotating gradient border + light sweep on the button ── */
+@property --ig-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.ig-card {
+  background:
+    linear-gradient(var(--color-ivory), var(--color-ivory)) padding-box,
+    conic-gradient(from var(--ig-angle), #f58529, #dd2a7b, #8134af, #515bd4, var(--color-gold), #f58529) border-box;
+  border: 2px solid transparent;
+  animation: ig-spin 8s linear infinite;
+}
+@keyframes ig-spin {
+  to { --ig-angle: 360deg; }
+}
+.ig-logo { background: radial-gradient(circle at 30% 107%, #fdf497 0%, #fd5949 45%, #d6249f 60%, #285aeb 90%); }
+.ig-btn { position: relative; overflow: hidden; }
+.ig-btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.45) 50%, transparent 70%);
+  transform: translateX(-120%);
+  animation: btn-shine 3.2s ease-in-out infinite;
+}
+@keyframes btn-shine {
+  0%, 55% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+
+/* ── FAQ accordion (native <details>, smooth height where supported) ── */
+.faq-item { interpolate-size: allow-keywords; }
+.faq-item::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition: block-size 0.35s ease, content-visibility 0.35s allow-discrete;
+}
+.faq-item[open]::details-content { block-size: auto; }
+.faq-item summary { list-style: none; }
+.faq-item summary::-webkit-details-marker { display: none; }
+.faq-plus { transition: transform 0.3s ease, background-color 0.3s ease; }
+.faq-item[open] .faq-plus { transform: rotate(45deg); background: var(--color-plum-600); color: var(--color-ivory); }
+
+@media (prefers-reduced-motion: reduce) {
+  .announce, .announce-track, .announce-sparkle, .step-line, .step-line-v, .step-icon, .ig-card, .ig-btn::after { animation: none; }
+  .reveal { opacity: 1; transform: none; transition: none; }
+}
+
+/* sheet / drawer entrance */
+@keyframes sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-sheet { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.animate-fade { animation: fade-in 0.2s ease-out; }
+
+/* Smooth cross-page transitions (progressive enhancement) */
+@view-transition {
+  navigation: auto;
+}

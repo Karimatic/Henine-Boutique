@@ -1,0 +1,53 @@
+{
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "henine",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Storefront (Next static export) + admin SPA, assembled by scripts/assemble-dist.mjs.
+  // Static files are served free and never count against the Worker request/CPU limits.
+  // Only these paths run the Worker first:
+  "assets": {
+    "directory": "../../dist",
+    "binding": "ASSETS",
+    "html_handling": "auto-trailing-slash",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*", "/admin", "/admin/*", "/media/*", "/l/*", "/produit/*", "/c/*", "/p/*", "/fr/produit/*", "/fr/c/*", "/fr/p/*"]
+  },
+
+  // Free *.workers.dev URL until a domain is bought. Then: routes + custom_domain, workers_dev: false.
+  "workers_dev": true,
+  "preview_urls": false,
+
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "henine-db",
+      "database_id": "00000000-0000-0000-0000-000000000000", // ← replace after `wrangler d1 create henine-db --location weur`
+      "migrations_dir": "../../packages/db/migrations"
+    }
+  ],
+  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "henine-media" }],
+
+  "ratelimits": [
+    { "name": "RL_WRITE", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "RL_LOOKUP", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
+    { "name": "RL_AUTH", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } }
+  ],
+
+  // 21:00 Algiers = 20:00 UTC (Algeria has no DST)
+  "triggers": { "crons": ["*/5 * * * *", "*/30 * * * *", "0 20 * * *"] },
+
+  "vars": {
+    "ENVIRONMENT": "production",
+    "PUBLIC_ORIGIN": "https://henine.<your-subdomain>.workers.dev",
+    "MEDIA_ORIGIN": "",
+    "TURNSTILE_SITE_KEY": "",
+    // "resend" or "brevo" once MAIL_API_KEY is set as a secret; "console" logs codes (development)
+    "MAIL_PROVIDER": "console",
+    "MAIL_FROM": "Henine Boutique <no-reply@example.com>"
+  },
+
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 }
+}
