@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatDA, normalizeSearch, type CategoryDTO, type ProductCardDTO } from "@henine/shared";
+import { formatDA, normalizeSearch, type CategoryDTO, type ProductCardDTO, type SiteConfigDTO } from "@henine/shared";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { CategoryCard } from "@/components/product/CategoryCard";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
@@ -19,6 +19,8 @@ export function CartView() {
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const site = useApi<SiteConfigDTO>("/site");
+  const freeOver = site.data?.checkout.freeShippingOver ?? null;
 
   if (!ready) return <div className="mx-auto max-w-3xl px-4 py-8"><div className="skeleton h-40 rounded-card" /></div>;
   return (
@@ -33,7 +35,21 @@ export function CartView() {
         </div>
       ) : (
         <>
-          <ul className="divide-y divide-line rounded-card border border-line bg-white/60">
+          {/* free delivery: how far she is from it */}
+          {freeOver != null && freeOver > 0 && (
+            <div className="mb-4 rounded-2xl bg-ivory-deep p-4">
+              <p className="text-sm font-semibold">
+                {subtotal >= freeOver ? t.freeShip.done : t.freeShip.left(formatDA(freeOver - subtotal, locale))}
+              </p>
+              <span className="mt-2.5 block h-2 overflow-hidden rounded-full bg-white">
+                <span
+                  className="block h-full rounded-full bg-gradient-to-r from-rose-500 to-plum-600 transition-[width] duration-700 rtl:bg-gradient-to-l"
+                  style={{ width: `${Math.min(100, Math.round((subtotal / freeOver) * 100))}%` }}
+                />
+              </span>
+            </div>
+          )}
+          <ul className="divide-y divide-line rounded-card border border-line bg-white">
             {items.map((i) => (
               <li key={i.variantId} className="flex gap-3 p-3">
                 <a href={href(`/produit/${i.slug}`)} className="shrink-0">
@@ -61,7 +77,7 @@ export function CartView() {
             <span>{t.cart.subtotal} ({cartCount(items)})</span>
             <span className="font-semibold" dir="ltr">{formatDA(subtotal, locale)}</span>
           </div>
-          <a href={href("/commande")} className="mt-5 grid h-13 place-items-center rounded-full bg-plum-600 font-semibold text-ivory shadow-soft">
+          <a href={href("/commande")} className="lift mt-5 grid h-13 place-items-center rounded-full bg-plum-600 font-semibold text-white">
             {t.cart.checkout}
           </a>
           <a href={href("/")} className="mt-3 block text-center text-sm font-semibold text-plum-600">

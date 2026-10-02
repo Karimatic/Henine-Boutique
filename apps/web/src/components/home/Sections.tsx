@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { CategoryDTO, ProductCardDTO } from "@henine/shared";
-import { ProductImage } from "@/components/ui/kit";
-import { InstagramIcon, TRUST_ICONS } from "@/components/ui/icons";
+import { InstagramIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
 
@@ -46,66 +44,6 @@ export function SectionHead({ title, href, link }: { title: string; href?: strin
         </a>
       )}
     </div>
-  );
-}
-
-/* ───────── Categories as a swipeable row of chips ───────── */
-
-export function CategoryChips({ categories, products }: { categories: CategoryDTO[] | undefined; products: ProductCardDTO[] }) {
-  const { t, href, ar } = useLocale();
-  // only categories that have something to show
-  const list = (categories ?? []).filter((c) => (c.productCount ?? 0) > 0);
-  if (categories && !list.length) return null;
-  return (
-    <nav aria-label={t.categories.title} className="mx-auto max-w-6xl">
-      <ul className="swipe-row flex gap-2.5 overflow-x-auto px-4 py-1">
-        {!categories
-          ? [0, 1, 2, 3].map((i) => <li key={i} className="skeleton h-12 w-32 shrink-0 rounded-full" />)
-          : list.map((c) => {
-              const sample = products.find((p) => p.categorySlug === c.slug);
-              return (
-                <li key={c.id} className="shrink-0">
-                  <a
-                    href={href(`/c/${c.slug}`)}
-                    className="lift flex h-12 items-center gap-2.5 rounded-full border border-line bg-white pe-4 ps-1.5 text-sm font-semibold shadow-[0_1px_2px_rgb(23_10_16/0.04)]"
-                  >
-                    <ProductImage image={sample?.image ?? null} alt="" category={c.slug} color={sample?.colors[0]} sizes="40px" className="size-9 shrink-0 rounded-full" />
-                    {ar ? c.nameAr : c.nameFr}
-                  </a>
-                </li>
-              );
-            })}
-        <li className="shrink-0">
-          <a href={href("/categories")} className="flex h-12 items-center rounded-full bg-ink px-5 text-sm font-semibold text-white">
-            {t.home.seeAll}
-          </a>
-        </li>
-      </ul>
-    </nav>
-  );
-}
-
-/* ───────── Trust: the three promises, one compact line ───────── */
-
-export function TrustStrip() {
-  const { t } = useLocale();
-  return (
-    <ul className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4">
-      {t.trust.slice(0, 3).map((item) => {
-        const Icon = TRUST_ICONS[item.icon as keyof typeof TRUST_ICONS];
-        return (
-          <li key={item.title} className="flex flex-col items-center gap-1.5 rounded-2xl bg-ivory-deep px-2 py-3 text-center md:flex-row md:gap-3 md:px-4 md:text-start">
-            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-plum-600 shadow-sm">
-              <Icon size={18} />
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[12px] font-semibold leading-tight md:text-sm">{item.title}</span>
-              <span className="hidden text-xs text-ink-soft md:block">{item.text}</span>
-            </span>
-          </li>
-        );
-      })}
-    </ul>
   );
 }
 

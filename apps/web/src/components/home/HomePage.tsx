@@ -2,18 +2,18 @@
 
 import type { CategoryDTO, ProductCardDTO, SiteConfigDTO } from "@henine/shared";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
-import { Blossom } from "@/components/ui/icons";
-import { ErrorBox, ProductImage } from "@/components/ui/kit";
+import { ErrorBox } from "@/components/ui/kit";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
 import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
-import { CategoryChips, Faq, InstagramCard, SectionHead, TrustStrip } from "./Sections";
+import { Faq, InstagramCard, SectionHead } from "./Sections";
+import { Lookbook, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
 
 /**
- * Home, phone first: a big photo with the promise on it, the categories one swipe away and
- * the products right under; everything else (promises, Instagram, questions) comes after.
+ * Home, phone first: the shop's stories, a big photo with the promise on it, the promises,
+ * then the products; the Instagram lookbook, real reviews and the questions come after.
  */
 export function HomePage() {
   const { t, href, ar } = useLocale();
@@ -31,43 +31,33 @@ export function HomePage() {
   const selling = products.filter((p) => p.badge).sort((a, b) => RANK[a.badge!] - RANK[b.badge!]).slice(0, 4);
   const picks = products.filter((p) => p.tags.includes("best-seller")).slice(0, 4);
   const favorites = selling.length ? selling : picks;
-  // the hero shows a real photo as soon as one product has one (best-seller first)
+  const onSale = products.filter((p) => p.compareAtPrice != null && p.compareAtPrice > p.price).slice(0, 8);
   const heroProduct = products.find((p) => p.image && p.tags.includes("best-seller")) ?? products.find((p) => p.image);
 
   return (
     <>
-      {/* Hero: full-width photo, the promise written on it */}
-      <section className="px-3 pt-3 md:px-4 md:pt-5">
-        <div className="relative mx-auto flex min-h-[56svh] max-w-6xl flex-col justify-end overflow-hidden rounded-[1.75rem] bg-ink md:min-h-[34rem] md:rounded-[2.25rem]">
-          {heroProduct ? (
-            <ProductImage
-              image={heroProduct.image}
-              alt=""
-              priority
-              sizes="(min-width: 1152px) 1152px, 100vw"
-              className="hero-zoom absolute inset-0"
-            />
-          ) : (
-            <div aria-hidden="true" className="hero-art hero-zoom absolute inset-0 overflow-hidden">
-              <Blossom size={240} className="hero-petal absolute -end-20 -top-16 opacity-20" />
-              <Blossom size={110} className="hero-petal absolute -start-8 top-16 opacity-20 [animation-delay:-5s]" />
-              <Blossom size={56} className="hero-petal absolute end-28 top-8 opacity-25 [animation-delay:-9s]" />
-            </div>
-          )}
-          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/90 via-ink/35 to-ink/0" />
-          <div className="relative p-6 pb-7 text-white md:max-w-2xl md:p-12">
-            <p className="mb-3 inline-flex items-center gap-2 rounded-full bg-white/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur">
-              <span className="size-1.5 rounded-full bg-rose-300" aria-hidden="true" />
+      <div className="pt-3">
+        <Stories categories={categories.data} products={products} />
+      </div>
+
+      {/* Hero: the shop's photo, the promise centred on it */}
+      <section className="px-3 pt-3 md:px-4">
+        <div className="relative mx-auto flex min-h-[58svh] max-w-6xl flex-col items-center justify-end overflow-hidden rounded-[1.75rem] bg-ink text-center md:min-h-[34rem] md:justify-center md:rounded-[2.25rem]">
+          <img src="/ig/pyjamas-rayures.jpg" alt="" fetchPriority="high" className="hero-zoom-img absolute inset-0 size-full object-cover" />
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/45 to-ink/10 md:bg-ink/45" />
+          <div className="relative flex w-full max-w-2xl flex-col items-center p-6 pb-8 text-white md:p-12">
+            <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur">
+              <span className="size-1.5 animate-pulse rounded-full bg-rose-300" aria-hidden="true" />
               {eyebrow}
             </p>
-            <AnimatedTagline key={title} text={title} tone="light" className="text-[2.3rem] leading-[1.1] md:text-6xl" />
-            <p className="mt-3 max-w-md text-base leading-relaxed text-white/80 md:text-lg">{subtitle}</p>
-            <div className="mt-6 flex flex-wrap items-center gap-3">
-              <a href="#nouveautes" className="lift inline-flex h-12 items-center justify-center rounded-full bg-white px-7 font-semibold text-ink">
+            <AnimatedTagline key={title} text={title} tone="light" className="text-[2.35rem] leading-[1.1] md:text-6xl" />
+            <p className="mt-3 max-w-md text-base leading-relaxed text-white/85 md:text-lg">{subtitle}</p>
+            <div className="mt-6 flex flex-col items-center gap-2">
+              <a href="#nouveautes" className="lift inline-flex h-12 items-center justify-center rounded-full bg-white px-8 font-semibold text-ink">
                 {t.hero.cta}
               </a>
               {heroProduct && (
-                <a href={href(`/produit/${heroProduct.slug}`)} className="inline-flex h-12 items-center gap-2 rounded-full px-2 text-sm font-semibold text-white/90 underline-offset-4 hover:underline">
+                <a href={href(`/produit/${heroProduct.slug}`)} className="inline-flex h-10 items-center gap-1.5 text-sm font-semibold text-white/85 underline-offset-4 hover:underline">
                   {ar ? heroProduct.nameAr : heroProduct.nameFr}
                   <span aria-hidden="true" className="rtl:rotate-180">→</span>
                 </a>
@@ -77,9 +67,8 @@ export function HomePage() {
         </div>
       </section>
 
-      <div className="space-y-4 py-4">
-        <CategoryChips categories={categories.data} products={products} />
-        <TrustStrip />
+      <div className="py-4">
+        <PromiseBand />
       </div>
 
       {site.data?.drop && <DropBanner drop={site.data.drop} />}
@@ -90,12 +79,25 @@ export function HomePage() {
         {catalog.error ? <ErrorBox onRetry={catalog.reload} /> : catalog.data ? <ProductGrid products={newest} /> : <ProductGridSkeleton count={4} />}
       </section>
 
+      {onSale.length > 0 && (
+        <section id="promos" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-6">
+          <SectionHead title={t.home.promos} />
+          <ProductGrid products={onSale} />
+        </section>
+      )}
+
       {favorites.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
           <SectionHead title={(selling.length ? t.home.bestSellers : t.badges.pick) ?? t.home.bestSellers} />
           <ProductGrid products={favorites} />
         </section>
       )}
+
+      <Lookbook />
+
+      <ReviewWall />
+
+      <RecentlyViewed products={products} />
 
       <InstagramCard />
 

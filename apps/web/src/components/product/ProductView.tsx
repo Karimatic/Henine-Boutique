@@ -9,7 +9,7 @@ import { ErrorBox, inputCls, Price, ProductImage, Stars } from "@/components/ui/
 import { apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { pushSupported, subscribeRestock } from "@/lib/push";
-import { cart, toggleFavorite, useFavorites } from "@/lib/stores";
+import { cart, rememberViewed, toggleFavorite, useFavorites } from "@/lib/stores";
 import { Turnstile } from "@/lib/turnstile";
 import { Badges } from "./Badges";
 import { ProductGrid } from "./ProductCard";
@@ -60,7 +60,8 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   const name = ar ? p.nameAr : p.nameFr;
   useEffect(() => {
     document.title = `${name} · Henine Boutique`;
-  }, [name]);
+    rememberViewed(p.slug); // "Vus récemment" on the home page
+  }, [name, p.slug]);
 
   // pre-select the only value of single-value options, and the first in-stock colour
   const [selected, setSelected] = useState<Record<number, number>>(() => {

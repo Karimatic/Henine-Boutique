@@ -2,6 +2,7 @@ import { dirOf, type Locale } from "@henine/shared";
 import { getDictionary } from "@/lib/dictionary";
 import { arabicDisplay, arabicSans, dmSans, playfair } from "@/lib/fonts";
 import { LocaleProvider } from "@/lib/locale";
+import { ActivityToast } from "./ActivityToast";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { BottomNav } from "./BottomNav";
 import { ErrorReporter } from "./ErrorReporter";
@@ -34,6 +35,7 @@ export function RootDocument({ locale, children }: { locale: Locale; children: R
           </main>
           <SiteFooter />
           <BottomNav />
+          <ActivityToast />
           <ErrorReporter />
         </LocaleProvider>
       </body>

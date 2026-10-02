@@ -15,9 +15,11 @@ import {
   timingSafeEqual,
   trackLookupInput,
   type CommuneDTO,
+  type ActivityDTO,
   type CreatedOrderDTO,
   type LinkDTO,
   type PageDTO,
+  type ReviewWallDTO,
   type SiteConfigDTO,
   type TrackedOrderDTO,
 } from "@henine/shared";
@@ -360,6 +362,56 @@ publicRoutes.get("/track/:code", async (c) => {
   const [order] = await trackedOrders(c, "o.public_code = ?", [code], true);
   return c.json(order);
 });
+
+/* ───────── Home: review wall + recent activity ───────── */
+
+publicRoutes.get("/reviews", (c) =>
+  versioned(c, 600, async () => {
+    const [list, agg] = await c.env.DB.batch([
+      c.env.DB.prepare(
+        `SELECT r.id, r.name, r.rating, r.text, r.verified, r.reply, r.created_at, p.slug, p.name_fr, p.name_ar
+           FROM reviews r JOIN products p ON p.id = r.product_id
+          WHERE r.status = 'approved' AND p.status = 'published'
+          ORDER BY r.is_featured DESC, (r.text IS NOT NULL) DESC, r.created_at DESC LIMIT 12`,
+      ),
+      c.env.DB.prepare("SELECT AVG(r.rating) AS avg, COUNT(*) AS n FROM reviews r JOIN products p ON p.id = r.product_id WHERE r.status = 'approved' AND p.status = 'published'"),
+    ]);
+    const a = (agg!.results as { avg: number | null; n: number }[])[0];
+    const dto: ReviewWallDTO = {
+      avg: a?.avg != null ? Math.round(a.avg * 10) / 10 : null,
+      count: a?.n ?? 0,
+      reviews: (
+        list!.results as { id: number; name: string; rating: number; text: string | null; verified: number; reply: string | null; created_at: number; slug: string; name_fr: string; name_ar: string }[]
+      ).map((r) => ({
+        id: r.id, name: r.name, rating: r.rating, text: r.text, verified: !!r.verified, reply: r.reply, createdAt: r.created_at,
+        productSlug: r.slug, productFr: r.name_fr, productAr: r.name_ar,
+      })),
+    };
+    return c.json(dto);
+  }),
+);
+
+/** Last real orders (48 h, not cancelled): product + wilaya + how long ago. Cached 2 min. */
+publicRoutes.get("/activity", (c) =>
+  cached(new Request(new URL(c.req.url)), c.executionCtx, 120, async () => {
+    const now = Date.now();
+    const { results } = await c.env.DB.prepare(
+      `SELECT o.created_at, w.name_fr AS wf, w.name_ar AS wa,
+              (SELECT p.slug FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id AND p.status = 'published' ORDER BY oi.id LIMIT 1) AS slug,
+              (SELECT p.name_fr FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id AND p.status = 'published' ORDER BY oi.id LIMIT 1) AS nf,
+              (SELECT p.name_ar FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id AND p.status = 'published' ORDER BY oi.id LIMIT 1) AS na
+         FROM orders o JOIN wilayas w ON w.code = o.wilaya_code
+        WHERE o.created_at > ? AND o.status NOT IN ('annulee','doublon','fausse')
+        ORDER BY o.created_at DESC LIMIT 8`,
+    )
+      .bind(now - 48 * 3600_000)
+      .all<{ created_at: number; wf: string; wa: string; slug: string | null; nf: string | null; na: string | null }>();
+    const list: ActivityDTO[] = results
+      .filter((r) => r.slug)
+      .map((r) => ({ productSlug: r.slug!, productFr: r.nf!, productAr: r.na!, wilayaFr: r.wf, wilayaAr: r.wa, minutesAgo: Math.max(1, Math.round((now - r.created_at) / 60_000)) }));
+    return c.json(list);
+  }),
+);
 
 /* ───────── Reviews, contact, back-in-stock ───────── */
 

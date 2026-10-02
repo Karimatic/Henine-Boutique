@@ -5,6 +5,7 @@ import { HeartIcon } from "@/components/ui/icons";
 import { Price, ProductImage, Stars } from "@/components/ui/kit";
 import { useLocale } from "@/lib/locale";
 import { Badges } from "./Badges";
+import { QuickAddButton } from "./QuickAdd";
 import { toggleFavorite, useFavorites } from "@/lib/stores";
 
 export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priority?: boolean }) {
@@ -24,7 +25,7 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
           </div>
         </div>
         <div className="mt-2 space-y-1 px-0.5">
-          <h3 className="line-clamp-1 text-sm font-medium text-ink">{name}</h3>
+          <h3 className="line-clamp-1 text-[13.5px] font-medium text-ink">{name}</h3>
           <Price value={p.price} compareAt={p.compareAtPrice} className="text-sm" />
           <div className="flex items-center gap-2">
             {p.colors.length > 0 && (
@@ -51,6 +52,11 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
       >
         <HeartIcon size={18} fill={fav ? "currentColor" : "none"} />
       </button>
+      <div className="absolute inset-x-0 top-0 aspect-[4/5]" style={{ pointerEvents: "none" }}>
+        <div style={{ pointerEvents: "auto" }}>
+          <QuickAddButton p={p} />
+        </div>
+      </div>
     </article>
   );
 }

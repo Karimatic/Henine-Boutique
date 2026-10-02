@@ -137,3 +137,11 @@ export interface CheckoutMemory {
   deliveryType: "domicile" | "bureau";
 }
 export const checkoutMemory = createStore<CheckoutMemory | null>("henine.checkout.v1", null);
+
+/* ── Recently viewed products (newest first, max 12) ── */
+
+export const recentStore = createStore<string[]>("henine.recent.v1", []);
+export const useRecent = () => useStore(recentStore);
+export function rememberViewed(slug: string) {
+  recentStore.set((list) => [slug, ...list.filter((s) => s !== slug)].slice(0, 12));
+}

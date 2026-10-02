@@ -95,6 +95,23 @@ export interface ReviewDTO {
   createdAt: number;
 }
 
+/** Home page "what our customers say": verified reviews from every product. */
+export interface ReviewWallDTO {
+  avg: number | null;
+  count: number;
+  reviews: (ReviewDTO & { productSlug: string; productFr: string; productAr: string })[];
+}
+
+/** Recent real orders for the discreet "just ordered" note: no names, no phones. */
+export interface ActivityDTO {
+  productSlug: string;
+  productFr: string;
+  productAr: string;
+  wilayaFr: string;
+  wilayaAr: string;
+  minutesAgo: number;
+}
+
 /** Size chart: same columns in both languages, cells are sizes / measurements. */
 export interface SizeGuideDTO {
   headersFr: string[];
