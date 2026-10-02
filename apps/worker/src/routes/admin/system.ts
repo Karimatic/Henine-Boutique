@@ -57,7 +57,7 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
   ]);
   const since30 = dayStart - 29 * day;
   // widgets: best product of the month (with weekly units), revenue by channel, returning customers
-  const [topProduct, channels, loyalty] = await c.env.DB.batch([
+  const [topProduct, channels, loyalty, last14] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT oi.product_id, p.name_fr, COALESCE(p.published_at, p.created_at) AS published_at,
               (SELECT base_key FROM product_images i WHERE i.product_id = oi.product_id ORDER BY sort, id LIMIT 1) AS image_key,
@@ -78,6 +78,10 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
       `SELECT COUNT(*) AS orders, SUM(CASE WHEN c.delivered_count > 0 OR c.orders_count > 1 THEN 1 ELSE 0 END) AS returning_orders
          FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.created_at >= ? AND o.status NOT IN ${CANCELLED_SQL}`,
     ).bind(since30),
+    c.env.DB.prepare(
+      `SELECT strftime('%Y-%m-%d', (created_at + 3600000) / 1000, 'unixepoch') AS date, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue
+         FROM orders WHERE created_at >= ? AND status NOT IN ${CANCELLED_SQL} GROUP BY date ORDER BY date`,
+    ).bind(dayStart - 13 * day),
   ]);
   const attn = attentionSql(now);
   const attnCols = Object.entries(attn).map(([k, cond]) => `SUM(CASE WHEN ${cond} THEN 1 ELSE 0 END) AS ${k}`).join(", ");
@@ -165,6 +169,7 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
       | { product_id: number; name_fr: string; published_at: number; image_key: string | null; units: number; orders: number; revenue: number; w1: number; w2: number; w3: number; w4: number }
       | undefined),
     channels: channels!.results,
+    last14: { since: dayStart - 13 * day, days: last14!.results },
     returningShare: ((l) => (l?.orders ? Math.round(((l.returning_orders ?? 0) / l.orders) * 100) : null))(loyalty!.results[0] as { orders: number; returning_orders: number | null } | undefined),
   });
 });
@@ -196,7 +201,7 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
   const { since, until, label, days } = statsRange((k) => c.req.query(k));
   const inRange = "o.created_at >= ?1 AND o.created_at < ?2";
   const valid = `o.status NOT IN ${CANCELLED_SQL}`;
-  const [totals, daily, statusRows, wilayas, channels, hours, top, reasons, durations, byType] = await c.env.DB.batch([
+  const [totals, daily, statusRows, wilayas, channels, hours, top, reasons, durations, byType, weekdays] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) AS placed,
               SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders,
@@ -257,6 +262,10 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
               SUM(CASE WHEN o.status = 'livree' AND o.shipped_at IS NOT NULL AND o.delivered_at > o.shipped_at THEN 1 ELSE 0 END) AS timed
          FROM orders o WHERE ${inRange} GROUP BY o.delivery_type`,
     ).bind(since, until),
+    c.env.DB.prepare(
+      `SELECT CAST(strftime('%w', (o.created_at + 3600000) / 1000, 'unixepoch') AS INTEGER) AS dow, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS revenue
+         FROM orders o WHERE ${inRange} AND ${valid} GROUP BY dow`,
+    ).bind(since, until),
   ]);
 
   const t = totals!.results[0] as Record<string, number | null>;
@@ -308,6 +317,7 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
     }),
     channels: channels!.results,
     hours: hours!.results,
+    weekdays: weekdays!.results,
     topProducts: top!.results,
     reasons: reasons!.results,
     delivery: {

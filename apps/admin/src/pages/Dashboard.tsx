@@ -28,6 +28,7 @@ import { ago, CHANNEL_LABEL, da, date } from "../lib/format";
 import { useCan, useMe } from "../Shell";
 import { Card, ErrorState, ListSkeleton, StatusBadge } from "../ui";
 import { tr } from "../i18n";
+import { TrendChart } from "../lib/charts";
 
 interface StockLine {
   id: number;
@@ -68,6 +69,23 @@ interface DashboardData {
   topProduct: { id: number; name: string; publishedAt: number; units: number; orders: number; revenue: number; weeks: number[]; image: string | null } | null;
   channels: { channel: string; orders: number; revenue: number }[];
   returningShare: number | null;
+  last14?: { since: number; days: { date: string; orders: number; revenue: number }[] };
+}
+
+/** Orders day by day over the last two weeks (revenue in the tooltip). */
+function Last14({ data }: { data: NonNullable<DashboardData["last14"]> }) {
+  const byDate = new Map(data.days.map((d) => [d.date, d]));
+  const points = Array.from({ length: 14 }, (_, i) => {
+    const date = new Date(data.since + 3600_000 + i * 86400_000).toISOString().slice(0, 10);
+    const row = byDate.get(date);
+    return { label: date.slice(5).split("-").reverse().join("/"), value: row?.orders ?? 0, sub: row ? da(row.revenue) : undefined };
+  });
+  const total = points.reduce((s, p) => s + p.value, 0);
+  return (
+    <Card title={tr("Les 14 derniers jours")} actions={<span className="text-sm text-ink-soft">{tr("{0} commande(s)", { 0: total })}</span>}>
+      <TrendChart points={points} format={(v) => tr("{0} commande(s)", { 0: Math.round(v) })} axisFormat={(v) => String(Math.round(v))} label={tr("Commandes par jour")} height={170} />
+    </Card>
+  );
 }
 
 type Todo = { key: string; icon: string; label: string; hint?: string; count: number; to: string; search?: Record<string, string>; urgent?: boolean; perm: string };
@@ -456,6 +474,8 @@ export function Dashboard() {
             <MetricCard icon={Banknote} value={da(d.week.revenue)} title={tr("Ventes · 7 j")} cur={d.week.revenue} prev={d.prevWeek.revenue} />
             <MetricCard icon={Truck} value={String(d.week.delivered)} title={tr("Livrées · 7 j")} cur={d.week.delivered} prev={d.prevWeek.delivered} />
           </div>
+
+          {d.last14 && <Last14 data={d.last14} />}
 
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="flex flex-col gap-6">

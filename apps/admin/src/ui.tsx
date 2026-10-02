@@ -66,7 +66,22 @@ export function TextField({ label, hint, error, className, ...rest }: React.Inpu
   return <Field label={label} hint={hint} error={error} className={className}>{(id) => <input id={id} className={inputCls} {...rest} />}</Field>;
 }
 
+/** Arabic keyboards type ٠-٩ (or ۰-۹): read them as 0-9. */
+const latinDigits = (s: string) => s.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x6f0));
+
+function parseWhole(text: string, min: number): number | null {
+  const raw = latinDigits(text);
+  const negative = min < 0 && /^\s*[-−]/.test(raw);
+  const digits = raw.replace(/[^0-9]/g, "");
+  return digits === "" ? null : Math.max(min, (negative ? -1 : 1) * Number(digits));
+}
+
 export function NumberField({ label, value, onChange, hint, min = 0, suffix, className }: { label: string; value: number | null; onChange: (v: number | null) => void; hint?: ReactNode; min?: number; suffix?: string; className?: string }) {
+  // what's being typed ("-", "1٢"…) stays on screen; the parent gets the number
+  const [text, setText] = useState(value == null ? "" : String(value));
+  useEffect(() => {
+    if (parseWhole(text, min) !== value) setText(value == null ? "" : String(value));
+  }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Field label={label} hint={hint} className={className}>
       {(id) => (
@@ -74,11 +89,15 @@ export function NumberField({ label, value, onChange, hint, min = 0, suffix, cla
           <input
             id={id}
             className={`${inputCls} ${suffix ? "pe-12" : ""}`}
-            type="number"
-            inputMode="numeric"
-            min={min}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value === "" ? null : Math.max(min, Math.round(Number(e.target.value))))}
+            type="text"
+            inputMode={min < 0 ? "text" : "numeric"}
+            dir="ltr"
+            value={text}
+            onChange={(e) => {
+              const next = latinDigits(e.target.value).replace(min < 0 ? /[^0-9\-−]/g : /[^0-9]/g, "");
+              setText(next);
+              onChange(parseWhole(next, min));
+            }}
           />
           {suffix && <span className="pointer-events-none absolute end-3.5 top-1/2 -translate-y-1/2 text-sm text-ink-soft">{suffix}</span>}
         </div>

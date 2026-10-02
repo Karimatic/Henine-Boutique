@@ -2,8 +2,8 @@
 
 import type { CategoryDTO, ProductCardDTO, ReviewWallDTO } from "@henine/shared";
 import { ProductGrid } from "@/components/product/ProductCard";
-import { InstagramIcon, TruckIcon, TRUST_ICONS } from "@/components/ui/icons";
-import { ProductImage, Stars } from "@/components/ui/kit";
+import { InstagramIcon, TRUST_ICONS } from "@/components/ui/icons";
+import { Stars } from "@/components/ui/kit";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useRecent } from "@/lib/stores";
@@ -13,25 +13,69 @@ const IG = "https://www.instagram.com/henine.boutique/";
 
 /* ───────── Instagram-style story bubbles (the shop's own highlights) ───────── */
 
-type Story = { key: string; label: string; href: string; external?: boolean; img?: string; product?: ProductCardDTO; category?: string; icon?: "truck" | "percent" };
+type Story = { key: string; label: string; href: string; external?: boolean; category?: string };
+
+/* Story artwork: a soft gradient per bubble with a fine white line drawing (no photos). */
+const STORY_GRADIENT: Record<string, string> = {
+  new: "from-[#f3d9a4] via-rose-500 to-plum-600",
+  robes: "from-rose-300 via-rose-500 to-plum-700",
+  lingerie: "from-[#f6b9cf] via-rose-500 to-[#7b1747]",
+  pyjamas: "from-[#fbd3e1] via-rose-300 to-plum-600",
+  promo: "from-plum-600 via-plum-700 to-ink",
+};
+
+const STORY_LINES: Record<string, React.ReactNode> = {
+  // 4-point sparkle with two small ones
+  new: (
+    <>
+      <path d="M32 12c1.6 9 4 11.4 13 13-9 1.6-11.4 4-13 13-1.6-9-4-11.4-13-13 9-1.6 11.4-4 13-13Z" />
+      <path d="M47 38c.6 3 1.4 3.8 4.4 4.4-3 .6-3.8 1.4-4.4 4.4-.6-3-1.4-3.8-4.4-4.4 3-.6 3.8-1.4 4.4-4.4Z" />
+      <path d="M17 40c.5 2.2 1 2.8 3.2 3.2-2.2.5-2.7 1-3.2 3.2-.5-2.2-1-2.7-3.2-3.2 2.2-.4 2.7-1 3.2-3.2Z" />
+    </>
+  ),
+  // dress
+  robes: <path d="M26 12h12l-1.5 7 6 6-3 5c3 8 6 15 8 22H17c2-7 5-14 8-22l-3-5 6-6L26 12Zm1.5 7h9M24.5 30c5 1.5 10 1.5 15 0" />,
+  // nightie with thin straps and lace hem
+  lingerie: (
+    <>
+      <path d="M26 12v9m12-9v9M24 21c3 3 13 3 16 0 1 5 2 8 4 11-1 7 1 13 4 20H16c3-7 5-13 4-20 2-3 3-6 4-11Z" />
+      <path d="M16 52c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0 4-2 6 0" />
+    </>
+  ),
+  // pyjama shirt + trousers
+  pyjamas: (
+    <>
+      <path d="M24 10h16l9 6-4 7-4-2v12H23V21l-4 2-4-7 9-6Zm8 0v23m-3-18h6" />
+      <path d="M23 37h18l2 18h-7l-4-12-4 12h-7l2-18Z" />
+    </>
+  ),
+  // hanger, for any other category
+  other: <path d="M32 18a4 4 0 1 1 4-4c0 3-4 3-4 7l18 12c2 1.4 1 4-1.5 4H15.5c-2.5 0-3.5-2.6-1.5-4L32 21" />,
+};
+
+export function StoryArt({ kind }: { kind: string }) {
+  const gradient = STORY_GRADIENT[kind] ?? "from-rose-300 via-rose-500 to-plum-600";
+  return (
+    <span className={`grid size-full place-items-center bg-gradient-to-br ${gradient} text-white transition duration-500 group-hover:scale-110`}>
+      {kind === "promo" ? (
+        <span className="text-[1.35rem] font-bold leading-none">%</span>
+      ) : (
+        <svg viewBox="0 0 64 64" className="size-[66%]" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {STORY_LINES[kind] ?? STORY_LINES.other}
+        </svg>
+      )}
+    </span>
+  );
+}
 
 export function Stories({ categories, products }: { categories: CategoryDTO[] | undefined; products: ProductCardDTO[] }) {
   const { t, href, ar } = useLocale();
   const S = t.home.stories;
   const onSale = products.some((p) => p.compareAtPrice != null && p.compareAtPrice > p.price);
-  // square crops of the shop's Instagram photos (clothes only)
-  const CATEGORY_PHOTO: Record<string, string> = { pyjamas: "/ig/story-pyjamas.jpg", robes: "/ig/story-robes.jpg" };
   const stories: Story[] = [
-    { key: "new", label: S.nouveautes, href: href("/nouveautes"), img: "/ig/story-nouveautes.jpg" },
-    ...(categories ?? []).map((c) => ({
-      key: c.slug,
-      label: ar ? c.nameAr : c.nameFr,
-      href: href(`/c/${c.slug}`),
-      img: CATEGORY_PHOTO[c.slug],
-      product: products.find((p) => p.categorySlug === c.slug && p.image),
-      category: c.slug,
-    })),
-    ...(onSale ? [{ key: "promo", label: S.promo, href: "#promos", icon: "percent" as const }] : []),
+    { key: "new", label: S.nouveautes, href: href("/nouveautes") },
+    ...(categories ?? []).map((c) => ({ key: c.slug, label: ar ? c.nameAr : c.nameFr, href: href(`/c/${c.slug}`), category: c.slug })),
+    ...(onSale ? [{ key: "promo", label: S.promo, href: "#promos" }] : []),
   ];
   return (
     <nav aria-label={t.categories.title} className="mx-auto max-w-6xl">
@@ -45,21 +89,8 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
               style={{ animationDelay: `${i * 60}ms` }}
             >
               <span className="story-ring grid size-[4.4rem] place-items-center rounded-full p-[3px]">
-                <span className="relative block size-full overflow-hidden rounded-full border-[3px] border-white bg-ivory-deep">
-                  {s.img ? (
-                    <img src={s.img} alt="" loading="lazy" className="size-full object-cover transition duration-500 group-hover:scale-110" />
-                  ) : !s.product?.image && s.category ? (
-                    // no photo yet: brand art with the category's silhouette
-                    <span className="grid size-full place-items-center bg-gradient-to-br from-rose-300 via-rose-500 to-plum-600">
-                      <ProductImage image={null} alt="" category={s.category} color="#ffffff" className="size-[78%] bg-none! [&_path]:stroke-white/40" />
-                    </span>
-                  ) : s.icon ? (
-                    <span className="grid size-full place-items-center bg-ink text-white">
-                      {s.icon === "truck" ? <TruckIcon size={24} /> : <span className="text-xl font-bold">%</span>}
-                    </span>
-                  ) : (
-                    <ProductImage image={s.product?.image ?? null} alt="" category={s.category} color={s.product?.colors[0]} sizes="72px" className="size-full" />
-                  )}
+                <span className="relative block size-full overflow-hidden rounded-full border-[3px] border-white">
+                  <StoryArt kind={s.key} />
                 </span>
               </span>
               <span className="line-clamp-1 w-full text-[11.5px] font-semibold leading-tight">{s.label}</span>
@@ -131,12 +162,6 @@ export function Lookbook() {
           </li>
         ))}
       </ul>
-      <div className="mt-5 flex justify-center">
-        <a href={IG} target="_blank" rel="noopener noreferrer" className="lift inline-flex h-12 items-center gap-2 rounded-full bg-ink px-6 font-semibold text-white">
-          <InstagramIcon size={18} />
-          {L.cta}
-        </a>
-      </div>
     </section>
   );
 }

@@ -56,28 +56,83 @@ export function StockPage() {
         <Empty title={tr("Rien à afficher")} />
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
-          {data.data.rows.map((r) => {
-            const available = r.stock_on_hand - r.stock_reserved;
-            return (
-              <li key={r.id}>
-                <button type="button" onClick={() => setAdjust(r)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30">
-                  <span className="min-w-0">
-                    <span className="block truncate text-sm font-medium">{r.name_fr} <span className="text-ink-soft">· {r.options}</span></span>
-                    <span className="text-xs text-ink-soft">{r.sku}{r.waiting ? tr(" · 🔔 {0} cliente(s) attendent", { 0: r.waiting }) : ""}</span>
-                  </span>
-                  <span className="flex shrink-0 items-center gap-2 text-end">
-                    {r.stock_reserved > 0 && <Badge tone="bg-sky-100 text-sky-800">{r.stock_reserved} {tr("réservé(s)")}</Badge>}
-                    <span className={`w-12 text-lg font-semibold tabular-nums ${available <= 0 ? "text-red-700" : available <= r.low_stock_threshold ? "text-amber-700" : ""}`}>{available}</span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
+          {data.data.rows.map((r) => (
+            <StockLine key={r.id} r={r} onEdit={() => setAdjust(r)} />
+          ))}
         </ul>
       )}
       {adjust && <AdjustSheet row={adjust} onClose={() => setAdjust(null)} />}
       <HistorySheet open={history} onClose={() => setHistory(false)} />
     </div>
+  );
+}
+
+/**
+ * One variant: name, then the stock with − / + right there (one piece, saved at once) and
+ * "Modifier" for bigger changes (add / remove / counted quantity, with a reason).
+ */
+function StockLine({ r, onEdit }: { r: StockRow; onEdit: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const can = useCan();
+  const available = r.stock_on_hand - r.stock_reserved;
+  const step = useMutation({
+    mutationFn: (mode: "add" | "remove") => post(`/stock/${r.id}/adjust`, { mode, qty: 1, reason: "ajustement", note: null }),
+    onSuccess: (_, mode) => {
+      toast(mode === "add" ? tr("+1 ajouté ✓") : tr("−1 retiré ✓"));
+      void qc.invalidateQueries({ queryKey: ["stock"] });
+      void qc.invalidateQueries({ queryKey: ["movements"] });
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  const tone = available <= 0 ? "text-red-700" : available <= r.low_stock_threshold ? "text-amber-700" : "text-ink";
+  return (
+    <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+      <button type="button" onClick={onEdit} className="min-w-0 flex-1 text-start">
+        <span className="block truncate text-sm font-medium">
+          {r.name_fr} <span className="text-ink-soft">· {r.options}</span>
+        </span>
+        <span className="text-xs text-ink-soft">
+          {r.sku}
+          {r.waiting ? tr(" · 🔔 {0} cliente(s) attendent", { 0: r.waiting }) : ""}
+        </span>
+      </button>
+      <div className="flex shrink-0 items-center gap-2">
+        {r.stock_reserved > 0 && <Badge tone="bg-sky-100 text-sky-800">{r.stock_reserved} {tr("réservé(s)")}</Badge>}
+        {can("stock.edit") ? (
+          <>
+            <div className="flex items-center rounded-full border border-line bg-white" dir="ltr">
+              <button
+                type="button"
+                aria-label={tr("Retirer une pièce")}
+                disabled={step.isPending || available <= 0}
+                onClick={() => step.mutate("remove")}
+                className="grid size-9 place-items-center rounded-full text-lg font-semibold text-ink hover:bg-rose-100 disabled:opacity-30"
+              >
+                −
+              </button>
+              <span className={`w-10 text-center text-lg font-semibold tabular-nums ${tone}`} title={tr("Disponible")}>
+                {available}
+              </span>
+              <button
+                type="button"
+                aria-label={tr("Ajouter une pièce")}
+                disabled={step.isPending}
+                onClick={() => step.mutate("add")}
+                className="grid size-9 place-items-center rounded-full text-lg font-semibold text-ink hover:bg-rose-100 disabled:opacity-30"
+              >
+                +
+              </button>
+            </div>
+            <Button size="sm" onClick={onEdit}>
+              ✏️ {tr("Modifier")}
+            </Button>
+          </>
+        ) : (
+          <span className={`w-12 text-end text-lg font-semibold tabular-nums ${tone}`}>{available}</span>
+        )}
+      </div>
+    </li>
   );
 }
 

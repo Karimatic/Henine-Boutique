@@ -47,35 +47,43 @@ export function SectionHead({ title, href, link }: { title: string; href?: strin
   );
 }
 
-/* ───────── Instagram ───────── */
+/* ───────── Instagram: the big detailed card ───────── */
 
 export function InstagramCard() {
   const { t } = useLocale();
   const href = "https://www.instagram.com/henine.boutique/";
   return (
-    <section className="mx-auto max-w-6xl px-4 py-8">
+    <section className="mx-auto max-w-6xl px-4 py-10">
       <Reveal>
-        <a
-          href={href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="lift group relative flex items-center gap-4 overflow-hidden rounded-[1.75rem] bg-ink p-5 text-white md:p-8"
-        >
-          <span aria-hidden="true" className="pointer-events-none absolute -end-10 -top-16 size-56 rounded-full bg-rose-500/40 blur-3xl" />
-          <span aria-hidden="true" className="pointer-events-none absolute -bottom-20 start-10 size-48 rounded-full bg-plum-600/50 blur-3xl" />
-          <span className="ig-logo relative grid size-14 shrink-0 place-items-center rounded-2xl text-white shadow-lg transition group-hover:scale-105 md:size-16">
-            <InstagramIcon size={30} strokeWidth={1.8} />
-          </span>
-          <span className="relative min-w-0 flex-1">
-            <span className="block heading-display text-xl leading-snug md:text-3xl">{t.instagram.heading}</span>
-            <span className="mt-1 block text-sm text-white/70">
-              <b className="font-semibold text-white" dir="ltr">{t.instagram.stats[0]?.[0]}</b> {t.instagram.stats[0]?.[1]} · <span dir="ltr">@henine.boutique</span>
-            </span>
-          </span>
-          <span aria-hidden="true" className="relative grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink transition group-hover:translate-x-0.5 rtl:rotate-180">
-            →
-          </span>
-        </a>
+        <div className="ig-card relative overflow-hidden rounded-[2rem] p-6 md:p-8">
+          <div aria-hidden="true" className="pointer-events-none absolute -end-16 -top-16 size-56 rounded-full bg-rose-100 blur-3xl" />
+          <div className="relative flex flex-col items-center gap-5 text-center md:flex-row md:text-start">
+            <a href={href} target="_blank" rel="noopener noreferrer" className="ig-logo grid size-20 shrink-0 place-items-center rounded-[1.6rem] text-white shadow-lg transition hover:scale-105" aria-label="Instagram">
+              <InstagramIcon size={40} strokeWidth={1.8} />
+            </a>
+            <div className="flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">{t.instagram.label}</p>
+              <h2 className="heading-display mt-1 text-2xl md:text-3xl">{t.instagram.heading}</h2>
+              <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">{t.instagram.text}</p>
+              <ul className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
+                {t.instagram.stats.map(([value, label]) => (
+                  <li key={label} className="rounded-full border border-line bg-ivory-deep/70 px-3 py-1.5 text-xs">
+                    <b className="font-semibold text-plum-700" dir="ltr">{value}</b> <span className="text-ink-soft">{label}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <a
+              href={href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ig-btn inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-rose-700 via-plum-600 to-rose-700 px-6 font-semibold text-ivory shadow-soft transition hover:scale-[1.03]"
+            >
+              <InstagramIcon size={18} />
+              <span dir="ltr">{t.instagram.cta}</span>
+            </a>
+          </div>
+        </div>
       </Reveal>
     </section>
   );

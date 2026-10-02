@@ -210,12 +210,59 @@ marketingRoutes.get("/reviews", requirePermission("reviews.moderate"), async (c)
   return c.json({ rows: rows!.results, counts: counts!.results });
 });
 
+/**
+ * A review received elsewhere (Instagram, WhatsApp, in the shop), typed in by the team.
+ * It is never marked "verified purchase": that badge stays for customers with a delivered order.
+ */
+marketingRoutes.post("/reviews", requirePermission("reviews.moderate"), async (c) => {
+  const input = await body(
+    c,
+    z.object({
+      productId: z.number().int().positive(),
+      name: cleanText(60).pipe(z.string().min(2)),
+      rating: z.number().int().min(1).max(5),
+      text: cleanText(1000).nullable().optional(),
+      createdAt: z.number().int().positive().max(Date.now() + 60_000).optional(),
+      status: z.enum(["approved", "pending"]).default("approved"),
+    }),
+  );
+  const product = await c.env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(input.productId).first();
+  if (!product) throw new HttpError(404, "not_found");
+  const row = await c.env.DB.prepare(
+    "INSERT INTO reviews (product_id, order_id, name, rating, text, verified, status, created_at) VALUES (?, NULL, ?, ?, ?, 0, ?, ?) RETURNING id",
+  )
+    .bind(input.productId, input.name, input.rating, input.text || null, input.status, input.createdAt ?? Date.now())
+    .first<{ id: number }>();
+  await c.env.DB.batch([bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "create", "review", row!.id, { productId: input.productId })]);
+  return c.json({ id: row!.id }, 201);
+});
+
 marketingRoutes.patch("/reviews/:id", requirePermission("reviews.moderate"), async (c) => {
   const id = intParam(c, "id");
   const input = await body(
     c,
-    z.object({ status: z.enum(["pending", "approved", "rejected"]).optional(), reply: cleanText(1000).nullable().optional(), isFeatured: z.boolean().optional() }),
+    z.object({
+      status: z.enum(["pending", "approved", "rejected"]).optional(),
+      reply: cleanText(1000).nullable().optional(),
+      isFeatured: z.boolean().optional(),
+      // wording: only for reviews added by the team (a customer's verified review is never rewritten)
+      name: cleanText(60).pipe(z.string().min(2)).optional(),
+      rating: z.number().int().min(1).max(5).optional(),
+      text: cleanText(1000).nullable().optional(),
+      productId: z.number().int().positive().optional(),
+    }),
   );
+  const wording = input.name != null || input.rating != null || "text" in input || input.productId != null;
+  if (wording) {
+    const r = await c.env.DB.prepare("SELECT verified FROM reviews WHERE id = ?").bind(id).first<{ verified: number }>();
+    if (!r) throw new HttpError(404, "not_found");
+    if (r.verified) throw new HttpError(409, "verified_review_locked");
+    await c.env.DB.prepare(
+      "UPDATE reviews SET name = COALESCE(?, name), rating = COALESCE(?, rating), text = CASE WHEN ? THEN ? ELSE text END, product_id = COALESCE(?, product_id) WHERE id = ? AND verified = 0",
+    )
+      .bind(input.name ?? null, input.rating ?? null, "text" in input ? 1 : 0, input.text || null, input.productId ?? null, id)
+      .run();
+  }
   await c.env.DB.batch([
     c.env.DB.prepare(
       "UPDATE reviews SET status = COALESCE(?, status), reply = CASE WHEN ? THEN ? ELSE reply END, is_featured = COALESCE(?, is_featured) WHERE id = ?",

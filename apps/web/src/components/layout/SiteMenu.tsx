@@ -6,6 +6,7 @@ import { toE164, type CategoryDTO, type SiteConfigDTO } from "@henine/shared";
 import { Blossom, ChatIcon, GridIcon, HeartIcon, HomeIcon, InstagramIcon, MenuIcon, PackageIcon, SearchIcon, SparkleIcon } from "@/components/ui/icons";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { StoryArt } from "@/components/home/Showcase";
 import { useLocaleHref } from "./LanguageSwitch";
 
 /**
@@ -15,8 +16,6 @@ import { useLocaleHref } from "./LanguageSwitch";
  * header uses backdrop-filter, which would otherwise turn it into the containing block of
  * this `position: fixed` overlay and clip it to the header's height.
  */
-const MENU_PHOTO: Record<string, string> = { robes: "/ig/story-robes.jpg", pyjamas: "/ig/story-pyjamas.jpg" };
-
 export function SiteMenu() {
   const { t, href, ar, locale } = useLocale();
   const [open, setOpen] = useState(false);
@@ -122,13 +121,9 @@ export function SiteMenu() {
                   .filter((c) => (c.productCount ?? 0) > 0)
                   .map((c) => (
                     <a key={c.id} href={href(`/c/${c.slug}`)} className={row}>
-                      {MENU_PHOTO[c.slug] ? (
-                        <img src={MENU_PHOTO[c.slug]} alt="" className="size-7 shrink-0 rounded-full object-cover ring-2 ring-rose-100" />
-                      ) : (
-                        <span className="grid size-7 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-300 to-plum-600 text-[11px] font-bold text-white">
-                          {(ar ? c.nameAr : c.nameFr).charAt(0)}
-                        </span>
-                      )}
+                      <span className="group block size-8 shrink-0 overflow-hidden rounded-full ring-2 ring-rose-100">
+                        <StoryArt kind={c.slug} />
+                      </span>
                       <span className="flex-1">{ar ? c.nameAr : c.nameFr}</span>
                       <span className="rounded-full bg-ivory-deep px-2 py-0.5 text-xs text-ink-soft" dir="ltr">{c.productCount}</span>
                     </a>

@@ -100,6 +100,7 @@ const MESSAGES: Record<string, string> = {
   file_too_large: "Photo trop lourde.",
   unsupported_image: "Format de photo non supporté.",
   percent_over_100: "Un pourcentage ne peut pas dépasser 100.",
+  verified_review_locked: "Un avis vérifié de cliente ne peut pas être modifié (vous pouvez le masquer ou y répondre).",
 };
 
 export function errorMessage(err: unknown): string {

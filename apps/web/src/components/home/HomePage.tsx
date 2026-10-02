@@ -8,7 +8,7 @@ import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
 import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
-import { Faq, SectionHead } from "./Sections";
+import { Faq, InstagramCard, SectionHead } from "./Sections";
 import { ContestCard, Lookbook, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
 
 /**
@@ -94,6 +94,8 @@ export function HomePage() {
       )}
 
       <Lookbook />
+
+      <InstagramCard />
 
       <ContestCard />
 

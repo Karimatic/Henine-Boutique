@@ -460,6 +460,7 @@ export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overri
 
 interface Review {
   id: number;
+  product_id: number;
   product: string;
   slug: string;
   name: string;
@@ -479,9 +480,15 @@ export function ReviewsPage() {
   const q = useQuery({ queryKey: ["reviews", status], queryFn: () => api<{ rows: Review[]; counts: { status: string; n: number; avg: number }[] }>(`/reviews?status=${status}`) });
   const count = (s: string) => q.data?.counts.find((c) => c.status === s)?.n ?? 0;
   const approved = q.data?.counts.find((c) => c.status === "approved");
+  const [editing, setEditing] = useState<Partial<Review> | null>(null);
   return (
     <div>
-      <PageHeader group={tr("Marketing")} title={tr("Avis")} subtitle={approved ? tr("Note moyenne publiée : {0} / 5 ({1} avis)", { 0: approved.avg.toFixed(1), 1: approved.n }) : undefined} />
+      <PageHeader
+        group={tr("Marketing")}
+        title={tr("Avis")}
+        subtitle={approved ? tr("Note moyenne publiée : {0} / 5 ({1} avis)", { 0: approved.avg.toFixed(1), 1: approved.n }) : undefined}
+        actions={<Button variant="primary" onClick={() => setEditing({})}>{tr("+ Ajouter un avis")}</Button>}
+      />
       <Card className="mb-4">
         <p className="mb-2 text-sm text-ink-soft">
           {tr("Seules les clientes dont la commande est")} <b>{tr("livrée")}</b> {tr("peuvent laisser un avis (depuis leur lien de suivi, ou avec n° de commande + téléphone). Un avis par produit et par commande, affiché avec le prénom et l'initiale du nom.")}
@@ -497,13 +504,76 @@ export function ReviewsPage() {
       </Card>
       <Pills value={status} onChange={setStatus} options={[{ value: "approved", label: tr("Publiés ({0})", { 0: count("approved") }) }, { value: "pending", label: tr("À valider ({0})", { 0: count("pending") }) }, { value: "rejected", label: tr("Masqués") }, { value: "all", label: tr("Tous") }]} />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.rows.length === 0 ? <Empty title={tr("Aucun avis ici")} icon="⭐" /> : (
-        <ul className="space-y-2">{q.data.rows.map((r) => <ReviewItem key={r.id} r={r} />)}</ul>
+        <ul className="space-y-2">{q.data.rows.map((r) => <ReviewItem key={r.id} r={r} onEdit={() => setEditing(r)} />)}</ul>
       )}
+      {editing && <ReviewSheet review={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }
 
-function ReviewItem({ r }: { r: Review }) {
+/** Add a review received elsewhere, or fix one the team added (customers' verified reviews stay as written). */
+function ReviewSheet({ review, onClose }: { review: Partial<Review>; onClose: () => void }) {
+  const products = useQuery({ queryKey: ["products-lite"], queryFn: () => api<{ id: number; name_fr: string }[]>("/products?status=all") });
+  const [f, setF] = useState({
+    productId: review.product_id ?? null,
+    name: review.name ?? "",
+    rating: review.rating ?? 5,
+    text: review.text ?? "",
+    date: new Date(review.created_at ?? Date.now()).toISOString().slice(0, 10),
+  });
+  const payload = () => ({
+    productId: f.productId!, name: f.name.trim(), rating: f.rating, text: f.text.trim() || null,
+    ...(review.id ? {} : { createdAt: Math.min(Date.now(), new Date(`${f.date}T12:00:00+01:00`).getTime()) }),
+  });
+  const save = useSave(() => (review.id ? patch(`/reviews/${review.id}`, payload()) : post("/reviews", payload())), ["reviews"], review.id ? tr("Avis modifié ✓") : tr("Avis ajouté ✓"));
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={review.id ? tr("Modifier l'avis") : tr("Ajouter un avis")}
+      footer={
+        <Button variant="primary" className="w-full" loading={save.isPending} disabled={!f.productId || f.name.trim().length < 2} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>
+          {tr("Enregistrer")}
+        </Button>
+      }
+    >
+      <div className="space-y-3">
+        <p className="rounded-lg bg-rose-100/60 p-3 text-sm text-plum-700">
+          {tr("Pour un avis reçu ailleurs (Instagram, WhatsApp, en boutique). Il s'affiche sans le badge « Achat vérifié », réservé aux clientes livrées.")}
+        </p>
+        <Select label={tr("Produit")} value={f.productId ?? ""} onChange={(e) => setF({ ...f, productId: e.target.value ? Number(e.target.value) : null })}>
+          <option value="">{tr("Choisir un article…")}</option>
+          {(products.data ?? []).map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name_fr}
+            </option>
+          ))}
+        </Select>
+        <TextField label={tr("Prénom de la cliente (ex : Amira B.)")} value={f.name} maxLength={60} onChange={(e) => setF({ ...f, name: e.target.value })} />
+        <div>
+          <p className="mb-1.5 text-sm font-medium">{tr("Note")}</p>
+          <div className="flex gap-1" dir="ltr">
+            {[1, 2, 3, 4, 5].map((n) => (
+              <button
+                key={n}
+                type="button"
+                aria-label={`${n}/5`}
+                onClick={() => setF({ ...f, rating: n })}
+                className={`grid size-11 place-items-center rounded-xl border text-2xl transition ${n <= f.rating ? "border-gold/40 bg-amber-50 text-gold" : "border-line text-line"}`}
+              >
+                ★
+              </button>
+            ))}
+          </div>
+        </div>
+        <TextArea label={tr("Avis")} rows={4} value={f.text} maxLength={1000} onChange={(e) => setF({ ...f, text: e.target.value })} />
+        {!review.id && <TextField label={tr("Date de l'avis")} type="date" value={f.date} max={new Date().toISOString().slice(0, 10)} onChange={(e) => setF({ ...f, date: e.target.value })} />}
+      </div>
+    </Sheet>
+  );
+}
+
+function ReviewItem({ r, onEdit }: { r: Review; onEdit: () => void }) {
   const [reply, setReply] = useState(r.reply ?? "");
   const save = useSave((body: Record<string, unknown>) => patch(`/reviews/${r.id}`, body), ["reviews"]);
   const remove = useSave(() => del(`/reviews/${r.id}`), ["reviews"], tr("Avis supprimé"));
@@ -515,7 +585,7 @@ function ReviewItem({ r }: { r: Review }) {
       </div>
       {r.text && <p className="mt-1 text-sm">{r.text}</p>}
       <div className="mt-2 flex flex-wrap gap-1.5">
-        {r.verified ? <Badge tone="bg-emerald-100 text-emerald-800">{tr("Achat vérifié")}</Badge> : null}
+        {r.verified ? <Badge tone="bg-emerald-100 text-emerald-800">{tr("Achat vérifié")}</Badge> : <Badge tone="bg-stone-100 text-stone-700">{tr("Ajouté par l'équipe")}</Badge>}
         {r.is_featured ? <Badge>{tr("⭐ Mis en avant")}</Badge> : null}
       </div>
       <div className="mt-3 flex gap-2">
@@ -526,6 +596,7 @@ function ReviewItem({ r }: { r: Review }) {
         {r.status !== "approved" && <Button size="sm" variant="primary" onClick={() => save.mutate({ status: "approved" })}>{tr("✓ Publier")}</Button>}
         {r.status !== "rejected" && <Button size="sm" onClick={() => save.mutate({ status: "rejected" })}>{tr("Masquer")}</Button>}
         <Button size="sm" variant="ghost" onClick={() => save.mutate({ isFeatured: !r.is_featured })}>{r.is_featured ? tr("Ne plus mettre en avant") : tr("Mettre en avant")}</Button>
+        {!r.verified && <Button size="sm" onClick={onEdit}>✏️ {tr("Modifier")}</Button>}
         <Button size="sm" variant="danger" onClick={() => confirm(tr("Supprimer définitivement cet avis ?")) && remove.mutate(undefined)}>{tr("Supprimer")}</Button>
       </div>
     </li>

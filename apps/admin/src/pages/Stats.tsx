@@ -5,6 +5,7 @@ import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import { CHANNEL_LABEL, da } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
 import { tr } from "../i18n";
+import { ColumnChart, shortDA, StackBar, TrendChart } from "../lib/charts";
 
 interface StatsData {
   range: { since: number; until: number; label: string; days: number };
@@ -26,10 +27,58 @@ interface StatsData {
   };
   channels: { channel: string; orders: number; revenue: number }[];
   hours: { hour: string; orders: number }[];
+  weekdays: { dow: number; orders: number; revenue: number }[];
   topProducts: { product_id: number; name_fr: string; units: number; revenue: number }[];
 }
 
 const pct = (v: number | null) => (v == null ? "—" : `${v} %`);
+
+/** Every day of the range (missing days = 0), "dd/mm" labels. */
+function fillDays(data: StatsData["daily"], since: number, days: number) {
+  const byDate = new Map(data.map((d) => [d.date, d]));
+  return Array.from({ length: days }, (_, i) => {
+    const date = new Date(since + 3600_000 + i * 86400_000).toISOString().slice(0, 10);
+    const row = byDate.get(date);
+    return { date, label: date.slice(5).split("-").reverse().join("/"), orders: row?.orders ?? 0, revenue: row?.revenue ?? 0 };
+  });
+}
+
+/** Revenue adding up day after day over the period. */
+function CumulativeChart({ data, since, days }: { data: StatsData["daily"]; since: number; days: number }) {
+  let run = 0;
+  const points = fillDays(data, since, days).map((d) => {
+    run += d.revenue;
+    return { label: d.label, value: run, sub: d.revenue ? tr("+ {0} ce jour-là", { 0: da(d.revenue) }) : undefined };
+  });
+  return (
+    <Card title={tr("Chiffre d'affaires cumulé")}>
+      <TrendChart points={points} format={(v) => da(v)} axisFormat={shortDA} label={tr("Chiffre d'affaires cumulé")} />
+    </Card>
+  );
+}
+
+// Algeria's week starts on Saturday
+const WEEK = [
+  [6, "Sam"], [0, "Dim"], [1, "Lun"], [2, "Mar"], [3, "Mer"], [4, "Jeu"], [5, "Ven"],
+] as const;
+
+function WeekdayChart({ rows }: { rows: StatsData["weekdays"] }) {
+  const items = WEEK.map(([dow, name]) => {
+    const r = rows.find((x) => Number(x.dow) === dow);
+    return { label: tr(name), value: r?.orders ?? 0, sub: r ? da(r.revenue) : undefined };
+  });
+  const best = items.reduce((b, d) => (d.value > b.value ? d : b), items[0]!);
+  return (
+    <Card title={tr("Jours de la semaine")}>
+      <ColumnChart items={items} format={(v) => tr("{0} commande(s)", { 0: v })} label={tr("Commandes par jour de la semaine")} />
+      {best.value > 0 && (
+        <p className="mt-3 text-sm">
+          {tr("Meilleur jour :")} <b>{best.label}</b> {tr("(publiez la veille au soir sur Instagram).")}
+        </p>
+      )}
+    </Card>
+  );
+}
 
 /** Daily columns: one series, labelled peaks, dates on the axis. */
 function DailyChart({ data, since, days }: { data: StatsData["daily"]; since: number; days: number }) {
@@ -221,6 +270,22 @@ export function StatsPage() {
             <Stat label={tr("Retours")} value={d.totals.returned} hint={tr("taux {0}", { 0: pct(d.totals.returnRate) })} tone={(d.totals.returnRate ?? 0) > 20 ? "warn" : undefined} />
           </div>
           {d.range.days > 1 && <DailyChart data={d.daily} since={d.range.since} days={d.range.days} />}
+          <Card title={tr("Résultat des commandes")}>
+            <StackBar
+              label={tr("Résultat des commandes")}
+              parts={[
+                { key: "delivered", label: tr("Livrées"), value: d.totals.delivered, color: "#1baf7a" },
+                { key: "progress", label: tr("En cours"), value: d.totals.inProgress, color: "#2a78d6" },
+                { key: "pending", label: tr("À confirmer"), value: d.totals.pending, color: "#eda100" },
+                { key: "returned", label: tr("Retours"), value: d.totals.returned, color: "#e34948" },
+                { key: "cancelled", label: tr("Annulées"), value: d.totals.cancelled, color: "#4a3aa7" },
+              ]}
+            />
+          </Card>
+          <div className="grid gap-4 md:grid-cols-2">
+            {d.range.days > 1 && <CumulativeChart data={d.daily} since={d.range.since} days={d.range.days} />}
+            <WeekdayChart rows={d.weekdays ?? []} />
+          </div>
           <Card title={tr("Entonnoir des commandes")}>
             <BarList
               rows={[
@@ -233,9 +298,19 @@ export function StatsPage() {
               ]}
             />
           </Card>
-          <Card title={tr("Wilayas")}>
-            <WilayaTable rows={d.wilayas} />
-          </Card>
+          <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
+            <Card title={tr("Top wilayas")}>
+              <BarList
+                rows={[...d.wilayas]
+                  .sort((a, b) => b.orders - a.orders)
+                  .slice(0, 8)
+                  .map((w) => ({ label: `${w.code} - ${w.name}`, value: w.orders, display: String(w.orders), sub: da(w.revenue) }))}
+              />
+            </Card>
+            <Card title={tr("Wilayas")}>
+              <WilayaTable rows={d.wilayas} />
+            </Card>
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <Card title={tr("Pourquoi les retours ?")}>
               <BarList rows={returnReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
