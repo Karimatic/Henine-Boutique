@@ -28,6 +28,8 @@ export interface Settings {
     webhook_secret_enc: string | null; webhook_url: string | null; last_update_id: number;
   };
   integrations: { zr_id_enc: string | null; zr_token_enc: string | null; meta_pixel_id: string | null; tiktok_pixel_id: string | null };
+  /** Instagram API (product photos from the shop's posts); token encrypted */
+  instagram: { token_enc: string | null; username: string | null; user_id: string | null; refreshed_at: number | null };
   /** Home page FAQ (Admin → Marketing → Page d’accueil) */
   faq: { q_fr: string; a_fr: string; q_ar: string; a_ar: string }[];
   "shipping.prices_verified": boolean;
@@ -71,6 +73,7 @@ export const DEFAULTS: Settings = {
   },
   telegram: { token_enc: null, chat_id: null, chat_title: null, bot_username: null, webhook_secret_enc: null, webhook_url: null, last_update_id: 0 },
   integrations: { zr_id_enc: null, zr_token_enc: null, meta_pixel_id: null, tiktok_pixel_id: null },
+  instagram: { token_enc: null, username: null, user_id: null, refreshed_at: null },
   faq: [
     { q_ar: "أين توصلون؟", a_ar: "نوصل إلى كل الولايات الـ69 مع ZR Express، إلى المنزل أو إلى أقرب مكتب.", q_fr: "Où livrez-vous ?", a_fr: "Dans les 69 wilayas avec ZR Express, à domicile ou au bureau le plus proche." },
     { q_ar: "كيف أدفع؟", a_ar: "تدفعين نقدًا عند استلام الطلب، لا حاجة لبطاقة بنكية.", q_fr: "Comment payer ?", a_fr: "En espèces à la réception du colis, sans carte bancaire." },

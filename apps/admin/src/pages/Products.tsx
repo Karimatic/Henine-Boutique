@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api, del, errorMessage, post, put, upload } from "../api";
 import { da } from "../lib/format";
 import { processImage } from "../lib/images";
+import { InstagramButton } from "./InstagramPicker";
 import { useCan } from "../Shell";
 import {
   Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Spinner, TextArea, TextField, useToast,
@@ -280,8 +281,30 @@ export function ProductEditor() {
 
           <OptionsEditor options={form.options} onChange={setOptions} disabled={readOnly} />
           <VariantsTable form={form} onChange={(variants) => set("variants", variants)} disabled={readOnly} />
-          {!isNew ? <ImagesEditor productId={form.id!} images={form.images ?? []} options={form.options} onChange={(images) => set("images", images)} /> : (
-            <Card title="Photos">
+          {!isNew ? (
+            <ImagesEditor
+              productId={form.id!}
+              images={form.images ?? []}
+              options={form.options}
+              onChange={(images) => set("images", images)}
+              onInstagramPost={(url) => !form.instagramUrl && set("instagramUrl", url)}
+            />
+          ) : (
+            <Card
+              title="Photos"
+              actions={
+                !readOnly && (
+                  <InstagramButton
+                    disabled={save.isPending}
+                    onFiles={(files, permalink) => {
+                      pendingPhotos = files;
+                      if (!form.instagramUrl) set("instagramUrl", permalink);
+                      if (!submit()) pendingPhotos = null;
+                    }}
+                  />
+                )
+              }
+            >
               <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white p-6 text-center text-sm text-ink-soft hover:border-plum-600">
                 <span className="text-2xl">＋</span>
                 Ajouter des photos
@@ -681,7 +704,13 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
 }
 
 
-function ImagesEditor({ productId, images, options, onChange }: { productId: number; images: (ImageRef & { id: number })[]; options: Option[]; onChange: (i: (ImageRef & { id: number })[]) => void }) {
+function ImagesEditor({
+  productId, images, options, onChange, onInstagramPost,
+}: {
+  productId: number; images: (ImageRef & { id: number })[]; options: Option[]; onChange: (i: (ImageRef & { id: number })[]) => void;
+  /** a post's photos were imported: remember the post on the product */
+  onInstagramPost?: (permalink: string) => void;
+}) {
   const toast = useToast();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
@@ -726,7 +755,16 @@ function ImagesEditor({ productId, images, options, onChange }: { productId: num
   }
 
   return (
-    <Card title={`Photos (${images.length})`} actions={busy && <span className="flex items-center gap-2 text-xs text-ink-soft"><Spinner className="size-3.5" />{busy}</span>}>
+    <Card
+      title={`Photos (${images.length})`}
+      actions={
+        busy ? (
+          <span className="flex items-center gap-2 text-xs text-ink-soft"><Spinner className="size-3.5" />{busy}</span>
+        ) : (
+          <InstagramButton onFiles={(files, permalink) => { onInstagramPost?.(permalink); void handleFiles(files); }} />
+        )
+      }
+    >
       <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {images.map((img, i) => (
           <li key={img.id} className="group relative">
