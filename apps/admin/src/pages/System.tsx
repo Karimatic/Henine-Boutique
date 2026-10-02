@@ -158,18 +158,7 @@ interface Integrations {
   publicOrigin: string;
 }
 
-export function AccountsPage() {
-  const can = useCan();
-  return (
-    <div className="space-y-4">
-      <PageHeader group="Système" title="Comptes" subtitle="Votre compte, et les services connectés à la boutique." />
-      <MyAccount />
-      {can("integrations.manage") && <IntegrationsSection />}
-    </div>
-  );
-}
-
-function MyAccount() {
+export function MyAccount() {
   const me = useMe();
   const toast = useToast();
   const q = useQuery({ queryKey: ["account"], queryFn: () => api<{ member: { email: string; name: string; roleName: string }; sessions: { id: number; user_agent: string; created_at: number; last_seen_at: number; current: boolean }[] }>("/account") });
@@ -214,7 +203,7 @@ function MyAccount() {
   );
 }
 
-function IntegrationsSection() {
+export function IntegrationsSection() {
   const toast = useToast();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["integrations"], queryFn: () => api<Integrations>("/integrations") });

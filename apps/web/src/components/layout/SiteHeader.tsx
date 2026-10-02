@@ -76,8 +76,6 @@ export function SiteHeader() {
             <HeartIcon />
             {favs.length > 0 && <span className="absolute end-1.5 top-1.5 size-2 rounded-full bg-rose-500" />}
           </a>
-          <SiteMenu />
-          {/* the cart sits in the corner: top-left in Arabic, top-right in French */}
           <a href={href("/panier")} className="relative grid size-11 place-items-center rounded-full hover:bg-rose-100" aria-label={`${t.nav.cart} (${count})`}>
             <BagIcon />
             {count > 0 && (
@@ -86,6 +84,8 @@ export function SiteHeader() {
               </span>
             )}
           </a>
+          {/* ☰ in the very corner: far left in Arabic, far right in French */}
+          <SiteMenu />
         </div>
       </div>
     </header>

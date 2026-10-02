@@ -153,7 +153,7 @@ function ProfileMenu({ me }: { me: Me }) {
             </div>
           </div>
           <div className="my-1 h-px bg-line" />
-          <Link to="/comptes" role="menuitem" onClick={() => setOpen(false)} className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
+          <Link to="/parametres" search={{ tab: "compte" }} role="menuitem" onClick={() => setOpen(false)} className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
             <KeyRound className="size-4 text-ink-soft" /> Mon compte
           </Link>
           <a href="/" target="_blank" rel="noreferrer" role="menuitem" className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">

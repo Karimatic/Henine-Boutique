@@ -87,7 +87,7 @@ marketingRoutes.delete("/coupons/:id", requirePermission("promos.edit"), async (
 /* ───────────── Page d'accueil + checkout options ───────────── */
 
 marketingRoutes.get("/home", requirePermission("marketing.edit"), async (c) => {
-  return c.json(await getSettings(c.env, ["announcement", "checkout", "maintenance", "store", "texts"]));
+  return c.json(await getSettings(c.env, ["announcement", "checkout", "contact", "maintenance", "store", "texts"]));
 });
 
 /**

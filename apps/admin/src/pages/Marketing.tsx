@@ -1,5 +1,6 @@
 import { formatDzPhone, resolveStoreTexts, STORE_TEXTS, type StoreTexts } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, waLink } from "../lib/format";
@@ -155,14 +156,14 @@ function CouponSheet({ coupon, onClose }: { coupon: Partial<Coupon>; onClose: ()
 /* ───────────── Textes de la boutique ───────────── */
 
 type TextLocale = "ar" | "fr";
-type Overrides = Partial<StoreTexts>;
+export type Overrides = Partial<StoreTexts>;
 
 /**
  * Edit the store's texts one language at a time. Each box starts with what customers see
  * today; whatever is left as the built-in text isn't stored, so the other language and any
  * untouched text keep their default. "Rétablir" puts a text back to the original.
  */
-function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overrides } }) {
+export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overrides } }) {
   const [lang, setLang] = useState<TextLocale>("ar");
   const [draft, setDraft] = useState<StoreTexts>(() => resolveStoreTexts("ar", saved.ar));
   // reload only when the language or the saved texts really change (not on every parent render)
@@ -357,77 +358,6 @@ function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overrides } }
         </Button>
       </div>
     </Card>
-  );
-}
-
-/* ───────────── Page d'accueil ───────────── */
-
-interface HomeSettings {
-  announcement: { active: boolean };
-  checkout: { express_on_product: boolean; desk_enabled: boolean; free_shipping_over: number | null; max_orders_per_phone_per_hour: number };
-  maintenance: { active: boolean };
-}
-
-/**
- * Switches (saved the moment they change) + the store texts editor (one language at a time,
- * untouched texts keep their built-in version).
- */
-export function HomePageSettings() {
-  const q = useQuery({ queryKey: ["home"], queryFn: () => api<HomeSettings & { texts?: { ar?: Overrides; fr?: Overrides } }>("/home") });
-  const [s, setS] = useState<HomeSettings | null>(null);
-  useEffect(() => {
-    if (q.data) setS({ announcement: { active: q.data.announcement.active }, checkout: q.data.checkout, maintenance: { active: q.data.maintenance.active } });
-  }, [q.data]);
-  const save = useSave((next: HomeSettings) => put("/home", next), ["home"], "Enregistré ✓ (visible immédiatement sur la boutique)");
-  if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
-  if (!s) return <ListSkeleton />;
-  const apply = (next: HomeSettings) => {
-    setS(next);
-    save.mutate(next);
-  };
-  const checkout = (patch: Partial<HomeSettings["checkout"]>) => apply({ ...s, checkout: { ...s.checkout, ...patch } });
-
-  return (
-    <div className="space-y-4">
-      <PageHeader
-        group="Marketing"
-        title="Page d'accueil"
-        subtitle="Chaque réglage s'enregistre tout seul et s'applique tout de suite sur la boutique."
-        actions={<a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">Voir la boutique ↗</a>}
-      />
-      <Card title="Affichage">
-        <Toggle
-          label="Bandeau d'annonces (tout en haut)"
-          hint="Livraison 69 wilayas, paiement à la livraison, échange possible…"
-          checked={s.announcement.active}
-          onChange={(v) => apply({ ...s, announcement: { active: v } })}
-        />
-        <Toggle
-          label="Mettre les commandes en pause (vacances)"
-          hint="La boutique reste visible, mais les nouvelles commandes sont refusées avec un message poli."
-          checked={s.maintenance.active}
-          onChange={(v) => apply({ ...s, maintenance: { active: v } })}
-        />
-      </Card>
-      <Card title="Commande">
-        <Toggle label="Commande express sur la fiche produit" hint="Formulaire directement sur la page du produit (recommandé)." checked={s.checkout.express_on_product} onChange={(v) => checkout({ express_on_product: v })} />
-        <Toggle label="Livraison au bureau (stop-desk)" checked={s.checkout.desk_enabled} onChange={(v) => checkout({ desk_enabled: v })} />
-        <div className="mt-3 flex flex-wrap items-end gap-3">
-          <NumberField
-            label="Commandes max par numéro et par heure"
-            hint="anti-abus"
-            value={s.checkout.max_orders_per_phone_per_hour}
-            onChange={(v) => setS({ ...s, checkout: { ...s.checkout, max_orders_per_phone_per_hour: Math.max(1, Math.min(20, v ?? 3)) } })}
-            className="w-64"
-          />
-          <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(s)}>
-            Enregistrer
-          </Button>
-        </div>
-        <p className="mt-2 text-xs text-ink-soft">Livraison offerte dès un certain montant : Commandes → Promos.</p>
-      </Card>
-      {q.data && <StoreTextsEditor saved={{ ar: q.data.texts?.ar ?? {}, fr: q.data.texts?.fr ?? {} }} />}
-    </div>
   );
 }
 
@@ -696,7 +626,7 @@ interface Message {
   created_at: number;
 }
 
-interface ContactSettings {
+export interface ContactSettings {
   phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null;
 }
 
@@ -728,16 +658,16 @@ export function ContactPage() {
               ))}
             </ul>
           )}
-          <ContactSettingsCard contact={q.data.contact} />
+          <p className="text-sm text-ink-soft">Téléphone, WhatsApp et réseaux affichés sur la boutique : <Link to="/parametres" search={{ tab: "contact" }} className="font-semibold text-plum-600">Paramètres → Contact</Link></p>
         </>
       )}
     </div>
   );
 }
 
-function ContactSettingsCard({ contact }: { contact: ContactSettings }) {
+export function ContactSettingsCard({ contact }: { contact: ContactSettings }) {
   const [c, setC] = useState(contact);
-  const save = useSave(() => put("/contact/settings", { contact: Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v || null])) }), ["contact"]);
+  const save = useSave(() => put("/contact/settings", { contact: Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v || null])) }), ["contact", "home"]);
   const field = (k: keyof ContactSettings, label: string, extra?: Record<string, unknown>) => (
     <TextField label={label} value={c[k] ?? ""} onChange={(e) => setC({ ...c, [k]: e.target.value })} {...extra} />
   );

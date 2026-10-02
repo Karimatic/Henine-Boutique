@@ -152,7 +152,7 @@ function MiniBars({ values, faded = false }: { values: number[]; faded?: boolean
 
 function ProductInsight({ p }: { p: DashboardData["topProduct"] }) {
   return (
-    <Card className="h-full">
+    <Card className="flex-1">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-lg font-semibold">Produit vedette</p>
@@ -241,7 +241,7 @@ function SalesMetrics({ month, prevMonth }: { month: Period; prevMonth: Period }
     { icon: ShoppingBag, title: "Commandes", value: String(month.orders) },
   ];
   return (
-    <Card className="h-full">
+    <Card className="flex-1">
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="flex flex-col justify-between gap-6 lg:col-span-3">
           <p className="text-lg font-semibold">Ventes des 30 derniers jours</p>
@@ -279,7 +279,7 @@ function Earnings({ month, prevMonth, channels }: { month: Period; prevMonth: Pe
   const c = change(month.revenue, prevMonth.revenue);
   const max = Math.max(1, ...channels.map((x) => x.revenue));
   return (
-    <Card className="h-full">
+    <Card className="flex-1">
       <p className="text-lg font-semibold">Chiffre d'affaires</p>
       <div className="mt-5 flex items-center gap-2">
         <span className="text-2xl font-semibold tabular-nums">{da(month.revenue)}</span>
@@ -319,7 +319,7 @@ function Loyalty({ share }: { share: number | null }) {
   const bars = 24;
   const filled = share == null ? 0 : Math.round((share * bars) / 100);
   return (
-    <Card className="h-full">
+    <Card className="flex-1">
       <div className="grid gap-6 md:grid-cols-[auto_1fr] md:items-end">
         <div>
           <p className="text-lg font-semibold">Clientes fidèles</p>
@@ -373,11 +373,11 @@ export function Dashboard() {
           </div>
 
           <div className="grid gap-6 lg:grid-cols-3">
-            <div className="space-y-6">
+            <div className="flex flex-col gap-6">
               <ProductInsight p={d.topProduct} />
               <Earnings month={d.month} prevMonth={d.prevMonth} channels={d.channels} />
             </div>
-            <div className="space-y-6 lg:col-span-2">
+            <div className="flex flex-col gap-6 lg:col-span-2">
               <SalesMetrics month={d.month} prevMonth={d.prevMonth} />
               <Loyalty share={d.returningShare} />
             </div>

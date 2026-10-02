@@ -5,13 +5,12 @@ import {
   ChartColumn,
   FileText,
   Gift,
-  House,
-  KeyRound,
   LayoutDashboard,
   Link,
   Menu,
   MessageSquare,
   Receipt,
+  Settings,
   Shirt,
   ShoppingBag,
   ShoppingCart,
@@ -61,7 +60,6 @@ export const NAV: NavGroup[] = [
   {
     label: "Marketing",
     items: [
-      { path: "/accueil", label: "Page d'accueil", permission: "marketing.edit", icon: House },
       { path: "/collections", label: "Collections", permission: "marketing.edit", icon: Sparkles },
       { path: "/avis", label: "Avis", permission: "reviews.moderate", icon: Star },
       { path: "/notifier", label: "Notifier", permission: "marketing.edit", icon: BellRing },
@@ -77,7 +75,7 @@ export const NAV: NavGroup[] = [
     label: "Système",
     items: [
       { path: "/equipe", label: "Équipe", permission: "team.manage", icon: UsersRound },
-      { path: "/comptes", label: "Comptes", permission: "dashboard.view", icon: KeyRound },
+      { path: "/parametres", label: "Paramètres", permission: "dashboard.view", icon: Settings },
       { path: "/contenu", label: "Contenu", permission: "content.edit", icon: FileText },
       { path: "/erreurs", label: "Erreurs", permission: "errors.view", icon: TriangleAlert },
     ],

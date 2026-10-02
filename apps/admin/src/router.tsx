@@ -10,6 +10,7 @@ const Products: Loader = () => import("./pages/Products");
 const Customers: Loader = () => import("./pages/Customers");
 const Marketing: Loader = () => import("./pages/Marketing");
 const System: Loader = () => import("./pages/System");
+const Settings: Loader = () => import("./pages/Settings");
 
 const rootRoute = createRootRoute({ component: Outlet });
 
@@ -37,7 +38,7 @@ const appRoutes = [
   page("/paniers", lazy(Customers, "CartsPage")),
   page("/promos", lazy(Marketing, "PromosPage")),
   page("/fidelite", lazy(Customers, "LoyaltyPage")),
-  page("/accueil", lazy(Marketing, "HomePageSettings")),
+  page("/accueil", lazy(Settings, "HomeRedirect")),
   page("/avis", lazy(Marketing, "ReviewsPage")),
   page("/notifier", lazy(Marketing, "NotifierPage")),
   page("/liens", lazy(Marketing, "LinksPage")),
@@ -45,7 +46,8 @@ const appRoutes = [
   page("/contact", lazy(Marketing, "ContactPage")),
   page("/statistiques", lazy(() => import("./pages/Stats"), "StatsPage")),
   page("/equipe", lazy(System, "TeamPage")),
-  page("/comptes", lazy(System, "AccountsPage")),
+  page("/comptes", lazy(Settings, "AccountRedirect")),
+  page("/parametres", lazy(Settings, "SettingsPage")),
   page("/contenu", lazy(System, "ContentPage")),
   page("/erreurs", lazy(System, "ErrorsPage")),
 ];
