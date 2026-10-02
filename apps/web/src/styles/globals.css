@@ -46,6 +46,30 @@
   }
 }
 
+/* ── Animated brand wordmark (header logo): rises in once, then a slow gold-pink shine ──
+ * Same gradient-clip technique as the hero tagline, paced slower (8s) since the header is
+ * visible on every page rather than once on the home hero. */
+.brand-mark {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.35em);
+  color: transparent;
+  background: linear-gradient(100deg, var(--color-plum-700) 0%, var(--color-plum-700) 40%, var(--color-gold) 50%, var(--color-rose-500) 58%, var(--color-plum-700) 68%, var(--color-plum-700) 100%);
+  background-size: 260% 100%;
+  background-position: 100% 0;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: brand-rise 0.7s cubic-bezier(0.2, 0.7, 0.2, 1) 0.1s forwards, brand-shine 8s ease-in-out 1s infinite;
+}
+@keyframes brand-rise {
+  to { opacity: 1; transform: none; }
+}
+@keyframes brand-shine {
+  0% { background-position: 160% 0; }
+  20% { background-position: -30% 0; }
+  100% { background-position: -30% 0; }
+}
+
 /* ── Splash screen: brand intro shown once per tab, for ~1s (see SplashScreen.tsx) ── */
 .henine-splash {
   position: fixed;
@@ -201,30 +225,6 @@
   to { transform: scale(1); }
 }
 
-/* ── Header wordmark: the letters fall into place one by one, then a soft wave runs
- *    through them every few seconds (rose light), the blossom turning slowly ── */
-.wm-l {
-  display: inline-block;
-  color: var(--color-plum-700);
-  opacity: 0;
-  transform: translateY(-0.7em) rotate(-10deg);
-  filter: blur(5px);
-  animation: wm-in 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) forwards, wm-wave 7s ease-in-out infinite;
-  animation-delay: calc(var(--i) * 45ms), calc(1.6s + var(--i) * 75ms);
-}
-.wm-gap { display: inline-block; width: 0.3em; }
-@keyframes wm-in {
-  to { opacity: 1; transform: none; filter: none; }
-}
-@keyframes wm-wave {
-  0%, 14%, 100% { transform: none; color: var(--color-plum-700); }
-  7% { transform: translateY(-3px); color: var(--color-rose-500); }
-}
-.wm-blossom { animation: wm-spin 22s linear infinite; }
-@keyframes wm-spin {
-  to { transform: rotate(360deg); }
-}
-
 /* ── Story bubbles (Instagram highlights): turning gold-rose-plum ring, pop in ── */
 @property --story-angle {
   syntax: "<angle>";
@@ -342,8 +342,8 @@
 .faq-item[open] .faq-plus { transform: rotate(45deg); background: var(--color-plum-600); color: var(--color-ivory); }
 
 @media (prefers-reduced-motion: reduce) {
-  .announce, .announce-track, .announce-sparkle, .ig-card, .ig-btn::after, .hero-zoom-img, .wm-blossom, .story-ring, .toast-in { animation: none; }
-  .wm-l { opacity: 1; transform: none; filter: none; animation: none; }
+  .announce, .announce-track, .announce-sparkle, .ig-card, .ig-btn::after, .hero-zoom-img, .story-ring, .toast-in { animation: none; }
+  .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-plum-700); background: none; }
   .story { opacity: 1; animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .menu-panel, .nudge { animation: none; }

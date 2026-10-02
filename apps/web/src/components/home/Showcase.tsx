@@ -19,10 +19,10 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
   const { t, href, ar } = useLocale();
   const S = t.home.stories;
   const onSale = products.some((p) => p.compareAtPrice != null && p.compareAtPrice > p.price);
-  // photos from the shop's Instagram for the categories they show
-  const CATEGORY_PHOTO: Record<string, string> = { pyjamas: "/ig/pyjamas-rayures.jpg", robes: "/ig/boutique.jpg" };
+  // square crops of the shop's Instagram photos (clothes only)
+  const CATEGORY_PHOTO: Record<string, string> = { pyjamas: "/ig/story-pyjamas.jpg", robes: "/ig/story-robes.jpg" };
   const stories: Story[] = [
-    { key: "new", label: S.nouveautes, href: href("/nouveautes"), img: "/ig/ensemble-maille.jpg" },
+    { key: "new", label: S.nouveautes, href: href("/nouveautes"), img: "/ig/story-nouveautes.jpg" },
     ...(categories ?? []).map((c) => ({
       key: c.slug,
       label: ar ? c.nameAr : c.nameFr,
@@ -32,8 +32,6 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
       category: c.slug,
     })),
     ...(onSale ? [{ key: "promo", label: S.promo, href: "#promos", icon: "percent" as const }] : []),
-    { key: "delivery", label: S.livraison, href: href("/p/livraison-retours"), icon: "truck" },
-    { key: "contest", label: S.concours, href: IG, external: true, img: "/ig/pyjamas-rose.jpg" },
   ];
   return (
     <nav aria-label={t.categories.title} className="mx-auto max-w-6xl">
@@ -50,6 +48,11 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
                 <span className="relative block size-full overflow-hidden rounded-full border-[3px] border-white bg-ivory-deep">
                   {s.img ? (
                     <img src={s.img} alt="" loading="lazy" className="size-full object-cover transition duration-500 group-hover:scale-110" />
+                  ) : !s.product?.image && s.category ? (
+                    // no photo yet: brand art with the category's silhouette
+                    <span className="grid size-full place-items-center bg-gradient-to-br from-rose-300 via-rose-500 to-plum-600">
+                      <ProductImage image={null} alt="" category={s.category} color="#ffffff" className="size-[78%] bg-none! [&_path]:stroke-white/40" />
+                    </span>
                   ) : s.icon ? (
                     <span className="grid size-full place-items-center bg-ink text-white">
                       {s.icon === "truck" ? <TruckIcon size={24} /> : <span className="text-xl font-bold">%</span>}
@@ -71,16 +74,21 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
 /* ───────── The 3 promises: a dark band ───────── */
 
 export function PromiseBand() {
-  const { t } = useLocale();
+  const { t, href } = useLocale();
   return (
     <div className="mx-auto max-w-6xl px-4">
       <ul className="grid grid-cols-3 overflow-hidden rounded-[1.4rem] bg-ink text-white">
         {t.trust.slice(0, 3).map((item, i) => {
           const Icon = TRUST_ICONS[item.icon as keyof typeof TRUST_ICONS];
           return (
-            <li key={item.title} className={`promise flex flex-col items-center gap-1.5 px-2 py-4 text-center md:flex-row md:justify-center md:gap-3 md:py-5 ${i ? "border-s border-white/10" : ""}`}>
-              <Icon size={22} className="shrink-0 text-[#e9c98f]" />
-              <span className="text-[11.5px] font-semibold leading-tight md:text-sm">{item.title}</span>
+            <li key={item.title} className={i ? "border-s border-white/10" : ""}>
+              <a
+                href={href(item.icon === "truck" ? "/p/livraison-retours" : item.icon === "swap" ? "/p/livraison-retours" : "/p/cgv")}
+                className="flex h-full flex-col items-center gap-1.5 px-2 py-4 text-center transition hover:bg-white/5 md:flex-row md:justify-center md:gap-3 md:py-5"
+              >
+                <Icon size={22} className="shrink-0 text-[#e9c98f]" />
+                <span className="text-[11.5px] font-semibold leading-tight md:text-sm">{item.title}</span>
+              </a>
             </li>
           );
         })}
@@ -129,6 +137,29 @@ export function Lookbook() {
           {L.cta}
         </a>
       </div>
+    </section>
+  );
+}
+
+/* ───────── Contests (Instagram) ───────── */
+
+export function ContestCard() {
+  const { t } = useLocale();
+  const C = t.home.contest;
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-6">
+      <Reveal>
+        <a href={IG} target="_blank" rel="noopener noreferrer" className="lift group relative flex items-center gap-4 overflow-hidden rounded-[1.75rem] bg-ink p-5 text-white md:p-8">
+          <img src="/ig/pyjamas-rose.jpg" alt="" loading="lazy" className="absolute inset-y-0 end-0 h-full w-1/2 object-cover opacity-45 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]" />
+          <span className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#e9c98f] via-rose-500 to-plum-600 text-2xl shadow-lg transition group-hover:scale-105">🎁</span>
+          <span className="relative min-w-0 flex-1">
+            <span className="block text-xs font-semibold uppercase tracking-[0.16em] text-rose-300">{C.eyebrow}</span>
+            <span className="heading-display mt-0.5 block text-xl leading-snug md:text-3xl">{C.title}</span>
+            <span className="mt-1 block text-sm text-white/70">{C.text}</span>
+          </span>
+          <span aria-hidden="true" className="relative grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink rtl:rotate-180">→</span>
+        </a>
+      </Reveal>
     </section>
   );
 }

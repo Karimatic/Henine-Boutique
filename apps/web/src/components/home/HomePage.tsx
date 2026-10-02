@@ -8,8 +8,8 @@ import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
 import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
-import { Faq, InstagramCard, SectionHead } from "./Sections";
-import { Lookbook, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
+import { Faq, SectionHead } from "./Sections";
+import { ContestCard, Lookbook, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
 
 /**
  * Home, phone first: the shop's stories, a big photo with the promise on it, the promises,
@@ -95,11 +95,11 @@ export function HomePage() {
 
       <Lookbook />
 
+      <ContestCard />
+
       <ReviewWall />
 
       <RecentlyViewed products={products} />
-
-      <InstagramCard />
 
       <Faq />
     </>

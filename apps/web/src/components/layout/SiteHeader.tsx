@@ -47,16 +47,9 @@ export function SiteHeader() {
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-4">
         <div className="flex min-w-0 items-center">
           <a href={href("/")} className="flex min-w-0 items-center gap-1.5" aria-label="Henine Boutique">
-            <Blossom size={22} className="wm-blossom shrink-0" />
-            {/* each letter falls into place, then a rose wave runs through the word (globals.css) */}
-            <span className="heading-display whitespace-nowrap text-[1.08rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr" aria-hidden="true">
-              {[..."Henine Boutique"].map((ch, i) =>
-                ch === " " ? <span key={i} className="wm-gap" /> : (
-                  <span key={i} className="wm-l" style={{ "--i": i } as React.CSSProperties}>
-                    {ch}
-                  </span>
-                ),
-              )}
+            <Blossom size={22} className="animate-bloom shrink-0" />
+            <span className="brand-mark heading-display whitespace-nowrap text-[1.08rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
+              Henine Boutique
             </span>
           </a>
         </div>

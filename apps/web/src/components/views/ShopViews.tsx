@@ -146,7 +146,7 @@ export function CategoriesView() {
 type Sort = "new" | "price_asc" | "price_desc";
 
 export function CategoryView() {
-  const { t, ar } = useLocale();
+  const { t, ar, href } = useLocale();
   const [slug, setSlug] = useState<string | null>(null);
   useEffect(() => setSlug(slugFromPath(location.pathname)), []);
   const categories = useApi<CategoryDTO[]>("/categories");
@@ -184,7 +184,17 @@ export function CategoryView() {
       ) : products.length ? (
         <ProductGrid products={products} />
       ) : (
-        <p className="rounded-card border border-line bg-white/60 p-8 text-center text-ink-soft">{t.categories.empty}</p>
+        <div className="rounded-card border border-line bg-white p-8 text-center">
+          <p className="text-ink-soft">{t.categories.empty}</p>
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            <a href={href("/nouveautes")} className="inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-white">
+              {t.home.newArrivals}
+            </a>
+            <a href="https://www.instagram.com/henine.boutique/" target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center rounded-full border border-line px-5 text-sm font-semibold">
+              Instagram
+            </a>
+          </div>
+        </div>
       )}
     </div>
   );

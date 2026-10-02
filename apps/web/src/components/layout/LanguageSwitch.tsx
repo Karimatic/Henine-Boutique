@@ -14,6 +14,11 @@ export function useLocaleHref(target: Locale): string {
   return href;
 }
 
+/** The Arabic letter sits low in its line box: nudge it up so it looks centred in the pill. */
+function LangLabel({ code, label }: { code: "ar" | "fr"; label: string }) {
+  return code === "ar" ? <span className="-translate-y-[2px] text-[15px]" style={{ fontFamily: "system-ui, 'Segoe UI', Tahoma, sans-serif" }}>{label}</span> : <span>{label}</span>;
+}
+
 /** Both languages side by side ("ع | Fr"): the current one filled, the other a link. */
 export function LanguageSwitch({ className = "" }: { className?: string }) {
   const { locale } = useLocale();
@@ -24,20 +29,20 @@ export function LanguageSwitch({ className = "" }: { className?: string }) {
     { code: "fr" as const, label: "Fr", name: "Français" },
   ];
   return (
-    <span dir="ltr" className={`relative inline-grid h-9 grid-cols-2 items-center rounded-full border border-line bg-white p-0.5 text-sm font-bold ${className}`}>
+    <span dir="ltr" className={`relative inline-grid h-9 grid-cols-2 items-center rounded-full border border-rose-300 bg-rose-100/60 p-0.5 text-sm font-bold ${className}`}>
       {/* sliding pill under the current language */}
       <span
         aria-hidden="true"
-        className={`absolute inset-y-0.5 w-[calc(50%-2px)] rounded-full bg-ink transition-transform duration-300 ${locale === "ar" ? "translate-x-0.5" : "translate-x-[calc(100%+2px)]"}`}
+        className={`absolute inset-y-0.5 left-0 w-[calc(50%-2px)] rounded-full bg-gradient-to-br from-rose-500 to-plum-600 shadow-[0_2px_8px_-2px_rgb(224_72_127/0.6)] transition-transform duration-300 ${locale === "ar" ? "translate-x-0.5" : "translate-x-[calc(100%+2px)]"}`}
       />
       {options.map((o) =>
         o.code === locale ? (
-          <span key={o.code} aria-current="true" className="relative z-10 grid h-8 min-w-8 place-items-center px-2 text-white">
-            {o.label}
+          <span key={o.code} aria-current="true" className="relative z-10 flex h-8 min-w-8 items-center justify-center px-2 leading-none text-white">
+            <LangLabel code={o.code} label={o.label} />
           </span>
         ) : (
-          <a key={o.code} href={href} hrefLang={o.code} lang={o.code} aria-label={o.name} className="relative z-10 grid h-8 min-w-8 place-items-center px-2 text-ink-soft transition hover:text-ink">
-            {o.label}
+          <a key={o.code} href={href} hrefLang={o.code} lang={o.code} aria-label={o.name} className="relative z-10 flex h-8 min-w-8 items-center justify-center px-2 leading-none text-plum-700 transition hover:text-rose-700">
+            <LangLabel code={o.code} label={o.label} />
           </a>
         ),
       )}
