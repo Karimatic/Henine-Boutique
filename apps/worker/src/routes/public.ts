@@ -51,7 +51,7 @@ publicRoutes.get("/health", async (c) => {
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
     const [s, drop] = await Promise.all([
-      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance"]),
+      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts"]),
       featuredDrop(c.env),
     ]);
     const dto: SiteConfigDTO = {
@@ -64,6 +64,7 @@ publicRoutes.get("/site", (c) =>
       checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: s.checkout.express_on_product, deskEnabled: s.checkout.desk_enabled },
       turnstileSiteKey: c.env.TURNSTILE_SITE_KEY,
       maintenance: { active: s.maintenance.active },
+      texts: { ar: s.texts.ar ?? {}, fr: s.texts.fr ?? {} },
       drop,
     };
     return c.json(dto);

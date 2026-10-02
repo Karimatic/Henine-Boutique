@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { BagIcon, ChatIcon, GiftIcon, InstagramIcon, PhoneIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
+import { useStoreTexts } from "@/lib/storeTexts";
 
 /** Fades/slides its children in when they scroll into view (once). */
 export function Reveal({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
@@ -128,10 +129,10 @@ export function InstagramCard() {
 
 /* ───────── FAQ ───────── */
 
-/** Questions are built in, in the page's language (no admin translation to keep in sync). */
+/** Questions in the page's language: built in, or edited in Admin → Page d'accueil → Textes. */
 export function Faq() {
   const { t, href } = useLocale();
-  const list = t.faq.items;
+  const list = useStoreTexts().faq;
   return (
     <section className="mx-auto max-w-6xl px-4 py-14" aria-labelledby="faq-title">
       <div id="faq-title">

@@ -2,18 +2,17 @@
 
 import type { SiteConfigDTO } from "@henine/shared";
 import { useApi } from "@/lib/api";
-import { useLocale } from "@/lib/locale";
+import { useStoreTexts } from "@/lib/storeTexts";
 
 /**
  * Top banner: a slowly flowing rose gradient with the messages scrolling endlessly
  * (marquee, pauses on hover, static when the visitor prefers reduced motion).
- * Messages are built in (Arabic / French by page); Admin → Page d'accueil only shows or hides it.
+ * Messages: built in for each language, editable in Admin → Page d'accueil → Textes.
  */
 export function AnnouncementBar() {
-  const { t } = useLocale();
   const { data } = useApi<SiteConfigDTO>("/site");
+  const messages = useStoreTexts().announcement; // built-in or edited in the admin, in the language of the page
   if (data && !data.announcement.active) return null;
-  const messages = t.announcement; // built-in, in the language of the page
   // repeat so one copy is always wider than the screen, then double it for the seamless loop
   const lane = Array.from({ length: Math.max(2, Math.ceil(8 / messages.length)) }, () => messages).flat();
 

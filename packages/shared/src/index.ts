@@ -10,3 +10,4 @@ export * from "./schemas";
 export * from "./text";
 export * from "./insights";
 export * from "./risk";
+export * from "./store-texts";

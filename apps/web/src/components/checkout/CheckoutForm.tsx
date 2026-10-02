@@ -5,6 +5,7 @@ import { formatDA, normalizeDzPhone, type CommuneDTO, type CreatedOrderDTO, type
 import { inputCls, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { useStoreTexts } from "@/lib/storeTexts";
 import { cart, checkoutMemory, saveOrder } from "@/lib/stores";
 import { newIdempotencyKey, Turnstile } from "@/lib/turnstile";
 import { Picker } from "./Picker";
@@ -31,6 +32,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const { t, href, ar, locale } = useLocale();
   const L = t.checkout;
   const site = useApi<SiteConfigDTO>("/site");
+  const texts = useStoreTexts();
   const wilayas = useApi<WilayaDTO[]>("/geo/wilayas");
 
   const memory = useMemo(() => checkoutMemory.get(), []);
@@ -172,7 +174,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
       } else if (e.code === "duplicate_order") {
         location.href = href("/suivi");
       } else {
-        setFormError(L.errors[e.code] ?? L.errors.generic!);
+        setFormError(e.code === "maintenance" ? texts.pause : (L.errors[e.code] ?? L.errors.generic!));
         if (e.code === "stock_problem" || e.code === "coupon_invalid") {
           apiPost<QuoteDTO>("/quote", { lines, wilaya, communeId: typeof communeId === "number" ? communeId : null, deliveryType, coupon: coupon || undefined }).then(
             setQuote,

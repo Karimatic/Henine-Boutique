@@ -11,7 +11,7 @@ import { checkPassword, devEcho, hashPassword, passwordKeyValid } from "../../li
 import { decryptSecret, encryptSecret, maskSecret, randomToken } from "../../lib/crypto";
 import { body, HttpError, intParam } from "../../lib/http";
 import { mailLayout, mailProvider, sendMail } from "../../lib/mail";
-import { variantLabels } from "../../lib/catalog";
+import { mediaUrl, variantLabels } from "../../lib/catalog";
 import { algiersDayStart, CANCELLED_SQL, periodStats } from "../../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings, patchSetting, setSettingStmt } from "../../lib/settings";
 import { pollUpdates, processOutbox, sendTelegramText, telegramConfig, tgCall } from "../../lib/telegram";
@@ -47,10 +47,37 @@ systemRoutes.post("/dev/telegram-poll", async (c) => {
 systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) => {
   const now = Date.now();
   const dayStart = algiersDayStart(now);
-  const [today, week, month] = await Promise.all([
+  const day = 86400_000;
+  const [today, week, prevWeek, month, prevMonth] = await Promise.all([
     periodStats(c.env, dayStart),
-    periodStats(c.env, dayStart - 6 * 86400_000),
-    periodStats(c.env, dayStart - 29 * 86400_000),
+    periodStats(c.env, dayStart - 6 * day),
+    periodStats(c.env, dayStart - 13 * day, dayStart - 6 * day),
+    periodStats(c.env, dayStart - 29 * day),
+    periodStats(c.env, dayStart - 59 * day, dayStart - 29 * day),
+  ]);
+  const since30 = dayStart - 29 * day;
+  // widgets: best product of the month (with weekly units), revenue by channel, returning customers
+  const [topProduct, channels, loyalty] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT oi.product_id, p.name_fr, COALESCE(p.published_at, p.created_at) AS published_at,
+              (SELECT base_key FROM product_images i WHERE i.product_id = oi.product_id ORDER BY sort, id LIMIT 1) AS image_key,
+              SUM(oi.qty) AS units, COUNT(DISTINCT oi.order_id) AS orders, SUM(oi.qty * oi.unit_price) AS revenue,
+              SUM(CASE WHEN o.created_at >= ?2 THEN oi.qty ELSE 0 END) AS w4,
+              SUM(CASE WHEN o.created_at >= ?3 AND o.created_at < ?2 THEN oi.qty ELSE 0 END) AS w3,
+              SUM(CASE WHEN o.created_at >= ?4 AND o.created_at < ?3 THEN oi.qty ELSE 0 END) AS w2,
+              SUM(CASE WHEN o.created_at < ?4 THEN oi.qty ELSE 0 END) AS w1
+         FROM order_items oi JOIN orders o ON o.id = oi.order_id LEFT JOIN products p ON p.id = oi.product_id
+        WHERE o.created_at >= ?1 AND o.status NOT IN ${CANCELLED_SQL} AND oi.product_id IS NOT NULL
+        GROUP BY oi.product_id ORDER BY units DESC LIMIT 1`,
+    ).bind(since30, now - 7 * day, now - 14 * day, now - 21 * day),
+    c.env.DB.prepare(
+      `SELECT channel, COUNT(*) AS orders, COALESCE(SUM(total), 0) AS revenue FROM orders
+        WHERE created_at >= ? AND status NOT IN ${CANCELLED_SQL} GROUP BY channel ORDER BY revenue DESC`,
+    ).bind(since30),
+    c.env.DB.prepare(
+      `SELECT COUNT(*) AS orders, SUM(CASE WHEN c.delivered_count > 0 OR c.orders_count > 1 THEN 1 ELSE 0 END) AS returning_orders
+         FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.created_at >= ? AND o.status NOT IN ${CANCELLED_SQL}`,
+    ).bind(since30),
   ]);
   const attn = attentionSql(now);
   const attnCols = Object.entries(attn).map(([k, cond]) => `SUM(CASE WHEN ${cond} THEN 1 ELSE 0 END) AS ${k}`).join(", ");
@@ -123,6 +150,22 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
     lowStock: low.map(withLabel),
     restocked: back.map(withLabel),
     recent: recent!.results,
+    week,
+    prevWeek,
+    month,
+    prevMonth,
+    topProduct: ((r) =>
+      r
+        ? {
+            id: r.product_id, name: r.name_fr, publishedAt: r.published_at, units: r.units, orders: r.orders, revenue: r.revenue,
+            weeks: [r.w1, r.w2, r.w3, r.w4].map((v) => v ?? 0),
+            image: r.image_key ? mediaUrl(c.env, r.image_key).replace("{w}", "480") : null,
+          }
+        : null)(topProduct!.results[0] as
+      | { product_id: number; name_fr: string; published_at: number; image_key: string | null; units: number; orders: number; revenue: number; w1: number; w2: number; w3: number; w4: number }
+      | undefined),
+    channels: channels!.results,
+    returningShare: ((l) => (l?.orders ? Math.round(((l.returning_orders ?? 0) / l.orders) * 100) : null))(loyalty!.results[0] as { orders: number; returning_orders: number | null } | undefined),
   });
 });
 

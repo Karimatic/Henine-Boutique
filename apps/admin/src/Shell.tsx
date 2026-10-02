@@ -1,7 +1,7 @@
 import { hasPermission } from "@henine/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, PanelLeft, X } from "lucide-react";
+import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, PanelLeft, Store, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, ApiError, auth, post, type Me } from "./api";
@@ -91,7 +91,7 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
       onClick={onNavigate}
       activeOptions={{ exact }}
       title={collapsed ? label : undefined}
-      className={`group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-rose-100/70 [&.active]:bg-plum-600/10 [&.active]:font-semibold [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
+      className={`group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-ivory-deep [&.active]:bg-plum-600/10 [&.active]:font-medium [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
     >
       <Icon className="size-[18px] shrink-0 text-ink-soft transition group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
       {!collapsed && <span className="truncate">{label}</span>}
@@ -105,7 +105,7 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
           {collapsed ? (
             <div className="mx-auto mb-2 h-px w-6 bg-line" aria-hidden="true" />
           ) : (
-            <p className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft/70">{g.label}</p>
+            <p className="mb-1.5 px-2.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70">{g.label}</p>
           )}
           <div className="space-y-0.5">{g.items.map((i) => item(i.path, i.label, i.icon))}</div>
         </div>
@@ -221,10 +221,10 @@ export function Shell() {
     <div className="flex min-h-dvh">
       {/* Desktop sidebar (full or icon rail) */}
       <aside
-        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-line/80 bg-white transition-[width] duration-200 md:flex ${collapsed ? "w-[4.25rem]" : "w-64"}`}
+        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-line bg-sidebar transition-[width] duration-200 md:flex ${collapsed ? "w-[4.25rem]" : "w-64"}`}
       >
-        <Link to="/" className={`flex h-16 shrink-0 items-center border-b border-line/60 ${collapsed ? "justify-center" : "px-4"}`}>
-          <Wordmark size="md" subtitle="Administration" iconOnly={collapsed} />
+        <Link to="/" className={`flex h-16 shrink-0 items-center ${collapsed ? "justify-center" : "px-4"}`}>
+          <Wordmark size="sm" subtitle="Administration" iconOnly={collapsed} badge />
         </Link>
         <div className={`flex-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"}`}>
           <SidebarNav groups={groups} collapsed={collapsed} />
@@ -255,7 +255,7 @@ export function Shell() {
         )}
 
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
-        <header className="sticky top-0 z-30 border-b border-line/70 bg-white/85 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between gap-3 px-3 sm:px-6 md:h-16">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button type="button" onClick={toggle} aria-label="Afficher / masquer le menu" className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-soft hover:bg-rose-100 hover:text-plum-700">
@@ -280,9 +280,11 @@ export function Shell() {
                 href="/"
                 target="_blank"
                 rel="noreferrer"
-                className="hidden h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-medium hover:border-plum-600 hover:text-plum-700 sm:inline-flex"
+                title="Voir la boutique"
+                aria-label="Voir la boutique"
+                className="grid size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700"
               >
-                <ExternalLink className="size-4" /> Voir la boutique
+                <Store className="size-5" strokeWidth={1.8} />
               </a>
               <ProfileMenu me={me.data} />
             </div>

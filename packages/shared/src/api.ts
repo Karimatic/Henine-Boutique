@@ -4,6 +4,7 @@
  */
 import type { ProductBadge } from "./insights";
 import type { OrderStatus } from "./order-status";
+import type { StoreTextOverrides } from "./store-texts";
 
 /* ───────────── Media ───────────── */
 
@@ -145,6 +146,8 @@ export interface SiteConfigDTO {
   checkout: { freeShippingOver: number | null; expressOnProduct: boolean; deskEnabled: boolean };
   turnstileSiteKey: string;
   maintenance: { active: boolean };
+  /** the team's edits to the built-in store texts, per language (see resolveStoreTexts) */
+  texts: { ar: StoreTextOverrides; fr: StoreTextOverrides };
   /** next or current collection launch, for the home banner */
   drop: DropTeaserDTO | null;
 }

@@ -7,19 +7,20 @@
 @import "@fontsource/playfair-display/latin-700-italic.css";
 
 /*
- * Same brand tokens as the storefront (apps/web/src/styles/globals.css): pinky-white ground,
- * white cards, deep rose ink, vivid pink accent, gold hairlines. Layout and component shapes
- * follow the shadcn "admincn" template (sidebar + top bar, rounded-xl cards, rounded-lg controls).
+ * Look of the shadcn "admincn" template (calm white/grey ground, white cards with hairline
+ * borders, rounded-xl cards, rounded-lg controls) with the store's brand as the accent: the
+ * template's black becomes the store's deep pink, plus the store's fonts and blossom.
  */
 @theme {
-  --color-ivory: #fdeef3;
-  --color-ivory-deep: #fbe0ea;
+  --color-ivory: #fcfafb;
+  --color-ivory-deep: #f4eff1;
+  --color-sidebar: #faf7f8;
   --color-ink: #2b1620;
-  --color-ink-soft: #6b4a57;
-  --color-line: #f4c6d6;
+  --color-ink-soft: #6f5b65;
+  --color-line: #ebe2e6;
   --color-plum-600: #c2255f;
   --color-plum-700: #9d174d;
-  --color-rose-100: #f9d3e0;
+  --color-rose-100: #fbe8ef;
   --color-rose-300: #f48fb1;
   --color-rose-500: #ec407a;
   --color-rose-700: #c2185b;

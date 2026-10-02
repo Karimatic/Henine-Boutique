@@ -414,6 +414,8 @@ export interface PeriodStats {
   delivered: number;
   returned: number;
   pending: number; // still to confirm
+  discount: number; // coupon discounts granted (excluding cancelled)
+  deliveredRevenue: number; // cash actually collected (delivered orders)
   confirmRate: number | null; // confirmed / (confirmed + cancelled)
 }
 
@@ -427,7 +429,9 @@ export async function periodStats(env: Env, since: number, until = Date.now() + 
        SUM(CASE WHEN status IN ${CANCELLED_SQL} THEN 1 ELSE 0 END) AS cancelled,
        SUM(CASE WHEN status = 'livree' THEN 1 ELSE 0 END) AS delivered,
        SUM(CASE WHEN status IN ('retour','retour_recu') THEN 1 ELSE 0 END) AS returned,
-       SUM(CASE WHEN status IN ('nouvelle','injoignable') THEN 1 ELSE 0 END) AS pending
+       SUM(CASE WHEN status IN ('nouvelle','injoignable') THEN 1 ELSE 0 END) AS pending,
+       COALESCE(SUM(CASE WHEN status NOT IN ${CANCELLED_SQL} THEN discount_total ELSE 0 END), 0) AS discount,
+       COALESCE(SUM(CASE WHEN status = 'livree' THEN total ELSE 0 END), 0) AS deliveredRevenue
      FROM orders WHERE created_at >= ? AND created_at < ?`,
   )
     .bind(since, until)
@@ -442,6 +446,8 @@ export async function periodStats(env: Env, since: number, until = Date.now() + 
     delivered: n("delivered"),
     returned: n("returned"),
     pending: n("pending"),
+    discount: n("discount"),
+    deliveredRevenue: n("deliveredRevenue"),
     confirmRate: decided ? Math.round((n("confirmed") / decided) * 100) : null,
   };
 }

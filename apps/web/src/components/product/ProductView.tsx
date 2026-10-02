@@ -98,6 +98,19 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 
   const [added, setAdded] = useState(false);
   const [showExpress, setShowExpress] = useState(false);
+  // "Commander" only works once a size (and colour) is chosen; otherwise point at what's missing
+  const [nudge, setNudge] = useState(false);
+  useEffect(() => {
+    if (variant) setNudge(false);
+  }, [variant]);
+  const missingSize = p.options.some((o) => o.kind === "taille" && selected[o.id] == null);
+  function requireVariant(): boolean {
+    if (variant) return true;
+    setNudge(true);
+    navigator.vibrate?.([20, 40, 20]);
+    document.getElementById("variant-options")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    return false;
+  }
   const labels = (lang: "fr" | "ar") =>
     [...p.options]
       .sort((a, b) => (a.kind === "couleur" ? -1 : b.kind === "couleur" ? 1 : 0))
@@ -186,9 +199,9 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             <Price value={variant?.price ?? p.price} compareAt={p.compareAtPrice} />
           </div>
 
-          <div className="mt-6 space-y-5">
+          <div id="variant-options" className="mt-6 space-y-5 scroll-mt-28">
             {p.options.map((o) => (
-              <fieldset key={o.id}>
+              <fieldset key={o.id} className={nudge && selected[o.id] == null ? "nudge [&>legend]:text-danger" : undefined}>
                 <legend className="mb-2 text-sm font-medium">
                   {o.kind === "taille" ? t.product.size : o.kind === "couleur" ? t.product.color : ar ? o.nameAr : o.nameFr}
                   {selected[o.id] != null && (
@@ -229,7 +242,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 
           <p className="mt-4 min-h-6 text-sm font-medium" aria-live="polite">
             {!variant ? (
-              <span className="text-ink-soft">{t.product.selectVariant}</span>
+              <span className={nudge ? "text-danger" : "text-ink-soft"}>{nudge && missingSize ? t.product.chooseSize : t.product.selectVariant}</span>
             ) : variant.available === 0 ? (
               <span className="text-danger">{t.product.outOfStock}</span>
             ) : variant.available <= 3 ? (
@@ -251,23 +264,23 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               >
                 {added ? t.product.added : t.product.addToCart}
               </button>
-              {expressEnabled ? (
-                <button
-                  type="button"
-                  disabled={!variant}
-                  onClick={() => {
+              <button
+                type="button"
+                aria-disabled={!variant}
+                onClick={() => {
+                  if (!requireVariant()) return;
+                  if (expressEnabled) {
                     setShowExpress(true);
                     setTimeout(() => document.getElementById("express")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-                  }}
-                  className="h-13 rounded-full bg-plum-600 px-6 font-semibold text-ivory shadow-soft transition hover:bg-plum-700 active:scale-[0.98] disabled:opacity-40"
-                >
-                  {t.product.buyNow}
-                </button>
-              ) : (
-                <a href={href("/panier")} onClick={addToCart} className="grid h-13 place-items-center rounded-full bg-plum-600 px-6 font-semibold text-ivory">
-                  {t.product.buyNow}
-                </a>
-              )}
+                  } else {
+                    addToCart();
+                    location.href = href("/panier");
+                  }
+                }}
+                className={`h-13 rounded-full bg-plum-600 px-6 font-semibold text-ivory shadow-soft transition hover:bg-plum-700 active:scale-[0.98] ${variant ? "" : "opacity-50"}`}
+              >
+                {t.product.buyNow}
+              </button>
             </div>
           )}
 

@@ -326,7 +326,7 @@
   .announce, .announce-track, .announce-sparkle, .step-line, .step-line-v, .step-icon, .ig-card, .ig-btn::after { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-plum-700); background: none; }
-  .menu-panel { animation: none; }
+  .menu-panel, .nudge { animation: none; }
   /* reduced motion: skip the splash entirely rather than leaving it stuck on screen */
   .henine-splash { animation: none; display: none; }
 }
@@ -341,15 +341,22 @@
   to { opacity: 1; }
 }
 .animate-sheet { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
-/* ☰ menu panel slides in from the start edge (left in French, right in Arabic) */
+/* a missing size/colour gives a short shake when "Commander" is tapped */
+.nudge { animation: nudge 0.45s ease-in-out; }
+@keyframes nudge {
+  0%, 100% { transform: none; }
+  20%, 60% { transform: translateX(-6px); }
+  40%, 80% { transform: translateX(6px); }
+}
+/* ☰ menu panel slides in from the end edge, where its button is (right in French, left in Arabic) */
 .menu-panel { animation: menu-in 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 [dir="rtl"] .menu-panel { animation-name: menu-in-rtl; }
 @keyframes menu-in {
-  from { transform: translateX(-100%); }
+  from { transform: translateX(100%); }
   to { transform: none; }
 }
 @keyframes menu-in-rtl {
-  from { transform: translateX(100%); }
+  from { transform: translateX(-100%); }
   to { transform: none; }
 }
 .animate-fade { animation: fade-in 0.2s ease-out; }

@@ -120,8 +120,8 @@ export function PageHeader({ title, subtitle, actions, group }: { title: string;
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
       <div className="min-w-0">
-        {group && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-700">{group}</p>}
-        <h1 className="font-display text-[1.75rem] font-semibold leading-tight text-ink">{title}</h1>
+        {group && <p className="text-xs font-medium text-ink-soft">{group}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">{title}</h1>
         {subtitle && <p className="mt-1 text-sm text-ink-soft">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
@@ -131,10 +131,10 @@ export function PageHeader({ title, subtitle, actions, group }: { title: string;
 
 export function Card({ title, actions, children, className = "", padded = true }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; padded?: boolean }) {
   return (
-    <section className={`rounded-xl border border-line/70 bg-white shadow-[0_1px_2px_rgb(43_22_32/0.04)] ${padded ? "p-4 md:p-5" : ""} ${className}`}>
+    <section className={`rounded-xl border border-line bg-white shadow-[0_1px_2px_rgb(43_22_32/0.04)] ${padded ? "p-4 md:p-6" : ""} ${className}`}>
       {(title || actions) && (
-        <div className={`mb-4 flex items-center justify-between gap-2 ${padded ? "" : "px-4 pt-4 md:px-5"}`}>
-          {title && <h2 className="text-base font-semibold">{title}</h2>}
+        <div className={`mb-4 flex items-center justify-between gap-2 ${padded ? "" : "px-4 pt-4 md:px-6 md:pt-6"}`}>
+          {title && <h2 className="text-lg font-semibold">{title}</h2>}
           {actions}
         </div>
       )}
@@ -144,10 +144,8 @@ export function Card({ title, actions, children, className = "", padded = true }
 }
 
 export function Stat({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "good" | "warn" }) {
-  const accent = tone === "warn" ? "from-amber-400 to-amber-200" : tone === "good" ? "from-emerald-500 to-emerald-200" : "from-rose-500 via-plum-600 to-gold";
   return (
-    <div className="relative overflow-hidden rounded-xl border border-line/70 bg-white p-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:p-5">
-      <span className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${accent}`} aria-hidden="true" />
+    <div className="rounded-xl border border-line bg-white p-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:p-5">
       <p className="text-sm text-ink-soft">{label}</p>
       <p className={`mt-1.5 text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-amber-700" : tone === "good" ? "text-emerald-700" : "text-ink"}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-ink-soft">{hint}</p>}

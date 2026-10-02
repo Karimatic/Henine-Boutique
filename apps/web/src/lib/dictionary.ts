@@ -1,4 +1,4 @@
-import type { Locale } from "@henine/shared";
+import { STORE_TEXTS, type Locale } from "@henine/shared";
 
 const fr = {
   meta: {
@@ -7,13 +7,13 @@ const fr = {
       "L’élégance & la qualité au meilleur prix. Robes, lingerie et pyjamas pour femmes. Livraison 69 wilayas, paiement à la livraison. Boutique à Boumerdès, ouverte 7j/7.",
   },
   brand: { tagline: "L’élégance & la qualité au meilleur prix" },
-  announcement: ["🚚 Livraison dans les 69 wilayas", "💵 Paiement à la livraison", "🔄 Échange possible", "🌸 Boutique à Boumerdès · 7j/7"],
+  announcement: STORE_TEXTS.fr.announcement,
   skip: "Aller au contenu",
   nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Suivi", menu: "Menu", language: "Langue", shop: "La boutique", help: "Aide", follow: "Suivez-nous" },
   hero: {
-    eyebrow: "Nouvelle collection",
-    title: "L’élégance & la qualité au meilleur prix",
-    subtitle: "Robes, lingerie et pyjamas choisis avec soin, livrés partout en Algérie.",
+    eyebrow: STORE_TEXTS.fr.eyebrow,
+    title: STORE_TEXTS.fr.title,
+    subtitle: STORE_TEXTS.fr.subtitle,
     cta: "Découvrir la collection",
     secondary: "Suivre ma commande",
   },
@@ -65,14 +65,7 @@ const fr = {
     helpTitle: "Vous ne trouvez pas votre réponse ?",
     helpText: "Écrivez-nous, nous répondons rapidement, 7j/7.",
     helpCta: "Nous contacter",
-    items: [
-      { q: "Où livrez-vous ?", a: "Dans les 69 wilayas avec ZR Express, à domicile ou au bureau le plus proche." },
-      { q: "Comment payer ?", a: "En espèces à la réception du colis, sans carte bancaire." },
-      { q: "Quand arrive ma commande ?", a: "1 à 3 jours dans le Nord, jusqu’à 7 jours dans le Sud." },
-      { q: "Puis-je échanger la taille ?", a: "Oui, contactez-nous dans les 48 h suivant la réception." },
-      { q: "L’emballage est-il discret ?", a: "Oui, toutes les commandes (surtout la lingerie) partent dans un emballage totalement discret." },
-      { q: "Comment suivre ma commande ?", a: "Avec votre numéro de téléphone sur la page « Suivi », sans compte." },
-    ],
+    items: STORE_TEXTS.fr.faq,
   },
   footer: { rights: "Tous droits réservés.", help: "Aide", shop: "Boutique", contact: "Contact", links: "Nos liens" },
   product: {
@@ -105,6 +98,7 @@ const fr = {
     favoriteAdd: "Ajouter aux favoris",
     favoriteRemove: "Retirer des favoris",
     selectVariant: "Choisissez une taille et une couleur",
+    chooseSize: "Choisissez d’abord votre taille",
     share: "Partager",
   },
   cart: {
@@ -165,7 +159,7 @@ const fr = {
       too_many_orders: "Trop de commandes récentes avec ce numéro. Réessayez plus tard ou contactez-nous.",
       rate_limited: "Trop de tentatives, patientez une minute.",
       turnstile_failed: "Vérification anti-robot échouée, réessayez.",
-      maintenance: "La boutique est momentanément en pause.",
+      maintenance: STORE_TEXTS.fr.pause,
       network: "Connexion impossible. Vérifiez votre internet.",
       generic: "Une erreur est survenue, réessayez.",
     } as Record<string, string>,
@@ -302,13 +296,13 @@ const ar: Dictionary = {
       "الأناقة والجودة بأفضل سعر. فساتين، ملابس داخلية وبيجامات نسائية. التوصيل إلى 69 ولاية والدفع عند الاستلام. المحل في بومرداس، مفتوح 7/7.",
   },
   brand: { tagline: "الأناقة والجودة بأفضل سعر" },
-  announcement: ["🚚 التوصيل إلى 69 ولاية", "💵 الدفع عند الاستلام", "🔄 إمكانية التبديل", "🌸 محلنا في بومرداس · 7/7"],
+  announcement: STORE_TEXTS.ar.announcement,
   skip: "انتقل إلى المحتوى",
   nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع", menu: "القائمة", language: "اللغة", shop: "المتجر", help: "مساعدة", follow: "تابعينا" },
   hero: {
-    eyebrow: "تشكيلة جديدة",
-    title: "الأناقة والجودة بأفضل سعر",
-    subtitle: "فساتين، ملابس داخلية وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
+    eyebrow: STORE_TEXTS.ar.eyebrow,
+    title: STORE_TEXTS.ar.title,
+    subtitle: STORE_TEXTS.ar.subtitle,
     cta: "اكتشفي التشكيلة",
     secondary: "تتبع طلبي",
   },
@@ -360,14 +354,7 @@ const ar: Dictionary = {
     helpTitle: "لم تجدي جوابك؟",
     helpText: "راسلينا، نرد بسرعة 7 أيام في الأسبوع.",
     helpCta: "اتصلي بنا",
-    items: [
-      { q: "أين توصلون؟", a: "نوصل إلى كل الولايات الـ69 مع ZR Express، إلى المنزل أو إلى أقرب مكتب." },
-      { q: "كيف أدفع؟", a: "تدفعين نقدًا عند استلام الطلب، لا حاجة لبطاقة بنكية." },
-      { q: "متى يصل طلبي؟", a: "من 1 إلى 3 أيام في ولايات الشمال، وحتى 7 أيام في ولايات الجنوب." },
-      { q: "هل يمكنني تبديل المقاس؟", a: "نعم، تواصلي معنا خلال 48 ساعة من الاستلام وسنجد الحل معًا." },
-      { q: "هل التغليف سري؟", a: "نعم، كل الطلبات وخاصة الملابس الداخلية تُرسل في تغليف سري تمامًا." },
-      { q: "كيف أتتبع طلبي؟", a: "برقم هاتفك فقط من صفحة «تتبع الطلب»، بدون حساب أو كلمة سر." },
-    ],
+    items: STORE_TEXTS.ar.faq,
   },
   footer: { rights: "جميع الحقوق محفوظة.", help: "مساعدة", shop: "المتجر", contact: "اتصلي بنا", links: "روابطنا" },
   product: {
@@ -400,6 +387,7 @@ const ar: Dictionary = {
     favoriteAdd: "أضيفي إلى المفضلة",
     favoriteRemove: "إزالة من المفضلة",
     selectVariant: "اختاري المقاس واللون",
+    chooseSize: "اختاري المقاس أولا",
     share: "مشاركة",
   },
   cart: {
@@ -460,7 +448,7 @@ const ar: Dictionary = {
       too_many_orders: "طلبات كثيرة بهذا الرقم. حاولي لاحقا أو اتصلي بنا.",
       rate_limited: "محاولات كثيرة، انتظري دقيقة.",
       turnstile_failed: "فشل التحقق، حاولي مجددا.",
-      maintenance: "المتجر متوقف مؤقتا.",
+      maintenance: STORE_TEXTS.ar.pause,
       network: "تعذر الاتصال. تحققي من الإنترنت.",
       generic: "حدث خطأ، حاولي مجددا.",
     },

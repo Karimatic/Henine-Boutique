@@ -87,7 +87,7 @@ marketingRoutes.delete("/coupons/:id", requirePermission("promos.edit"), async (
 /* ───────────── Page d'accueil + checkout options ───────────── */
 
 marketingRoutes.get("/home", requirePermission("marketing.edit"), async (c) => {
-  return c.json(await getSettings(c.env, ["announcement", "hero", "checkout", "maintenance", "store", "faq"]));
+  return c.json(await getSettings(c.env, ["announcement", "checkout", "maintenance", "store", "texts"]));
 });
 
 /**
@@ -116,6 +116,33 @@ marketingRoutes.put("/home", requirePermission("marketing.edit"), async (c) => {
     auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "home"),
   ]);
   return c.json({ ok: true });
+});
+
+/**
+ * Store texts, one language at a time: only what the team changed is stored, everything
+ * else keeps the built-in text of that language (STORE_TEXTS in @henine/shared).
+ */
+const textsInput = z
+  .object({
+    eyebrow: cleanText(60),
+    title: cleanText(90),
+    subtitle: cleanText(240),
+    announcement: z.array(cleanText(120)).max(8),
+    faq: z.array(z.object({ q: cleanText(200), a: cleanText(1000) })).max(20),
+    pause: cleanText(240),
+  })
+  .partial();
+
+marketingRoutes.put("/home/texts", requirePermission("marketing.edit"), async (c) => {
+  const input = await body(c, z.object({ locale: z.enum(["ar", "fr"]), texts: textsInput }));
+  const { texts } = await getSettings(c.env, ["texts"]);
+  const next = { ...texts, [input.locale]: input.texts };
+  await c.env.DB.batch([
+    setSettingStmt(c.env, "texts", next),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), "update", "settings", `texts.${input.locale}`, Object.keys(input.texts)),
+  ]);
+  return c.json(next);
 });
 
 /* ───────────── Avis ───────────── */

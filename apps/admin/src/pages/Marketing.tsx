@@ -1,10 +1,10 @@
-import { formatDzPhone } from "@henine/shared";
+import { formatDzPhone, resolveStoreTexts, STORE_TEXTS, type StoreTexts } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, waLink } from "../lib/format";
 import {
-  Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, Select, Sheet, TextArea, TextField, Toggle, useToast,
+  Badge, Button, Card, Empty, ErrorState, Field, inputCls, ListSkeleton, NumberField, PageHeader, Pills, Select, Sheet, TextArea, TextField, Toggle, useToast,
 } from "../ui";
 
 function useSave<T>(fn: (v: T) => Promise<unknown>, invalidate: string[], ok = "Enregistré ✓") {
@@ -152,6 +152,214 @@ function CouponSheet({ coupon, onClose }: { coupon: Partial<Coupon>; onClose: ()
   );
 }
 
+/* ───────────── Textes de la boutique ───────────── */
+
+type TextLocale = "ar" | "fr";
+type Overrides = Partial<StoreTexts>;
+
+/**
+ * Edit the store's texts one language at a time. Each box starts with what customers see
+ * today; whatever is left as the built-in text isn't stored, so the other language and any
+ * untouched text keep their default. "Rétablir" puts a text back to the original.
+ */
+function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overrides } }) {
+  const [lang, setLang] = useState<TextLocale>("ar");
+  const [draft, setDraft] = useState<StoreTexts>(() => resolveStoreTexts("ar", saved.ar));
+  // reload only when the language or the saved texts really change (not on every parent render)
+  const savedKey = JSON.stringify(saved[lang]);
+  useEffect(() => setDraft(resolveStoreTexts(lang, JSON.parse(savedKey) as Overrides)), [lang, savedKey]);
+  const save = useSave((v: { locale: TextLocale; texts: Overrides }) => put("/home/texts", v), ["home"], "Textes enregistrés ✓ (visibles tout de suite sur la boutique)");
+  const def = STORE_TEXTS[lang];
+  const rtl = lang === "ar";
+  const dir = rtl ? "rtl" : "ltr";
+
+  // only what differs from the built-in text is stored
+  function overridesOf(t: StoreTexts): Overrides {
+    const o: Overrides = {};
+    for (const k of ["eyebrow", "title", "subtitle", "pause"] as const) if (t[k].trim() && t[k].trim() !== def[k]) o[k] = t[k].trim();
+    const ann = t.announcement.map((m) => m.trim()).filter(Boolean);
+    if (ann.length && JSON.stringify(ann) !== JSON.stringify(def.announcement)) o.announcement = ann;
+    const faq = t.faq.map((f) => ({ q: f.q.trim(), a: f.a.trim() })).filter((f) => f.q && f.a);
+    if (faq.length && JSON.stringify(faq) !== JSON.stringify(def.faq)) o.faq = faq;
+    return o;
+  }
+  const changed = JSON.stringify(overridesOf(draft)) !== JSON.stringify(overridesOf(resolveStoreTexts(lang, saved[lang])));
+  const edited = (k: keyof StoreTexts) => JSON.stringify(draft[k]) !== JSON.stringify(def[k]);
+  const reset = (k: keyof StoreTexts) => setDraft((d) => ({ ...d, [k]: def[k] }));
+  const resetBtn = (k: keyof StoreTexts) =>
+    edited(k) ? (
+      <button type="button" onClick={() => reset(k)} className="text-xs font-semibold text-plum-600 hover:underline">
+        Rétablir le texte d'origine
+      </button>
+    ) : (
+      <span className="text-xs text-ink-soft">texte d'origine</span>
+    );
+  const moveFaq = (i: number, d: -1 | 1) =>
+    setDraft((x) => {
+      const faq = [...x.faq];
+      const j = i + d;
+      if (j < 0 || j >= faq.length) return x;
+      [faq[i], faq[j]] = [faq[j]!, faq[i]!];
+      return { ...x, faq };
+    });
+
+  return (
+    <Card
+      title="Textes de la boutique"
+      actions={
+        <div className="inline-flex rounded-lg bg-ivory-deep/70 p-1" role="tablist" aria-label="Langue des textes">
+          {(
+            [
+              ["ar", "العربية"],
+              ["fr", "Français"],
+            ] as const
+          ).map(([code, label]) => (
+            <button
+              key={code}
+              type="button"
+              role="tab"
+              aria-selected={lang === code}
+              onClick={() => setLang(code)}
+              className={`h-8 rounded-md px-3.5 text-sm font-semibold transition ${lang === code ? "bg-white text-plum-700 shadow-sm" : "text-ink-soft hover:text-ink"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      <p className="mb-5 rounded-lg bg-rose-100/60 p-3 text-sm text-plum-700">
+        Vous modifiez les textes <b>{rtl ? "en arabe" : "en français"}</b> (page {rtl ? "arabe" : "française"} de la boutique).
+        L'autre langue ne change pas : ce que vous ne modifiez pas garde son texte d'origine.
+      </p>
+
+      <div className="space-y-5">
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">✨ Haut de la page d'accueil</h3>
+          <div className="grid gap-3">
+            <Field label="Petite ligne au-dessus du titre" hint={resetBtn("eyebrow")}>
+              {(id) => <input id={id} dir={dir} className={inputCls} value={draft.eyebrow} maxLength={60} onChange={(e) => setDraft({ ...draft, eyebrow: e.target.value })} />}
+            </Field>
+            <Field label="Grand titre animé" hint={resetBtn("title")}>
+              {(id) => <input id={id} dir={dir} className={`${inputCls} text-lg font-semibold`} value={draft.title} maxLength={90} onChange={(e) => setDraft({ ...draft, title: e.target.value })} />}
+            </Field>
+            <Field label="Texte sous le titre" hint={resetBtn("subtitle")}>
+              {(id) => <textarea id={id} dir={dir} rows={2} className={`${inputCls} h-auto py-2.5`} value={draft.subtitle} maxLength={240} onChange={(e) => setDraft({ ...draft, subtitle: e.target.value })} />}
+            </Field>
+          </div>
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">📣 Messages du bandeau</h3>
+            {resetBtn("announcement")}
+          </div>
+          <ul className="space-y-2">
+            {draft.announcement.map((m, i) => (
+              <li key={i} className="flex gap-2">
+                <input
+                  dir={dir}
+                  className={inputCls}
+                  value={m}
+                  maxLength={120}
+                  aria-label={`Message ${i + 1}`}
+                  onChange={(e) => setDraft({ ...draft, announcement: draft.announcement.map((x, k) => (k === i ? e.target.value : x)) })}
+                />
+                <button
+                  type="button"
+                  aria-label="Supprimer ce message"
+                  disabled={draft.announcement.length <= 1}
+                  onClick={() => setDraft({ ...draft, announcement: draft.announcement.filter((_, k) => k !== i) })}
+                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-white text-ink-soft hover:border-red-200 hover:text-red-700 disabled:opacity-30"
+                >
+                  ×
+                </button>
+              </li>
+            ))}
+          </ul>
+          {draft.announcement.length < 8 && (
+            <Button size="sm" className="mt-2" onClick={() => setDraft({ ...draft, announcement: [...draft.announcement, ""] })}>
+              + Ajouter un message
+            </Button>
+          )}
+        </section>
+
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">❓ Questions fréquentes</h3>
+            {resetBtn("faq")}
+          </div>
+          <ol className="space-y-3">
+            {draft.faq.map((f, i) => (
+              <li key={i} className="rounded-xl border border-line/70 bg-ivory/40 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="text-xs font-semibold text-ink-soft">Question {i + 1}</span>
+                  <span className="flex gap-1">
+                    <button type="button" onClick={() => moveFaq(i, -1)} disabled={i === 0} aria-label="Monter" className="grid size-8 place-items-center rounded-lg hover:bg-rose-100 disabled:opacity-30">
+                      ↑
+                    </button>
+                    <button type="button" onClick={() => moveFaq(i, 1)} disabled={i === draft.faq.length - 1} aria-label="Descendre" className="grid size-8 place-items-center rounded-lg hover:bg-rose-100 disabled:opacity-30">
+                      ↓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDraft({ ...draft, faq: draft.faq.filter((_, k) => k !== i) })}
+                      disabled={draft.faq.length <= 1}
+                      aria-label="Supprimer la question"
+                      className="grid size-8 place-items-center rounded-lg text-red-700 hover:bg-red-50 disabled:opacity-30"
+                    >
+                      ×
+                    </button>
+                  </span>
+                </div>
+                <input
+                  dir={dir}
+                  className={`${inputCls} font-medium`}
+                  placeholder="Question"
+                  value={f.q}
+                  maxLength={200}
+                  onChange={(e) => setDraft({ ...draft, faq: draft.faq.map((x, k) => (k === i ? { ...x, q: e.target.value } : x)) })}
+                />
+                <textarea
+                  dir={dir}
+                  rows={2}
+                  className={`${inputCls} mt-2 h-auto py-2.5`}
+                  placeholder="Réponse"
+                  value={f.a}
+                  maxLength={1000}
+                  onChange={(e) => setDraft({ ...draft, faq: draft.faq.map((x, k) => (k === i ? { ...x, a: e.target.value } : x)) })}
+                />
+              </li>
+            ))}
+          </ol>
+          {draft.faq.length < 20 && (
+            <Button size="sm" className="mt-2" onClick={() => setDraft({ ...draft, faq: [...draft.faq, { q: "", a: "" }] })}>
+              + Ajouter une question
+            </Button>
+          )}
+        </section>
+
+        <section>
+          <h3 className="mb-3 text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">🌙 Message quand les commandes sont en pause</h3>
+          <Field label="Message affiché aux clientes" hint={resetBtn("pause")}>
+            {(id) => <input id={id} dir={dir} className={inputCls} value={draft.pause} maxLength={240} onChange={(e) => setDraft({ ...draft, pause: e.target.value })} />}
+          </Field>
+        </section>
+      </div>
+
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-5 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-line/70 bg-white/95 p-3 shadow-sm backdrop-blur md:bottom-3">
+        {changed && <span className="me-auto text-sm text-amber-700">Modifications non enregistrées</span>}
+        <Button disabled={!changed} onClick={() => setDraft(resolveStoreTexts(lang, saved[lang]))}>
+          Annuler
+        </Button>
+        <Button variant="primary" disabled={!changed} loading={save.isPending} onClick={() => save.mutate({ locale: lang, texts: overridesOf(draft) })}>
+          Enregistrer les textes {rtl ? "arabes" : "français"}
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
 /* ───────────── Page d'accueil ───────────── */
 
 interface HomeSettings {
@@ -161,12 +369,11 @@ interface HomeSettings {
 }
 
 /**
- * Simple switches, saved the moment they change. The texts (big title, announcement
- * messages, FAQ, pause message) are built into the store and always appear in the
- * visitor's language, so nothing has to be typed twice.
+ * Switches (saved the moment they change) + the store texts editor (one language at a time,
+ * untouched texts keep their built-in version).
  */
 export function HomePageSettings() {
-  const q = useQuery({ queryKey: ["home"], queryFn: () => api<HomeSettings>("/home") });
+  const q = useQuery({ queryKey: ["home"], queryFn: () => api<HomeSettings & { texts?: { ar?: Overrides; fr?: Overrides } }>("/home") });
   const [s, setS] = useState<HomeSettings | null>(null);
   useEffect(() => {
     if (q.data) setS({ announcement: { active: q.data.announcement.active }, checkout: q.data.checkout, maintenance: { active: q.data.maintenance.active } });
@@ -188,10 +395,6 @@ export function HomePageSettings() {
         subtitle="Chaque réglage s'enregistre tout seul et s'applique tout de suite sur la boutique."
         actions={<a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">Voir la boutique ↗</a>}
       />
-      <p className="rounded-xl bg-rose-100 p-4 text-sm text-plum-700">
-        🌐 Les textes de la boutique (grand titre, messages du bandeau, questions fréquentes…) sont déjà écrits en arabe et en français :
-        chaque cliente les voit automatiquement dans la langue de la page. Rien à traduire ici.
-      </p>
       <Card title="Affichage">
         <Toggle
           label="Bandeau d'annonces (tout en haut)"
@@ -223,6 +426,7 @@ export function HomePageSettings() {
         </div>
         <p className="mt-2 text-xs text-ink-soft">Livraison offerte dès un certain montant : Commandes → Promos.</p>
       </Card>
+      {q.data && <StoreTextsEditor saved={{ ar: q.data.texts?.ar ?? {}, fr: q.data.texts?.fr ?? {} }} />}
     </div>
   );
 }

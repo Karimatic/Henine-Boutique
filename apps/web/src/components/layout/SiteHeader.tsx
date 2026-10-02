@@ -45,8 +45,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ivory/90 backdrop-blur supports-[backdrop-filter]:bg-ivory/75">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-4">
-        <div className="flex min-w-0 items-center gap-1">
-          <SiteMenu />
+        <div className="flex min-w-0 items-center">
           <a href={href("/")} className="flex min-w-0 items-center gap-1.5" aria-label="Henine Boutique">
             <Blossom size={24} className="animate-bloom shrink-0" />
             <span className="brand-mark heading-display whitespace-nowrap text-[1.15rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
@@ -69,15 +68,17 @@ export function SiteHeader() {
         <div className="flex shrink-0 items-center gap-0.5">
           <OrderPill />
           <LanguageSwitch className="me-0.5" />
-          <a href={href("/recherche")} className="grid size-11 place-items-center rounded-full hover:bg-rose-100" aria-label={t.nav.search}>
+          {/* phones: search lives in the ☰ menu */}
+          <a href={href("/recherche")} className="hidden size-11 place-items-center rounded-full hover:bg-rose-100 md:grid" aria-label={t.nav.search}>
             <SearchIcon />
           </a>
           <a href={href("/favoris")} className="relative hidden size-11 place-items-center rounded-full hover:bg-rose-100 md:grid" aria-label={t.nav.favorites}>
             <HeartIcon />
             {favs.length > 0 && <span className="absolute end-1.5 top-1.5 size-2 rounded-full bg-rose-500" />}
           </a>
-          {/* phones have the cart in the bottom bar */}
-          <a href={href("/panier")} className="relative hidden size-11 place-items-center rounded-full hover:bg-rose-100 md:grid" aria-label={`${t.nav.cart} (${count})`}>
+          <SiteMenu />
+          {/* the cart sits in the corner: top-left in Arabic, top-right in French */}
+          <a href={href("/panier")} className="relative grid size-11 place-items-center rounded-full hover:bg-rose-100" aria-label={`${t.nav.cart} (${count})`}>
             <BagIcon />
             {count > 0 && (
               <span className="absolute end-0.5 top-0.5 grid min-w-5 place-items-center rounded-full bg-plum-600 px-1 text-[11px] font-bold leading-5 text-ivory">

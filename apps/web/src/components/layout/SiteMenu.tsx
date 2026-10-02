@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toE164, type CategoryDTO, type SiteConfigDTO } from "@henine/shared";
-import { Blossom, ChatIcon, GridIcon, HeartIcon, HomeIcon, InstagramIcon, MenuIcon, PackageIcon, SparkleIcon } from "@/components/ui/icons";
+import { Blossom, ChatIcon, GridIcon, HeartIcon, HomeIcon, InstagramIcon, MenuIcon, PackageIcon, SearchIcon, SparkleIcon } from "@/components/ui/icons";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useLocaleHref } from "./LanguageSwitch";
@@ -11,7 +11,7 @@ import { useLocaleHref } from "./LanguageSwitch";
 /**
  * The ☰ menu: everything a visitor may look for in one place (language, categories,
  * new arrivals, favourites, order tracking, contact). Opens as a side panel from the
- * start edge (right in Arabic, left in French). The panel is portalled to <body>: the sticky
+ * edge its button is on (left in Arabic, right in French). The panel is portalled to <body>: the sticky
  * header uses backdrop-filter, which would otherwise turn it into the containing block of
  * this `position: fixed` overlay and clip it to the header's height.
  */
@@ -74,7 +74,7 @@ export function SiteMenu() {
             aria-modal="true"
             aria-label={t.nav.menu}
             tabIndex={-1}
-            className="menu-panel absolute inset-y-0 start-0 flex w-[min(21rem,86vw)] flex-col bg-ivory shadow-soft outline-none"
+            className="menu-panel absolute inset-y-0 end-0 flex w-[min(21rem,86vw)] flex-col bg-ivory shadow-soft outline-none"
           >
             <div className="flex items-center justify-between border-b border-line px-4 py-3">
               <span className="flex items-center gap-2">
@@ -113,6 +113,7 @@ export function SiteMenu() {
               <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-ink-soft">{t.nav.shop}</p>
               <nav aria-label={t.nav.shop} className="mb-4">
                 <a href={href("/")} className={row}><HomeIcon size={20} className="text-plum-600" />{t.nav.home}</a>
+                <a href={href("/recherche")} className={row}><SearchIcon size={20} className="text-plum-600" />{t.nav.search}</a>
                 <a href={href("/nouveautes")} className={row}><SparkleIcon size={20} className="text-plum-600" />{t.home.newArrivals}</a>
                 {(categories ?? []).map((c) => (
                   <a key={c.id} href={href(`/c/${c.slug}`)} className={`${row} ps-11`}>

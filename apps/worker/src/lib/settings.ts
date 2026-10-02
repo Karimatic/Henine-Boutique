@@ -2,6 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
+import type { StoreTextOverrides } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -34,6 +35,8 @@ export interface Settings {
   /** start/end times of published drops: public cache keys change when one passes */
   drop_times: number[];
   reviews: { auto_approve_verified: boolean };
+  /** edits to the built-in store texts (hero, banner, FAQ, pause message), per language */
+  texts: { ar: StoreTextOverrides; fr: StoreTextOverrides };
 }
 
 export const DEFAULTS: Settings = {
@@ -80,6 +83,7 @@ export const DEFAULTS: Settings = {
   catalog_version: 0,
   drop_times: [],
   reviews: { auto_approve_verified: true },
+  texts: { ar: {}, fr: {} },
 };
 
 export type SettingKey = keyof Settings;

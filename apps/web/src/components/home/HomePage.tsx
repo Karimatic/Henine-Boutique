@@ -7,6 +7,7 @@ import { Blossom, PackageIcon } from "@/components/ui/icons";
 import { ErrorBox, ProductImage } from "@/components/ui/kit";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { useStoreTexts } from "@/lib/storeTexts";
 import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
 import { Faq, HowToOrder, InstagramCard, Reveal } from "./Sections";
@@ -17,8 +18,8 @@ export function HomePage() {
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   const categories = useApi<CategoryDTO[]>("/categories");
 
-  // built-in texts, always in the language of the page
-  const { eyebrow, title, subtitle } = t.hero;
+  // built-in texts or the team's edits, always in the language of the page
+  const { eyebrow, title, subtitle } = useStoreTexts();
 
   const products = catalog.data ?? [];
   const newest = [...products].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);

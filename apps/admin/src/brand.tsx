@@ -5,10 +5,10 @@
  * with a few gold sparkles (CSS only, see .wordmark in styles.css).
  */
 
-export function Blossom({ size = 28, className = "" }: { size?: number; className?: string }) {
+export function Blossom({ size = 28, className = "", light = false }: { size?: number; className?: string; light?: boolean }) {
   return (
     <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" className={className}>
-      <g fill="var(--color-rose-300)" stroke="var(--color-rose-500)" strokeWidth="0.8">
+      <g fill={light ? "#ffffff" : "var(--color-rose-300)"} stroke={light ? "var(--color-rose-300)" : "var(--color-rose-500)"} strokeWidth="0.8">
         {[0, 72, 144, 216, 288].map((deg) => (
           <ellipse key={deg} cx="16" cy="8.5" rx="5.2" ry="7" transform={`rotate(${deg} 16 16)`} />
         ))}
@@ -29,17 +29,26 @@ export function Wordmark({
   size = "md",
   subtitle,
   iconOnly = false,
+  badge = false,
   className = "",
 }: {
   size?: keyof typeof SIZES;
   subtitle?: string;
   iconOnly?: boolean;
+  /** blossom inside a round brand badge (sidebar header, like the template's logo) */
+  badge?: boolean;
   className?: string;
 }) {
   const s = SIZES[size];
   return (
     <span className={`relative inline-flex items-center ${s.gap} ${className}`} aria-label="Henine Boutique">
-      <Blossom size={s.blossom} className="wordmark-blossom shrink-0" />
+      {badge ? (
+        <span className="grid size-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-500 via-plum-600 to-plum-700 shadow-[0_2px_8px_-2px_rgb(157_23_77/0.5)]">
+          <Blossom size={22} light className="wordmark-blossom" />
+        </span>
+      ) : (
+        <Blossom size={s.blossom} className="wordmark-blossom shrink-0" />
+      )}
       {!iconOnly && (
         <span className="relative flex min-w-0 flex-col" aria-hidden="true">
           <span className={`wordmark whitespace-nowrap ${s.text}`} dir="ltr">
