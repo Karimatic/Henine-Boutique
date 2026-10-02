@@ -3,7 +3,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { cleanText, ROLE_PRESETS } from "@henine/shared";
+import { cleanText, PERMISSIONS, ROLE_PRESETS } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { isDev } from "../../env";
 import { auditStmt } from "../../lib/audit";
@@ -341,13 +341,54 @@ systemRoutes.get("/team", requirePermission("team.manage"), async (c) => {
   const [members, roles] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT m.id, m.email, m.name, m.phone, m.telegram_user_id, m.is_active, m.last_seen_at, m.created_at, m.email_verified_at,
-              (m.password_hash IS NOT NULL) AS has_password, r.key AS role, r.name AS role_name,
+              (m.password_hash IS NOT NULL) AS has_password, r.key AS role, r.name AS role_name, r.permissions AS permissions,
               (SELECT COUNT(*) FROM admin_sessions s WHERE s.member_id = m.id AND s.expires_at > ?) AS sessions
          FROM team_members m JOIN roles r ON r.id = m.role_id ORDER BY m.is_active DESC, m.created_at`,
     ).bind(Date.now()),
-    c.env.DB.prepare("SELECT key, name, permissions FROM roles ORDER BY id"),
+    c.env.DB.prepare("SELECT key, name, permissions FROM roles WHERE key NOT LIKE 'custom-%' ORDER BY id"),
   ]);
-  return c.json({ members: members!.results, roles: (roles!.results as { key: string; name: string; permissions: string }[]).map((r) => ({ ...r, permissions: JSON.parse(r.permissions) })) });
+  return c.json({
+    members: (members!.results as ({ permissions: string } & Record<string, unknown>)[]).map((m) => ({ ...m, permissions: JSON.parse(m.permissions) as string[] })),
+    roles: (roles!.results as { key: string; name: string; permissions: string }[]).map((r) => ({ ...r, permissions: JSON.parse(r.permissions) })),
+  });
+});
+
+/**
+ * Per-account permissions ("Sur mesure"): each account gets its own role `custom-<id>`, so
+ * the permission checks stay exactly the same everywhere. Takes effect on the next request.
+ */
+const permissionList = z.array(z.enum(PERMISSIONS)).max(PERMISSIONS.length);
+
+function customRoleStmts(env: AppEnv["Bindings"], memberId: number, permissions: string[]) {
+  const key = `custom-${memberId}`;
+  const perms = [...new Set(["dashboard.view", ...permissions])];
+  return [
+    env.DB.prepare("INSERT INTO roles (key, name, permissions) VALUES (?, 'Sur mesure', ?) ON CONFLICT(key) DO UPDATE SET permissions = excluded.permissions").bind(key, JSON.stringify(perms)),
+    env.DB.prepare("UPDATE team_members SET role_id = (SELECT id FROM roles WHERE key = ?) WHERE id = ?").bind(key, memberId),
+  ];
+}
+
+async function assertNotLastOwner(env: AppEnv["Bindings"], memberId: number) {
+  const target = await env.DB.prepare("SELECT r.key FROM team_members m JOIN roles r ON r.id = m.role_id WHERE m.id = ?").bind(memberId).first<{ key: string }>();
+  if (target?.key !== "owner") return;
+  const owners = await env.DB.prepare(
+    "SELECT COUNT(*) AS n FROM team_members m JOIN roles r ON r.id = m.role_id WHERE r.key = 'owner' AND m.is_active = 1 AND m.id != ?",
+  )
+    .bind(memberId)
+    .first<{ n: number }>();
+  if (!owners?.n) throw new HttpError(409, "last_owner");
+}
+
+systemRoutes.put("/team/:id/permissions", requirePermission("team.manage"), async (c) => {
+  const id = intParam(c, "id");
+  const { permissions } = await body(c, z.object({ permissions: permissionList }));
+  const me = c.get("member");
+  if (id === me.id) throw new HttpError(409, "cannot_demote_self");
+  const exists = await c.env.DB.prepare("SELECT id FROM team_members WHERE id = ?").bind(id).first();
+  if (!exists) throw new HttpError(404, "not_found");
+  await assertNotLastOwner(c.env, id);
+  await c.env.DB.batch([...customRoleStmts(c.env, id, permissions), auditStmt(c.env, actorOf(me), "permissions", "team_member", id, { permissions })]);
+  return c.json({ ok: true });
 });
 
 async function sendInvite(c: Parameters<typeof body>[0], memberId: number, email: string, name: string) {
@@ -364,8 +405,16 @@ async function sendInvite(c: Parameters<typeof body>[0], memberId: number, email
 }
 
 systemRoutes.post("/team", requirePermission("team.manage"), async (c) => {
-  const input = await body(c, z.object({ email: z.string().trim().toLowerCase().email().max(120), name: cleanText(60).pipe(z.string().min(2)), role: z.enum(Object.keys(ROLE_PRESETS) as [string, ...string[]]) }));
-  const role = await c.env.DB.prepare("SELECT id FROM roles WHERE key = ?").bind(input.role).first<{ id: number }>();
+  const input = await body(
+    c,
+    z.object({
+      email: z.string().trim().toLowerCase().email().max(120),
+      name: cleanText(60).pipe(z.string().min(2)),
+      role: z.enum(["custom", ...Object.keys(ROLE_PRESETS)] as [string, ...string[]]),
+      permissions: permissionList.optional(),
+    }),
+  );
+  const role = await c.env.DB.prepare("SELECT id FROM roles WHERE key = ?").bind(input.role === "custom" ? "readonly" : input.role).first<{ id: number }>();
   if (!role) throw new HttpError(422, "unknown_role");
   let member: { id: number } | null;
   try {
@@ -376,7 +425,10 @@ systemRoutes.post("/team", requirePermission("team.manage"), async (c) => {
     if (String((err as Error).message).includes("UNIQUE")) throw new HttpError(409, "email_taken");
     throw err;
   }
-  await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "invite", "team_member", member!.id, { email: input.email, role: input.role })]);
+  await c.env.DB.batch([
+    ...(input.role === "custom" ? customRoleStmts(c.env, member!.id, input.permissions ?? []) : []),
+    auditStmt(c.env, actorOf(c.get("member")), "invite", "team_member", member!.id, { email: input.email, role: input.role }),
+  ]);
   return c.json({ id: member!.id, ...(await sendInvite(c, member!.id, input.email, input.name)) }, 201);
 });
 

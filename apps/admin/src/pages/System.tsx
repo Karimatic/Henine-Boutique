@@ -123,7 +123,8 @@ function MemberSheet({ member, onClose }: { member: Member; onClose: () => void 
   const [name, setName] = useState(member.name);
   const [tg, setTg] = useState<number | null>(member.telegram_user_id);
   const [link, setLink] = useState<string | null>(null);
-  const save = useSave(() => patch(`/team/${member.id}`, { name, role, telegramUserId: tg }), ["team"]);
+  // the level only changes if a different ready-made level is picked ("Sur mesure" is edited in Comptes)
+  const save = useSave(() => patch(`/team/${member.id}`, { name, telegramUserId: tg, ...(role !== member.role ? { role } : {}) }), ["team"]);
   const toggleActive = useSave(() => patch(`/team/${member.id}`, { isActive: !member.is_active }), ["team"], member.is_active ? tr("Accès désactivé") : tr("Accès réactivé"));
   const reinvite = useSave(() => post<{ inviteUrl: string }>(`/team/${member.id}/invite`).then((r) => setLink(r.inviteUrl)), [], tr("Nouveau lien créé"));
   const revoke = useSave(() => del(`/team/${member.id}/sessions`), ["team"], tr("Déconnecté de tous les appareils"));
@@ -133,8 +134,12 @@ function MemberSheet({ member, onClose }: { member: Member; onClose: () => void 
         <p className="text-sm text-ink-soft">{member.email} · {member.sessions} {tr("appareil(s) connecté(s)")}</p>
         <TextField label={tr("Nom")} value={name} onChange={(e) => setName(e.target.value)} />
         <Select label={tr("Rôle")} value={role} onChange={(e) => setRole(e.target.value)}>
-          {Object.entries(ROLE_PRESETS).map(([k, r]) => <option key={k} value={k}>{r.name}</option>)}
+          {member.role.startsWith("custom-") && <option value={member.role}>{tr("Sur mesure (droits réglés dans Comptes)")}</option>}
+          {Object.entries(ROLE_PRESETS).map(([k, r]) => <option key={k} value={k}>{tr(r.name)}</option>)}
         </Select>
+        <p className="text-xs text-ink-soft">
+          {tr("Pour choisir les droits un par un :")} <a href="/admin/comptes" className="font-semibold text-plum-600">{tr("Comptes")}</a>
+        </p>
         <NumberField label={tr("ID Telegram")} hint={tr("envoyez /id au bot pour l'obtenir")} value={tg} onChange={setTg} />
         <div className="flex flex-wrap gap-2 border-t border-line pt-3">
           <Button size="sm" onClick={() => reinvite.mutate(undefined)}>{member.has_password ? tr("Lien de réinitialisation") : tr("Renvoyer l'invitation")}</Button>

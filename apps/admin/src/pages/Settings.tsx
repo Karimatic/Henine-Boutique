@@ -279,3 +279,29 @@ export function SettingsRedirect({ tab }: { tab: TabKey }) {
 }
 export const HomeRedirect = () => <SettingsRedirect tab="boutique" />;
 export const AccountRedirect = () => <SettingsRedirect tab="compte" />;
+
+/**
+ * Page d'accueil: everything customers see on the home page, on one page: the banner,
+ * the order pause and every text (title, banner messages, questions, pause message).
+ */
+export function HomeSettingsPage() {
+  const toTexts = () => document.getElementById("textes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  return (
+    <div className="space-y-4">
+      <PageHeader
+        group={tr("Marketing")}
+        title={tr("Page d'accueil")}
+        subtitle={tr("Ce que les clientes voient en arrivant sur la boutique. Tout s'applique tout de suite.")}
+        actions={
+          <a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">
+            {tr("Voir la boutique ↗")}
+          </a>
+        }
+      />
+      <StoreSettings tab="boutique" goTo={toTexts} />
+      <div id="textes" className="scroll-mt-20">
+        <StoreSettings tab="textes" goTo={toTexts} />
+      </div>
+    </div>
+  );
+}

@@ -5,6 +5,8 @@ import {
   ChartColumn,
   FileText,
   Gift,
+  House,
+  KeyRound,
   LayoutDashboard,
   Link,
   Menu,
@@ -61,11 +63,12 @@ export const NAV: NavGroup[] = [
   {
     label: tr("Marketing"),
     items: [
-      { path: "/collections", label: tr("Collections"), permission: "marketing.edit", icon: Sparkles },
+      { path: "/accueil", label: tr("Page d'accueil"), permission: "marketing.edit", icon: House },
       { path: "/avis", label: tr("Avis"), permission: "reviews.moderate", icon: Star },
       { path: "/notifier", label: tr("Notifier"), permission: "marketing.edit", icon: BellRing },
       { path: "/liens", label: tr("Liens"), permission: "marketing.edit", icon: Link },
       { path: "/contact", label: tr("Contact"), permission: "contact.view", icon: MessageSquare },
+      { path: "/collections", label: tr("Collections"), permission: "marketing.edit", icon: Sparkles },
     ],
   },
   {
@@ -76,8 +79,9 @@ export const NAV: NavGroup[] = [
     label: tr("Système"),
     items: [
       { path: "/equipe", label: tr("Équipe"), permission: "team.manage", icon: UsersRound },
-      { path: "/parametres", label: tr("Paramètres"), permission: "dashboard.view", icon: Settings },
+      { path: "/comptes", label: tr("Comptes"), permission: "team.manage", icon: KeyRound },
       { path: "/contenu", label: tr("Contenu"), permission: "content.edit", icon: FileText },
+      { path: "/parametres", label: tr("Paramètres"), permission: "dashboard.view", icon: Settings },
       { path: "/erreurs", label: tr("Erreurs"), permission: "errors.view", icon: TriangleAlert },
     ],
   },
