@@ -17,10 +17,8 @@ export function HomePage() {
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   const categories = useApi<CategoryDTO[]>("/categories");
 
-  const hero = site.data?.hero;
-  const eyebrow = (ar ? hero?.eyebrowAr : hero?.eyebrowFr) || t.hero.eyebrow;
-  const title = (ar ? hero?.titleAr : hero?.titleFr) || t.hero.title;
-  const subtitle = (ar ? hero?.subtitleAr : hero?.subtitleFr) || t.hero.subtitle;
+  // built-in texts, always in the language of the page
+  const { eyebrow, title, subtitle } = t.hero;
 
   const products = catalog.data ?? [];
   const newest = [...products].sort((a, b) => b.createdAt - a.createdAt).slice(0, 8);
@@ -120,7 +118,7 @@ export function HomePage() {
 
       <InstagramCard />
 
-      <Faq items={site.data?.faq} />
+      <Faq />
 
       {/* Order tracking teaser */}
       <section className="mx-auto max-w-6xl px-4 pb-14 pt-2">

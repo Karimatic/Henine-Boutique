@@ -133,15 +133,18 @@ export interface CollectionDTO extends DropTeaserDTO {
 
 /* ───────────── Site configuration ───────────── */
 
+/**
+ * Store switches and contact details. Customer-facing texts (hero, announcement messages,
+ * FAQ, opening hours…) are built into the storefront in both languages, so the visitor
+ * always sees them in the language of the page.
+ */
 export interface SiteConfigDTO {
-  store: { name: string; taglineFr: string; taglineAr: string; cityFr: string; cityAr: string; hoursFr: string; hoursAr: string };
-  announcement: { active: boolean; messagesFr: string[]; messagesAr: string[] };
-  hero: { eyebrowFr: string; eyebrowAr: string; titleFr: string; titleAr: string; subtitleFr: string; subtitleAr: string };
-  contact: { phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null; addressFr: string | null; addressAr: string | null };
+  store: { name: string };
+  announcement: { active: boolean };
+  contact: { phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null };
   checkout: { freeShippingOver: number | null; expressOnProduct: boolean; deskEnabled: boolean };
   turnstileSiteKey: string;
-  maintenance: { active: boolean; messageFr: string; messageAr: string };
-  faq: { qFr: string; aFr: string; qAr: string; aAr: string }[];
+  maintenance: { active: boolean };
   /** next or current collection launch, for the home banner */
   drop: DropTeaserDTO | null;
 }

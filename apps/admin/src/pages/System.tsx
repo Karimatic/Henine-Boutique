@@ -565,10 +565,10 @@ function CategorySheet({ cat, onClose }: { cat: Partial<CategoryRow>; onClose: (
 }
 
 function StoreIdentity() {
-  const q = useQuery({ queryKey: ["home"], queryFn: () => api<{ store: { name: string; tagline_fr: string; tagline_ar: string; city_fr: string; city_ar: string } }>("/home") });
-  const [s, setS] = useState<{ name: string; tagline_fr: string; tagline_ar: string; city_fr: string; city_ar: string } | null>(null);
+  const q = useQuery({ queryKey: ["home"], queryFn: () => api<{ store: { name: string } }>("/home") });
+  const [s, setS] = useState<{ name: string } | null>(null);
   useEffect(() => {
-    if (q.data) setS(q.data.store);
+    if (q.data) setS({ name: q.data.store.name });
   }, [q.data]);
   const save = useSave(() => put("/content/store", s), ["home"]);
   if (!s) return <ListSkeleton rows={2} />;
@@ -576,10 +576,6 @@ function StoreIdentity() {
     <Card title="Identité de la boutique">
       <div className="grid gap-3 sm:grid-cols-2">
         <TextField label="Nom" value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} className="sm:col-span-2" />
-        <TextField label="Slogan (FR)" value={s.tagline_fr} onChange={(e) => setS({ ...s, tagline_fr: e.target.value })} />
-        <TextField label="Slogan (AR)" dir="rtl" value={s.tagline_ar} onChange={(e) => setS({ ...s, tagline_ar: e.target.value })} />
-        <TextField label="Ville (FR)" value={s.city_fr} onChange={(e) => setS({ ...s, city_fr: e.target.value })} />
-        <TextField label="Ville (AR)" dir="rtl" value={s.city_ar} onChange={(e) => setS({ ...s, city_ar: e.target.value })} />
       </div>
       <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate(undefined)}>Enregistrer</Button>
     </Card>

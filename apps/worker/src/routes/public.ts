@@ -51,27 +51,19 @@ publicRoutes.get("/health", async (c) => {
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
     const [s, drop] = await Promise.all([
-      getSettings(c.env, ["store", "announcement", "hero", "contact", "checkout", "maintenance", "faq"]),
+      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance"]),
       featuredDrop(c.env),
     ]);
     const dto: SiteConfigDTO = {
-      store: {
-        name: s.store.name, taglineFr: s.store.tagline_fr, taglineAr: s.store.tagline_ar,
-        cityFr: s.store.city_fr, cityAr: s.store.city_ar, hoursFr: s.store.hours_fr, hoursAr: s.store.hours_ar,
-      },
-      announcement: { active: s.announcement.active, messagesFr: s.announcement.messages_fr, messagesAr: s.announcement.messages_ar },
-      hero: {
-        eyebrowFr: s.hero.eyebrow_fr, eyebrowAr: s.hero.eyebrow_ar, titleFr: s.hero.title_fr, titleAr: s.hero.title_ar,
-        subtitleFr: s.hero.subtitle_fr, subtitleAr: s.hero.subtitle_ar,
-      },
+      store: { name: s.store.name },
+      announcement: { active: s.announcement.active },
       contact: {
         phone: s.contact.phone, whatsapp: s.contact.whatsapp, instagram: s.contact.instagram, tiktok: s.contact.tiktok,
-        facebook: s.contact.facebook, maps: s.contact.maps, addressFr: s.contact.address_fr, addressAr: s.contact.address_ar,
+        facebook: s.contact.facebook, maps: s.contact.maps,
       },
       checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: s.checkout.express_on_product, deskEnabled: s.checkout.desk_enabled },
       turnstileSiteKey: c.env.TURNSTILE_SITE_KEY,
-      maintenance: { active: s.maintenance.active, messageFr: s.maintenance.message_fr, messageAr: s.maintenance.message_ar },
-      faq: s.faq.map((x) => ({ qFr: x.q_fr, aFr: x.a_fr, qAr: x.q_ar, aAr: x.a_ar })),
+      maintenance: { active: s.maintenance.active },
       drop,
     };
     return c.json(dto);
@@ -99,7 +91,7 @@ publicRoutes.get("/collections/:slug", async (c) => {
   });
   if (!res.ok) return res;
   const data = (await res.json()) as Record<string, unknown>;
-  return c.json({ ...data, now: Date.now() }, 200, { "Cache-Control": "public, max-age=15" });
+  return c.json({ ...data, now: Date.now() }, 200, { "Cache-Control": "no-cache" });
 });
 
 publicRoutes.get("/pages/:slug", (c) =>

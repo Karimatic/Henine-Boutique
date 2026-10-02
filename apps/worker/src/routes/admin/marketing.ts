@@ -90,34 +90,28 @@ marketingRoutes.get("/home", requirePermission("marketing.edit"), async (c) => {
   return c.json(await getSettings(c.env, ["announcement", "hero", "checkout", "maintenance", "store", "faq"]));
 });
 
-const lines = z.array(cleanText(120)).max(6);
+/**
+ * Home page switches. The texts themselves (hero, announcement messages, FAQ, pause message)
+ * are built into the store and shown in the visitor's language, so only on/off switches and
+ * checkout options are saved here.
+ */
 marketingRoutes.put("/home", requirePermission("marketing.edit"), async (c) => {
   const input = await body(
     c,
     z.object({
-      announcement: z.object({ active: z.boolean(), messages_fr: lines, messages_ar: lines }),
-      hero: z.object({
-        eyebrow_fr: cleanText(60), eyebrow_ar: cleanText(60), title_fr: cleanText(90).pipe(z.string().min(3)), title_ar: cleanText(90),
-        subtitle_fr: cleanText(240), subtitle_ar: cleanText(240),
-      }),
+      announcement: z.object({ active: z.boolean() }),
       checkout: z.object({
         express_on_product: z.boolean(), desk_enabled: z.boolean(), free_shipping_over: z.number().int().min(0).nullable(),
         max_orders_per_phone_per_hour: z.number().int().min(1).max(20),
       }),
-      maintenance: z.object({ active: z.boolean(), message_fr: cleanText(240), message_ar: cleanText(240) }),
-      faq: z
-        .array(z.object({ q_fr: cleanText(200), a_fr: cleanText(1000), q_ar: cleanText(200), a_ar: cleanText(1000) }))
-        .max(20)
-        .optional(),
+      maintenance: z.object({ active: z.boolean() }),
     }),
   );
-  const current = await getSettings(c.env, ["checkout"]);
+  const current = await getSettings(c.env, ["checkout", "announcement", "maintenance"]);
   await c.env.DB.batch([
-    setSettingStmt(c.env, "announcement", input.announcement),
-    setSettingStmt(c.env, "hero", input.hero),
+    setSettingStmt(c.env, "announcement", { ...current.announcement, ...input.announcement }),
     setSettingStmt(c.env, "checkout", { ...current.checkout, ...input.checkout }),
-    setSettingStmt(c.env, "maintenance", input.maintenance),
-    ...(input.faq ? [setSettingStmt(c.env, "faq", input.faq.filter((x) => x.q_fr || x.q_ar))] : []),
+    setSettingStmt(c.env, "maintenance", { ...current.maintenance, ...input.maintenance }),
     bumpCatalogStmt(c.env),
     auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "home"),
   ]);
@@ -271,15 +265,12 @@ marketingRoutes.put("/contact/settings", requirePermission("marketing.edit"), as
     z.object({
       contact: z.object({
         phone: cleanText(20).nullable(), whatsapp: cleanText(20).nullable(), instagram: optUrl, tiktok: optUrl, facebook: optUrl, maps: optUrl,
-        address_fr: cleanText(200).nullable(), address_ar: cleanText(200).nullable(),
       }),
-      store: z.object({ hours_fr: cleanText(60), hours_ar: cleanText(60) }),
     }),
   );
-  const { store } = await getSettings(c.env, ["store"]);
+  const { contact } = await getSettings(c.env, ["contact"]);
   await c.env.DB.batch([
-    setSettingStmt(c.env, "contact", input.contact),
-    setSettingStmt(c.env, "store", { ...store, ...input.store }),
+    setSettingStmt(c.env, "contact", { ...contact, ...input.contact }),
     bumpCatalogStmt(c.env),
     auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "contact"),
   ]);

@@ -71,11 +71,11 @@ export function ContactView() {
         )}
         <div>
           <p className="font-semibold">{t.contact.hours}</p>
-          <p className="text-ink-soft">{(ar ? site.data?.store.hoursAr : site.data?.store.hoursFr) ?? "7j/7"}</p>
+          <p className="text-ink-soft">{t.contact.hoursValue}</p>
         </div>
         <div>
           <p className="font-semibold">{t.contact.address}</p>
-          <p className="text-ink-soft">{(ar ? c?.addressAr : c?.addressFr) ?? "Boumerdès"}</p>
+          <p className="text-ink-soft">{t.contact.addressValue}</p>
           {c?.maps && <a href={c.maps} target="_blank" rel="noopener noreferrer" className="text-plum-600 underline">Google Maps</a>}
         </div>
         {c?.instagram && (

@@ -9,7 +9,7 @@ const fr = {
   brand: { tagline: "L’élégance & la qualité au meilleur prix" },
   announcement: ["🚚 Livraison dans les 69 wilayas", "💵 Paiement à la livraison", "🔄 Échange possible", "🌸 Boutique à Boumerdès · 7j/7"],
   skip: "Aller au contenu",
-  nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Suivi", menu: "Menu" },
+  nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Suivi", menu: "Menu", language: "Langue", shop: "La boutique", help: "Aide", follow: "Suivez-nous" },
   hero: {
     eyebrow: "Nouvelle collection",
     title: "L’élégance & la qualité au meilleur prix",
@@ -65,6 +65,14 @@ const fr = {
     helpTitle: "Vous ne trouvez pas votre réponse ?",
     helpText: "Écrivez-nous, nous répondons rapidement, 7j/7.",
     helpCta: "Nous contacter",
+    items: [
+      { q: "Où livrez-vous ?", a: "Dans les 69 wilayas avec ZR Express, à domicile ou au bureau le plus proche." },
+      { q: "Comment payer ?", a: "En espèces à la réception du colis, sans carte bancaire." },
+      { q: "Quand arrive ma commande ?", a: "1 à 3 jours dans le Nord, jusqu’à 7 jours dans le Sud." },
+      { q: "Puis-je échanger la taille ?", a: "Oui, contactez-nous dans les 48 h suivant la réception." },
+      { q: "L’emballage est-il discret ?", a: "Oui, toutes les commandes (surtout la lingerie) partent dans un emballage totalement discret." },
+      { q: "Comment suivre ma commande ?", a: "Avec votre numéro de téléphone sur la page « Suivi », sans compte." },
+    ],
   },
   footer: { rights: "Tous droits réservés.", help: "Aide", shop: "Boutique", contact: "Contact", links: "Nos liens" },
   product: {
@@ -187,6 +195,8 @@ const fr = {
     call: "Appeler",
     hours: "Horaires",
     address: "Adresse",
+    hoursValue: "Ouvert 7j/7",
+    addressValue: "Boumerdès",
   },
   links: { title: "Henine Boutique", subtitle: "Tous nos liens" },
   status: {
@@ -294,7 +304,7 @@ const ar: Dictionary = {
   brand: { tagline: "الأناقة والجودة بأفضل سعر" },
   announcement: ["🚚 التوصيل إلى 69 ولاية", "💵 الدفع عند الاستلام", "🔄 إمكانية التبديل", "🌸 محلنا في بومرداس · 7/7"],
   skip: "انتقل إلى المحتوى",
-  nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع", menu: "القائمة" },
+  nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع", menu: "القائمة", language: "اللغة", shop: "المتجر", help: "مساعدة", follow: "تابعينا" },
   hero: {
     eyebrow: "تشكيلة جديدة",
     title: "الأناقة والجودة بأفضل سعر",
@@ -350,6 +360,14 @@ const ar: Dictionary = {
     helpTitle: "لم تجدي جوابك؟",
     helpText: "راسلينا، نرد بسرعة 7 أيام في الأسبوع.",
     helpCta: "اتصلي بنا",
+    items: [
+      { q: "أين توصلون؟", a: "نوصل إلى كل الولايات الـ69 مع ZR Express، إلى المنزل أو إلى أقرب مكتب." },
+      { q: "كيف أدفع؟", a: "تدفعين نقدًا عند استلام الطلب، لا حاجة لبطاقة بنكية." },
+      { q: "متى يصل طلبي؟", a: "من 1 إلى 3 أيام في ولايات الشمال، وحتى 7 أيام في ولايات الجنوب." },
+      { q: "هل يمكنني تبديل المقاس؟", a: "نعم، تواصلي معنا خلال 48 ساعة من الاستلام وسنجد الحل معًا." },
+      { q: "هل التغليف سري؟", a: "نعم، كل الطلبات وخاصة الملابس الداخلية تُرسل في تغليف سري تمامًا." },
+      { q: "كيف أتتبع طلبي؟", a: "برقم هاتفك فقط من صفحة «تتبع الطلب»، بدون حساب أو كلمة سر." },
+    ],
   },
   footer: { rights: "جميع الحقوق محفوظة.", help: "مساعدة", shop: "المتجر", contact: "اتصلي بنا", links: "روابطنا" },
   product: {
@@ -472,6 +490,8 @@ const ar: Dictionary = {
     call: "اتصلي بنا",
     hours: "أوقات العمل",
     address: "العنوان",
+    hoursValue: "مفتوح 7/7",
+    addressValue: "بومرداس",
   },
   links: { title: "Henine Boutique", subtitle: "كل روابطنا" },
   status: {

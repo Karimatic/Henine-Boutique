@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import type { SiteConfigDTO } from "@henine/shared";
 import { BagIcon, ChatIcon, GiftIcon, InstagramIcon, PhoneIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
 
@@ -129,10 +128,10 @@ export function InstagramCard() {
 
 /* ───────── FAQ ───────── */
 
-export function Faq({ items }: { items: SiteConfigDTO["faq"] | undefined }) {
-  const { t, ar, href } = useLocale();
-  const list = (items ?? []).map((f) => ({ q: ar ? f.qAr || f.qFr : f.qFr || f.qAr, a: ar ? f.aAr || f.aFr : f.aFr || f.aAr })).filter((f) => f.q);
-  if (items && !list.length) return null;
+/** Questions are built in, in the page's language (no admin translation to keep in sync). */
+export function Faq() {
+  const { t, href } = useLocale();
+  const list = t.faq.items;
   return (
     <section className="mx-auto max-w-6xl px-4 py-14" aria-labelledby="faq-title">
       <div id="faq-title">
@@ -140,8 +139,6 @@ export function Faq({ items }: { items: SiteConfigDTO["faq"] | undefined }) {
       </div>
       <div className="grid gap-6 md:grid-cols-[1fr_18rem] md:items-start">
         <div className="space-y-3">
-          {!items &&
-            [0, 1, 2, 3].map((i) => <div key={i} className="skeleton h-16 rounded-2xl" />)}
           {list.map((f, i) => (
             <Reveal key={f.q} delay={Math.min(i, 5) * 70}>
               <details className="faq-item group rounded-2xl border border-line bg-ivory shadow-[0_1px_2px_rgb(42_26_36/0.04)] transition open:border-rose-300 open:shadow-soft" open={i === 0}>

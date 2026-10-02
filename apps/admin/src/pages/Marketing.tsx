@@ -155,105 +155,74 @@ function CouponSheet({ coupon, onClose }: { coupon: Partial<Coupon>; onClose: ()
 /* ───────────── Page d'accueil ───────────── */
 
 interface HomeSettings {
-  announcement: { active: boolean; messages_fr: string[]; messages_ar: string[] };
-  hero: { eyebrow_fr: string; eyebrow_ar: string; title_fr: string; title_ar: string; subtitle_fr: string; subtitle_ar: string };
+  announcement: { active: boolean };
   checkout: { express_on_product: boolean; desk_enabled: boolean; free_shipping_over: number | null; max_orders_per_phone_per_hour: number };
-  maintenance: { active: boolean; message_fr: string; message_ar: string };
-  faq: FaqItem[];
+  maintenance: { active: boolean };
 }
 
-interface FaqItem {
-  q_fr: string;
-  a_fr: string;
-  q_ar: string;
-  a_ar: string;
-}
-
-function FaqEditor({ items, onChange }: { items: FaqItem[]; onChange: (v: FaqItem[]) => void }) {
-  const update = (i: number, patch: Partial<FaqItem>) => onChange(items.map((x, k) => (k === i ? { ...x, ...patch } : x)));
-  const move = (i: number, d: -1 | 1) => {
-    const next = [...items];
-    const j = i + d;
-    if (j < 0 || j >= next.length) return;
-    [next[i], next[j]] = [next[j]!, next[i]!];
-    onChange(next);
-  };
-  return (
-    <Card title="❓ Questions fréquentes (bas de la page d'accueil)" actions={<Button size="sm" onClick={() => onChange([...items, { q_fr: "", a_fr: "", q_ar: "", a_ar: "" }])}>+ Question</Button>}>
-      {items.length === 0 && <p className="text-sm text-ink-soft">Aucune question : la section est masquée sur la boutique.</p>}
-      <ol className="space-y-4">
-        {items.map((f, i) => (
-          <li key={i} className="rounded-2xl border border-line bg-white/60 p-3">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-sm font-semibold">Question {i + 1}</span>
-              <span className="flex gap-1">
-                <Button size="sm" variant="ghost" onClick={() => move(i, -1)} disabled={i === 0} aria-label="Monter">↑</Button>
-                <Button size="sm" variant="ghost" onClick={() => move(i, 1)} disabled={i === items.length - 1} aria-label="Descendre">↓</Button>
-                <Button size="sm" variant="danger" onClick={() => onChange(items.filter((_, k) => k !== i))}>Retirer</Button>
-              </span>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <TextField label="السؤال (عربي)" dir="rtl" value={f.q_ar} onChange={(e) => update(i, { q_ar: e.target.value })} maxLength={200} />
-              <TextField label="Question (FR)" value={f.q_fr} onChange={(e) => update(i, { q_fr: e.target.value })} maxLength={200} />
-              <TextArea label="الجواب (عربي)" dir="rtl" rows={2} value={f.a_ar} onChange={(e) => update(i, { a_ar: e.target.value })} maxLength={1000} />
-              <TextArea label="Réponse (FR)" rows={2} value={f.a_fr} onChange={(e) => update(i, { a_fr: e.target.value })} maxLength={1000} />
-            </div>
-          </li>
-        ))}
-      </ol>
-    </Card>
-  );
-}
-
+/**
+ * Simple switches, saved the moment they change. The texts (big title, announcement
+ * messages, FAQ, pause message) are built into the store and always appear in the
+ * visitor's language, so nothing has to be typed twice.
+ */
 export function HomePageSettings() {
   const q = useQuery({ queryKey: ["home"], queryFn: () => api<HomeSettings>("/home") });
   const [s, setS] = useState<HomeSettings | null>(null);
   useEffect(() => {
-    if (q.data) setS(q.data);
+    if (q.data) setS({ announcement: { active: q.data.announcement.active }, checkout: q.data.checkout, maintenance: { active: q.data.maintenance.active } });
   }, [q.data]);
-  const save = useSave(() => put("/home", s), ["home"], "Page d'accueil mise à jour ✓ (visible immédiatement)");
+  const save = useSave((next: HomeSettings) => put("/home", next), ["home"], "Enregistré ✓ (visible immédiatement sur la boutique)");
   if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
   if (!s) return <ListSkeleton />;
-  const lines = (arr: string[]) => arr.join("\n");
-  const split = (v: string) => v.split("\n").map((x) => x.trim()).filter(Boolean).slice(0, 6);
+  const apply = (next: HomeSettings) => {
+    setS(next);
+    save.mutate(next);
+  };
+  const checkout = (patch: Partial<HomeSettings["checkout"]>) => apply({ ...s, checkout: { ...s.checkout, ...patch } });
+
   return (
-    <div className="space-y-4 pb-20">
-      <PageHeader group="Marketing" title="Page d'accueil" subtitle="Textes du haut de la boutique, bandeau d'annonces et options de commande." actions={<a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-full border border-line bg-white px-3.5 text-sm font-semibold">Voir la boutique ↗</a>} />
-      <Card title="✨ Grand titre animé (haut de page)">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="Sur-titre (FR)" value={s.hero.eyebrow_fr} onChange={(e) => setS({ ...s, hero: { ...s.hero, eyebrow_fr: e.target.value } })} />
-          <TextField label="Sur-titre (AR)" dir="rtl" value={s.hero.eyebrow_ar} onChange={(e) => setS({ ...s, hero: { ...s.hero, eyebrow_ar: e.target.value } })} />
-          <TextField label="Titre animé (FR)" value={s.hero.title_fr} onChange={(e) => setS({ ...s, hero: { ...s.hero, title_fr: e.target.value } })} maxLength={90} />
-          <TextField label="Titre animé (AR)" dir="rtl" value={s.hero.title_ar} onChange={(e) => setS({ ...s, hero: { ...s.hero, title_ar: e.target.value } })} maxLength={90} />
-          <TextArea label="Sous-titre (FR)" rows={2} value={s.hero.subtitle_fr} onChange={(e) => setS({ ...s, hero: { ...s.hero, subtitle_fr: e.target.value } })} />
-          <TextArea label="Sous-titre (AR)" dir="rtl" rows={2} value={s.hero.subtitle_ar} onChange={(e) => setS({ ...s, hero: { ...s.hero, subtitle_ar: e.target.value } })} />
-        </div>
+    <div className="space-y-4">
+      <PageHeader
+        group="Marketing"
+        title="Page d'accueil"
+        subtitle="Chaque réglage s'enregistre tout seul et s'applique tout de suite sur la boutique."
+        actions={<a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-full border border-line bg-white px-3.5 text-sm font-semibold">Voir la boutique ↗</a>}
+      />
+      <p className="rounded-2xl bg-rose-100 p-4 text-sm text-plum-700">
+        🌐 Les textes de la boutique (grand titre, messages du bandeau, questions fréquentes…) sont déjà écrits en arabe et en français :
+        chaque cliente les voit automatiquement dans la langue de la page. Rien à traduire ici.
+      </p>
+      <Card title="Affichage">
+        <Toggle
+          label="Bandeau d'annonces (tout en haut)"
+          hint="Livraison 69 wilayas, paiement à la livraison, échange possible…"
+          checked={s.announcement.active}
+          onChange={(v) => apply({ ...s, announcement: { active: v } })}
+        />
+        <Toggle
+          label="Mettre les commandes en pause (vacances)"
+          hint="La boutique reste visible, mais les nouvelles commandes sont refusées avec un message poli."
+          checked={s.maintenance.active}
+          onChange={(v) => apply({ ...s, maintenance: { active: v } })}
+        />
       </Card>
-      <Card title="📣 Bandeau d'annonces (tout en haut)">
-        <Toggle label="Afficher le bandeau" checked={s.announcement.active} onChange={(v) => setS({ ...s, announcement: { ...s.announcement, active: v } })} />
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <TextArea label="Messages FR (un par ligne)" rows={4} value={lines(s.announcement.messages_fr)} onChange={(e) => setS({ ...s, announcement: { ...s.announcement, messages_fr: split(e.target.value) } })} />
-          <TextArea label="Messages AR (سطر لكل رسالة)" dir="rtl" rows={4} value={lines(s.announcement.messages_ar)} onChange={(e) => setS({ ...s, announcement: { ...s.announcement, messages_ar: split(e.target.value) } })} />
+      <Card title="Commande">
+        <Toggle label="Commande express sur la fiche produit" hint="Formulaire directement sur la page du produit (recommandé)." checked={s.checkout.express_on_product} onChange={(v) => checkout({ express_on_product: v })} />
+        <Toggle label="Livraison au bureau (stop-desk)" checked={s.checkout.desk_enabled} onChange={(v) => checkout({ desk_enabled: v })} />
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <NumberField
+            label="Commandes max par numéro et par heure"
+            hint="anti-abus"
+            value={s.checkout.max_orders_per_phone_per_hour}
+            onChange={(v) => setS({ ...s, checkout: { ...s.checkout, max_orders_per_phone_per_hour: Math.max(1, Math.min(20, v ?? 3)) } })}
+            className="w-64"
+          />
+          <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(s)}>
+            Enregistrer
+          </Button>
         </div>
+        <p className="mt-2 text-xs text-ink-soft">Livraison offerte dès un certain montant : Commandes → Promos.</p>
       </Card>
-      <Card title="🛒 Options de commande">
-        <Toggle label="Commande express sur la fiche produit" hint="Formulaire directement sur la page du produit (recommandé)." checked={s.checkout.express_on_product} onChange={(v) => setS({ ...s, checkout: { ...s.checkout, express_on_product: v } })} />
-        <Toggle label="Livraison au bureau (stop-desk)" checked={s.checkout.desk_enabled} onChange={(v) => setS({ ...s, checkout: { ...s.checkout, desk_enabled: v } })} />
-        <NumberField label="Anti-abus : commandes max par numéro et par heure" value={s.checkout.max_orders_per_phone_per_hour} onChange={(v) => setS({ ...s, checkout: { ...s.checkout, max_orders_per_phone_per_hour: Math.max(1, v ?? 3) } })} className="mt-2 max-w-xs" />
-      </Card>
-      <FaqEditor items={s.faq ?? []} onChange={(faq) => setS({ ...s, faq })} />
-      <Card title="🌙 Mode pause (vacances)">
-        <Toggle label="Mettre les commandes en pause" hint="La boutique reste visible mais les nouvelles commandes sont refusées avec votre message." checked={s.maintenance.active} onChange={(v) => setS({ ...s, maintenance: { ...s.maintenance, active: v } })} />
-        <div className="mt-2 grid gap-3 sm:grid-cols-2">
-          <TextField label="Message FR" value={s.maintenance.message_fr} onChange={(e) => setS({ ...s, maintenance: { ...s.maintenance, message_fr: e.target.value } })} />
-          <TextField label="Message AR" dir="rtl" value={s.maintenance.message_ar} onChange={(e) => setS({ ...s, maintenance: { ...s.maintenance, message_ar: e.target.value } })} />
-        </div>
-      </Card>
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-ivory/95 p-3 backdrop-blur md:bottom-0 md:ps-[15rem]">
-        <div className="mx-auto flex max-w-6xl justify-end px-1 md:px-8">
-          <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(undefined)}>Enregistrer</Button>
-        </div>
-      </div>
     </div>
   );
 }
@@ -524,12 +493,12 @@ interface Message {
 }
 
 interface ContactSettings {
-  phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null; address_fr: string | null; address_ar: string | null;
+  phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null;
 }
 
 export function ContactPage() {
   const [status, setStatus] = useState("open");
-  const q = useQuery({ queryKey: ["contact", status], queryFn: () => api<{ rows: Message[]; contact: ContactSettings; store: { hours_fr: string; hours_ar: string } }>(`/contact?status=${status}`) });
+  const q = useQuery({ queryKey: ["contact", status], queryFn: () => api<{ rows: Message[]; contact: ContactSettings }>(`/contact?status=${status}`) });
   const setMsg = useSave(({ id, s }: { id: number; s: string }) => patch(`/contact/${id}`, { status: s }), ["contact", "dashboard"], "Message mis à jour");
   return (
     <div className="space-y-4">
@@ -555,17 +524,16 @@ export function ContactPage() {
               ))}
             </ul>
           )}
-          <ContactSettingsCard contact={q.data.contact} store={q.data.store} />
+          <ContactSettingsCard contact={q.data.contact} />
         </>
       )}
     </div>
   );
 }
 
-function ContactSettingsCard({ contact, store }: { contact: ContactSettings; store: { hours_fr: string; hours_ar: string } }) {
+function ContactSettingsCard({ contact }: { contact: ContactSettings }) {
   const [c, setC] = useState(contact);
-  const [s, setS] = useState(store);
-  const save = useSave(() => put("/contact/settings", { contact: Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v || null])), store: s }), ["contact"]);
+  const save = useSave(() => put("/contact/settings", { contact: Object.fromEntries(Object.entries(c).map(([k, v]) => [k, v || null])) }), ["contact"]);
   const field = (k: keyof ContactSettings, label: string, extra?: Record<string, unknown>) => (
     <TextField label={label} value={c[k] ?? ""} onChange={(e) => setC({ ...c, [k]: e.target.value })} {...extra} />
   );
@@ -578,10 +546,6 @@ function ContactSettingsCard({ contact, store }: { contact: ContactSettings; sto
         {field("tiktok", "TikTok (https://…)")}
         {field("facebook", "Facebook (https://…)")}
         {field("maps", "Google Maps (https://…)")}
-        {field("address_fr", "Adresse (FR)")}
-        {field("address_ar", "Adresse (AR)", { dir: "rtl" })}
-        <TextField label="Horaires (FR)" value={s.hours_fr} onChange={(e) => setS({ ...s, hours_fr: e.target.value })} />
-        <TextField label="Horaires (AR)" dir="rtl" value={s.hours_ar} onChange={(e) => setS({ ...s, hours_ar: e.target.value })} />
       </div>
       <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate(undefined)}>Enregistrer</Button>
     </Card>

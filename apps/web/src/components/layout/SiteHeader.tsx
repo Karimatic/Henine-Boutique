@@ -7,6 +7,7 @@ import { apiGet, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { cartCount, useCart, useFavorites, useSavedOrders } from "@/lib/stores";
 import { LanguageSwitch } from "./LanguageSwitch";
+import { SiteMenu } from "./SiteMenu";
 
 const DONE = new Set(["livree", "retour_recu", "annulee", "doublon", "fausse"]);
 
@@ -43,13 +44,16 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ivory/90 backdrop-blur supports-[backdrop-filter]:bg-ivory/75">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-4 md:h-16">
-        <a href={href("/")} className="flex shrink-0 items-center gap-2" aria-label="Henine Boutique">
-          <Blossom size={26} className="animate-bloom" />
-          <span className="brand-mark heading-display whitespace-nowrap text-xl italic leading-none tracking-wide sm:text-2xl" dir="ltr">
-            Henine Boutique
-          </span>
-        </a>
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-4">
+        <div className="flex min-w-0 items-center gap-1">
+          <SiteMenu />
+          <a href={href("/")} className="flex min-w-0 items-center gap-1.5" aria-label="Henine Boutique">
+            <Blossom size={24} className="animate-bloom shrink-0" />
+            <span className="brand-mark heading-display whitespace-nowrap text-[1.15rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
+              Henine Boutique
+            </span>
+          </a>
+        </div>
 
         <nav aria-label={t.nav.categories} className="hidden items-center gap-7 text-sm font-medium md:flex">
           {(categories ?? []).map((c) => (
@@ -62,9 +66,9 @@ export function SiteHeader() {
           </a>
         </nav>
 
-        <div className="flex items-center gap-0.5">
+        <div className="flex shrink-0 items-center gap-0.5">
           <OrderPill />
-          <LanguageSwitch className="hidden md:inline-flex" />
+          <LanguageSwitch className="me-0.5" />
           <a href={href("/recherche")} className="grid size-11 place-items-center rounded-full hover:bg-rose-100" aria-label={t.nav.search}>
             <SearchIcon />
           </a>
@@ -72,7 +76,8 @@ export function SiteHeader() {
             <HeartIcon />
             {favs.length > 0 && <span className="absolute end-1.5 top-1.5 size-2 rounded-full bg-rose-500" />}
           </a>
-          <a href={href("/panier")} className="relative grid size-11 place-items-center rounded-full hover:bg-rose-100" aria-label={`${t.nav.cart} (${count})`}>
+          {/* phones have the cart in the bottom bar */}
+          <a href={href("/panier")} className="relative hidden size-11 place-items-center rounded-full hover:bg-rose-100 md:grid" aria-label={`${t.nav.cart} (${count})`}>
             <BagIcon />
             {count > 0 && (
               <span className="absolute end-0.5 top-0.5 grid min-w-5 place-items-center rounded-full bg-plum-600 px-1 text-[11px] font-bold leading-5 text-ivory">

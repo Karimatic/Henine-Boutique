@@ -7,14 +7,13 @@ import { useLocale } from "@/lib/locale";
 /**
  * Top banner: a slowly flowing rose gradient with the messages scrolling endlessly
  * (marquee, pauses on hover, static when the visitor prefers reduced motion).
- * Messages come from Admin → Marketing → Page d'accueil; built-in defaults render first.
+ * Messages are built in (Arabic / French by page); Admin → Page d'accueil only shows or hides it.
  */
 export function AnnouncementBar() {
-  const { t, ar } = useLocale();
+  const { t } = useLocale();
   const { data } = useApi<SiteConfigDTO>("/site");
   if (data && !data.announcement.active) return null;
-  const fromAdmin = data ? (ar ? data.announcement.messagesAr : data.announcement.messagesFr).filter(Boolean) : null;
-  const messages = fromAdmin?.length ? fromAdmin : t.announcement;
+  const messages = t.announcement; // built-in, in the language of the page
   // repeat so one copy is always wider than the screen, then double it for the seamless loop
   const lane = Array.from({ length: Math.max(2, Math.ceil(8 / messages.length)) }, () => messages).flat();
 
