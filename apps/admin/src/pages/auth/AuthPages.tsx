@@ -3,18 +3,27 @@
  */
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { auth, errorMessage } from "../../api";
+import { Wordmark } from "../../brand";
 import { derivePasswordKey, passwordProblems } from "../../lib/password";
 import { Button, inputCls, TextField } from "../../ui";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
-    <div className="grid min-h-dvh place-items-center bg-gradient-to-b from-rose-100/60 to-ivory px-4 py-10">
-      <div className="w-full max-w-sm">
-        <p className="mb-6 text-center text-2xl font-semibold text-plum-700">🌸 Henine Boutique</p>
-        <div className="rounded-3xl border border-line bg-white/80 p-6 shadow-sm backdrop-blur">
-          <h1 className="text-xl font-semibold">{title}</h1>
-          {subtitle && <p className="mt-1 text-sm text-ink-soft">{subtitle}</p>}
-          <div className="mt-5">{children}</div>
+    <div className="relative grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
+      {/* soft brand shapes behind the card */}
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
+        <div className="absolute -start-24 -top-24 size-80 rounded-full bg-rose-300/40 blur-3xl" />
+        <div className="absolute -bottom-32 -end-20 size-96 rounded-full bg-gold/25 blur-3xl" />
+        <div className="absolute end-[12%] top-[14%] size-56 rounded-full bg-lavender/30 blur-3xl" />
+        <div className="absolute start-1/2 top-1/2 size-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-plum-600/10" />
+        <div className="absolute start-1/2 top-1/2 size-[46rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-plum-600/5" />
+      </div>
+      <div className="relative w-full max-w-md">
+        <div className="rounded-xl border border-line/70 bg-white/90 p-6 shadow-[0_10px_40px_-12px_rgb(157_23_77/0.25)] backdrop-blur sm:p-8">
+          <Wordmark size="lg" subtitle="Administration" className="mb-7" />
+          <h1 className="font-display text-2xl font-semibold">{title}</h1>
+          {subtitle && <p className="mt-1.5 text-sm text-ink-soft">{subtitle}</p>}
+          <div className="mt-6">{children}</div>
         </div>
         <p className="mt-6 text-center text-xs text-ink-soft">Administration privée · connexion sécurisée</p>
       </div>

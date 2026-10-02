@@ -59,7 +59,7 @@ export function PromosPage() {
             const expired = c.ends_at != null && c.ends_at < Date.now();
             return (
               <li key={c.id}>
-                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-2xl border border-line bg-white/70 p-4 text-start hover:border-plum-600/40">
+                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-white p-4 text-start hover:border-plum-600/40">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-lg font-bold text-plum-700">{c.code}</span>
                     <Badge tone={!c.is_active || expired ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-800"}>{!c.is_active ? "Désactivé" : expired ? "Expiré" : "Actif"}</Badge>
@@ -186,9 +186,9 @@ export function HomePageSettings() {
         group="Marketing"
         title="Page d'accueil"
         subtitle="Chaque réglage s'enregistre tout seul et s'applique tout de suite sur la boutique."
-        actions={<a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-full border border-line bg-white px-3.5 text-sm font-semibold">Voir la boutique ↗</a>}
+        actions={<a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">Voir la boutique ↗</a>}
       />
-      <p className="rounded-2xl bg-rose-100 p-4 text-sm text-plum-700">
+      <p className="rounded-xl bg-rose-100 p-4 text-sm text-plum-700">
         🌐 Les textes de la boutique (grand titre, messages du bandeau, questions fréquentes…) sont déjà écrits en arabe et en français :
         chaque cliente les voit automatiquement dans la langue de la page. Rien à traduire ici.
       </p>
@@ -280,7 +280,7 @@ function ReviewItem({ r }: { r: Review }) {
   const save = useSave((body: Record<string, unknown>) => patch(`/reviews/${r.id}`, body), ["reviews"]);
   const remove = useSave(() => del(`/reviews/${r.id}`), ["reviews"], "Avis supprimé");
   return (
-    <li className="rounded-2xl border border-line bg-white/70 p-4">
+    <li className="rounded-xl border border-line bg-white p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">{r.name} <span className="text-gold">{"★".repeat(r.rating)}<span className="text-line">{"★".repeat(5 - r.rating)}</span></span></span>
         <span className="text-xs text-ink-soft">{r.product} · {ago(r.created_at)}</span>
@@ -509,14 +509,14 @@ export function ContactPage() {
           {q.data.rows.length === 0 ? <Empty title="Aucun message" icon="✉️" /> : (
             <ul className="space-y-2">
               {q.data.rows.map((m) => (
-                <li key={m.id} className="rounded-2xl border border-line bg-white/70 p-4">
+                <li key={m.id} className="rounded-xl border border-line bg-white p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">{m.name}{m.subject ? ` · ${m.subject}` : ""}</span>
                     <span className="text-xs text-ink-soft">{ago(m.created_at)}</span>
                   </div>
                   <p className="mt-1 whitespace-pre-line text-sm">{m.message}</p>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {m.phone && <a href={waLink(m.phone, `Bonjour ${m.name} 🌸 Ici Henine Boutique, suite à votre message : `)} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-full bg-[#25D366] px-3.5 text-sm font-semibold text-white">Répondre sur WhatsApp</a>}
+                    {m.phone && <a href={waLink(m.phone, `Bonjour ${m.name} 🌸 Ici Henine Boutique, suite à votre message : `)} target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg bg-[#25D366] px-3.5 text-sm font-semibold text-white">Répondre sur WhatsApp</a>}
                     {m.status !== "done" && <Button size="sm" variant="primary" onClick={() => setMsg.mutate({ id: m.id, s: "done" })}>✓ Traité</Button>}
                     {m.status !== "spam" && <Button size="sm" variant="ghost" onClick={() => setMsg.mutate({ id: m.id, s: "spam" })}>Spam</Button>}
                   </div>
@@ -607,7 +607,7 @@ export function CollectionsPage() {
             const [label, tone] = dropState(c);
             return (
               <li key={c.id}>
-                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-2xl border border-line bg-white/70 p-4 text-start transition hover:border-plum-600/40">
+                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-white p-4 text-start transition hover:border-plum-600/40">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{c.name_fr}</p>

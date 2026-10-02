@@ -198,7 +198,7 @@ export function StatsPage() {
         group="Analyse"
         title="Statistiques"
         subtitle="Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires."
-        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-full border border-line bg-white px-3.5 text-sm font-semibold">Export CSV</a>}
+        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">Export CSV</a>}
       />
       <Pills value={range} onChange={setRange} options={RANGES} />
       {range === "custom" && (

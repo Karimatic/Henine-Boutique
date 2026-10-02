@@ -55,7 +55,7 @@ export function TeamPage() {
       <PageHeader group="Système" title="Équipe" subtitle="Chaque membre se connecte avec son email + mot de passe + code reçu par email." actions={<Button variant="primary" onClick={() => setInvite(true)}>+ Inviter</Button>} />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : (
         <>
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
+          <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
             {q.data.members.map((m) => (
               <li key={m.id}>
                 <button type="button" onClick={() => setEdit(m)} className={`flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30 ${m.is_active ? "" : "opacity-50"}`}>
@@ -378,7 +378,7 @@ function DeliveryPrices() {
   return (
     <div className="space-y-4">
       {!q.data.verified && (
-        <div className="rounded-2xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
           ⚠️ Ces tarifs sont des <b>estimations par zone</b> depuis Boumerdès. Remplacez-les par la grille ZR Express d'Ilyas, puis confirmez.
           <Button size="sm" className="ms-2 mt-2" onClick={() => save.mutate({ codes: [35], markVerified: true })}>Les tarifs sont vérifiés</Button>
         </div>
@@ -403,7 +403,7 @@ function DeliveryPrices() {
         </div>
       </Card>
       <input className={inputCls} placeholder="Filtrer (ex : Alger, 16)…" value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrer les wilayas" />
-      <div className="overflow-x-auto rounded-2xl border border-line bg-white/70">
+      <div className="overflow-x-auto rounded-xl border border-line bg-white">
         <table className="w-full min-w-[34rem] text-sm">
           <thead className="text-xs text-ink-soft">
             <tr className="border-b border-line">
@@ -455,7 +455,7 @@ function PagesEditor() {
     <div className="space-y-3">
       <div className="flex justify-end"><Button variant="primary" onClick={() => setEdit({ is_active: 1, body_fr: "", body_ar: "" })}>+ Nouvelle page</Button></div>
       {!q.data ? <ListSkeleton /> : (
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
           {q.data.map((p) => (
             <li key={p.id}>
               <button type="button" onClick={() => setEdit(p)} className="flex w-full items-center justify-between px-4 py-3 text-start hover:bg-rose-100/30">
@@ -520,7 +520,7 @@ function CategoriesEditor() {
     <div className="space-y-3">
       <div className="flex justify-end"><Button variant="primary" onClick={() => setEdit({ is_active: 1, sort: (q.data?.length ?? 0) + 1 })}>+ Nouvelle catégorie</Button></div>
       {!q.data ? <ListSkeleton /> : q.data.length === 0 ? <Empty title="Aucune catégorie" /> : (
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
           {q.data.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setEdit(c)} className="flex w-full items-center justify-between px-4 py-3 text-start hover:bg-rose-100/30">
@@ -615,7 +615,7 @@ export function ErrorsPage() {
           {q.data.errors.length === 0 ? <Empty title="Aucune erreur 🎉" icon="✅" /> : (
             <ul className="space-y-2">
               {q.data.errors.map((e) => (
-                <li key={e.id} className="rounded-2xl border border-line bg-white/70 p-4">
+                <li key={e.id} className="rounded-xl border border-line bg-white p-4">
                   <button type="button" className="w-full text-start" onClick={() => setOpen(open === e.id ? null : e.id)}>
                     <div className="flex items-center justify-between gap-2">
                       <Badge tone="bg-stone-100 text-stone-700">{e.source}</Badge>
@@ -638,7 +638,7 @@ export function ErrorsPage() {
         q.data.outbox.length === 0 ? <Empty title="Rien en attente" icon="📭" /> : (
           <ul className="space-y-2">
             {q.data.outbox.map((o) => (
-              <li key={o.id} className="rounded-2xl border border-line bg-white/70 p-4 text-sm">
+              <li key={o.id} className="rounded-xl border border-line bg-white p-4 text-sm">
                 <div className="flex items-center justify-between gap-2">
                   <span><Badge>{o.kind}</Badge> <span className="font-mono text-xs">{o.payload}</span></span>
                   <span className="text-xs text-ink-soft">{o.attempts} essai(s) · {dateTime(o.created_at)}</span>
@@ -650,7 +650,7 @@ export function ErrorsPage() {
           </ul>
         )
       ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70 text-sm">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white text-sm">
           {q.data.audit.map((a) => (
             <li key={a.id} className="flex items-center justify-between gap-2 px-4 py-2.5">
               <span className="min-w-0 truncate"><b>{a.actor.split(":").slice(2).join(":") || a.actor}</b> · {a.action} · {a.entity}{a.entity_id ? ` #${a.entity_id}` : ""}</span>

@@ -1,6 +1,7 @@
 /**
- * Admin UI kit: phone-first (44 px targets, 16 px inputs, bottom sheets), consistent with
- * the storefront palette. Deliberately small: no component library in the bundle.
+ * Admin UI kit: shapes and spacing follow the shadcn "admincn" template (rounded-xl cards,
+ * rounded-lg controls, quiet borders), colours and fonts follow the storefront. Phone-first
+ * (40 px+ targets, 16 px inputs, bottom sheets). Deliberately small: no component library.
  */
 import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -10,9 +11,9 @@ import { STATUS_TONE, statusLabel } from "./lib/format";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 const VARIANT: Record<Variant, string> = {
-  primary: "bg-plum-600 text-ivory hover:bg-plum-700 shadow-sm",
-  secondary: "border border-line bg-white text-ink hover:border-plum-600",
-  ghost: "text-ink-soft hover:bg-rose-100",
+  primary: "bg-plum-600 text-white shadow-[0_1px_2px_rgb(157_23_77/0.25)] hover:bg-plum-700",
+  secondary: "border border-line bg-white text-ink shadow-[0_1px_2px_rgb(43_22_32/0.04)] hover:border-plum-600/60 hover:bg-rose-100/40",
+  ghost: "text-ink-soft hover:bg-rose-100/70 hover:text-ink",
   danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
 };
 
@@ -29,7 +30,7 @@ export function Button({
       type="button"
       {...rest}
       disabled={rest.disabled || loading}
-      className={`inline-flex items-center justify-center gap-2 rounded-full font-semibold transition active:scale-[0.98] disabled:opacity-50 ${size === "sm" ? "h-9 px-3.5 text-sm" : "h-11 px-5"} ${VARIANT[variant]} ${className}`}
+      className={`inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition active:scale-[0.98] disabled:opacity-50 ${size === "sm" ? "h-9 px-3 text-sm" : "h-10 px-4 text-sm"} ${VARIANT[variant]} ${className}`}
     >
       {loading && <Spinner />}
       {children}
@@ -44,7 +45,7 @@ export function Spinner({ className = "size-4" }: { className?: string }) {
 /* ── Form fields ── */
 
 export const inputCls =
-  "h-11 w-full rounded-xl border border-line bg-white px-3.5 text-ink outline-none transition placeholder:text-ink-soft/60 focus:border-plum-600 focus:ring-2 focus:ring-plum-600/15 disabled:bg-ivory-deep";
+  "h-10 w-full rounded-lg border border-line bg-white px-3 text-ink shadow-[0_1px_2px_rgb(43_22_32/0.04)] outline-none transition placeholder:text-ink-soft/60 focus:border-plum-600 focus:ring-3 focus:ring-plum-600/15 disabled:bg-ivory-deep";
 
 export function Field({ label, hint, error, children, className = "" }: { label: string; hint?: ReactNode; error?: string | null; children: (id: string) => ReactNode; className?: string }) {
   const id = useId();
@@ -105,9 +106,9 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
-        className={`relative mt-0.5 h-7 w-12 shrink-0 rounded-full transition ${checked ? "bg-plum-600" : "bg-stone-300"}`}
+        className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-plum-600" : "bg-stone-300"}`}
       >
-        <span className={`absolute top-0.5 size-6 rounded-full bg-white shadow transition-all ${checked ? "start-[1.4rem]" : "start-0.5"}`} />
+        <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-all ${checked ? "start-[1.4rem]" : "start-0.5"}`} />
       </button>
     </label>
   );
@@ -117,11 +118,11 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
 
 export function PageHeader({ title, subtitle, actions, group }: { title: string; subtitle?: ReactNode; actions?: ReactNode; group?: string }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-      <div>
-        {group && <p className="text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{group}</p>}
-        <h1 className="text-2xl font-semibold">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-ink-soft">{subtitle}</p>}
+    <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+      <div className="min-w-0">
+        {group && <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-rose-700">{group}</p>}
+        <h1 className="font-display text-[1.75rem] font-semibold leading-tight text-ink">{title}</h1>
+        {subtitle && <p className="mt-1 text-sm text-ink-soft">{subtitle}</p>}
       </div>
       {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
     </div>
@@ -130,10 +131,10 @@ export function PageHeader({ title, subtitle, actions, group }: { title: string;
 
 export function Card({ title, actions, children, className = "", padded = true }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; padded?: boolean }) {
   return (
-    <section className={`rounded-2xl border border-line bg-white/70 ${padded ? "p-4 md:p-5" : ""} ${className}`}>
+    <section className={`rounded-xl border border-line/70 bg-white shadow-[0_1px_2px_rgb(43_22_32/0.04)] ${padded ? "p-4 md:p-5" : ""} ${className}`}>
       {(title || actions) && (
-        <div className={`mb-3 flex items-center justify-between gap-2 ${padded ? "" : "px-4 pt-4"}`}>
-          {title && <h2 className="font-semibold">{title}</h2>}
+        <div className={`mb-4 flex items-center justify-between gap-2 ${padded ? "" : "px-4 pt-4 md:px-5"}`}>
+          {title && <h2 className="text-base font-semibold">{title}</h2>}
           {actions}
         </div>
       )}
@@ -143,17 +144,19 @@ export function Card({ title, actions, children, className = "", padded = true }
 }
 
 export function Stat({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "good" | "warn" }) {
+  const accent = tone === "warn" ? "from-amber-400 to-amber-200" : tone === "good" ? "from-emerald-500 to-emerald-200" : "from-rose-500 via-plum-600 to-gold";
   return (
-    <div className="rounded-2xl border border-line bg-white/70 p-4">
-      <p className="text-xs text-ink-soft">{label}</p>
-      <p className={`mt-1 text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-amber-700" : tone === "good" ? "text-emerald-700" : ""}`}>{value}</p>
-      {hint && <p className="text-xs text-ink-soft">{hint}</p>}
+    <div className="relative overflow-hidden rounded-xl border border-line/70 bg-white p-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:p-5">
+      <span className={`absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r ${accent}`} aria-hidden="true" />
+      <p className="text-sm text-ink-soft">{label}</p>
+      <p className={`mt-1.5 text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-amber-700" : tone === "good" ? "text-emerald-700" : "text-ink"}`}>{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-ink-soft">{hint}</p>}
     </div>
   );
 }
 
 export function Badge({ children, tone = "bg-rose-100 text-plum-700" }: { children: ReactNode; tone?: string }) {
-  return <span className={`inline-flex items-center whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold ${tone}`}>{children}</span>;
+  return <span className={`inline-flex items-center whitespace-nowrap rounded-md px-2 py-0.5 text-xs font-semibold ${tone}`}>{children}</span>;
 }
 
 export function StatusBadge({ status }: { status: string }) {
@@ -162,13 +165,14 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function Pills<T extends string>({ value, onChange, options }: { value: T; onChange: (v: T) => void; options: { value: T; label: ReactNode }[] }) {
   return (
-    <div className="-mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
+    <div className="-mx-4 mb-4 flex gap-1 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:w-fit md:max-w-full md:flex-wrap md:rounded-lg md:bg-ivory-deep/70 md:p-1">
       {options.map((o) => (
         <button
           key={o.value}
           type="button"
           onClick={() => onChange(o.value)}
-          className={`h-9 shrink-0 rounded-full border px-3.5 text-sm font-medium transition ${value === o.value ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-white"}`}
+          aria-pressed={value === o.value}
+          className={`h-8 shrink-0 rounded-md border px-3 text-sm font-medium transition md:border-transparent ${value === o.value ? "border-plum-600 bg-plum-600 text-white shadow-sm md:bg-white md:text-plum-700" : "border-line bg-white text-ink-soft hover:text-ink md:bg-transparent"}`}
         >
           {o.label}
         </button>
@@ -192,8 +196,8 @@ export function SearchBox({ value, onChange, placeholder = "Rechercher…" }: { 
 
 export function Empty({ icon = "🌸", title, children }: { icon?: string; title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-line bg-white/40 px-6 py-10 text-center">
-      <p className="text-3xl">{icon}</p>
+    <div className="rounded-xl border border-dashed border-line bg-white/60 px-6 py-12 text-center">
+      <p className="mx-auto grid size-12 place-items-center rounded-full bg-rose-100 text-2xl">{icon}</p>
       <p className="mt-2 font-semibold">{title}</p>
       {children && <div className="mt-1 text-sm text-ink-soft">{children}</div>}
     </div>
@@ -204,7 +208,7 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
   return (
     <div className="space-y-2" aria-busy="true">
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="skeleton h-16 rounded-2xl" />
+        <div key={i} className="skeleton h-16 rounded-xl" />
       ))}
     </div>
   );
@@ -213,7 +217,7 @@ export function ListSkeleton({ rows = 5 }: { rows?: number }) {
 export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () => void }) {
   const msg = error instanceof Error ? error.message : "";
   return (
-    <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
       Impossible de charger ({msg}).
       {onRetry && (
         <button type="button" onClick={onRetry} className="ms-2 font-semibold underline">
@@ -242,15 +246,15 @@ export function Sheet({ open, onClose, title, children, footer, wide = false }: 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-stretch md:justify-end" role="dialog" aria-modal="true">
       <button type="button" aria-label="Fermer" onClick={onClose} className="animate-fade absolute inset-0 bg-ink/40" />
-      <div className={`animate-sheet relative flex max-h-[92dvh] w-full flex-col rounded-t-3xl bg-ivory shadow-2xl md:max-h-none md:rounded-none md:rounded-s-3xl ${wide ? "md:w-[44rem]" : "md:w-[32rem]"}`}>
-        <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
+      <div className={`animate-sheet relative flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-ivory shadow-2xl md:max-h-none md:rounded-none md:rounded-s-2xl ${wide ? "md:w-[44rem]" : "md:w-[32rem]"}`}>
+        <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-line/70 bg-white px-4 py-3 md:rounded-none md:rounded-ss-2xl">
           <div className="min-w-0 font-semibold">{title}</div>
-          <button type="button" onClick={onClose} className="grid size-10 shrink-0 place-items-center rounded-full text-xl hover:bg-rose-100" aria-label="Fermer">
+          <button type="button" onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-lg text-xl hover:bg-rose-100" aria-label="Fermer">
             ×
           </button>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain p-4">{children}</div>
-        {footer && <div className="border-t border-line p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">{footer}</div>}
+        {footer && <div className="border-t border-line/70 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">{footer}</div>}
       </div>
     </div>,
     document.body,
@@ -278,7 +282,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`animate-fade pointer-events-auto max-w-sm rounded-2xl px-4 py-3 text-sm font-medium shadow-lg ${t.tone === "error" ? "bg-red-700 text-white" : "bg-ink text-ivory"}`}>
+          <div key={t.id} className={`animate-pop pointer-events-auto max-w-sm rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${t.tone === "error" ? "bg-red-700 text-white" : "bg-ink text-white"}`}>
+
             {t.text}
           </div>
         ))}

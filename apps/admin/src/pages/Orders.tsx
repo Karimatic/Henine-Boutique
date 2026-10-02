@@ -91,13 +91,13 @@ export function OrdersPage() {
         title="Commandes"
         subtitle={toConfirm ? `${toConfirm} à confirmer` : "Tout est à jour ✓"}
         actions={
-          <a href="/api/admin/orders.csv?days=90" className="inline-flex h-9 items-center rounded-full border border-line bg-white px-3.5 text-sm font-semibold">
+          <a href="/api/admin/orders.csv?days=90" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">
             Export CSV
           </a>
         }
       />
       {attention ? (
-        <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl bg-plum-600 px-4 py-3 text-sm text-ivory">
+        <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-plum-600 px-4 py-3 text-sm text-ivory">
           <span>Filtre : <b>{ATTENTION_LABEL[attention]}</b></span>
           <button type="button" onClick={clearAttention} className="rounded-full bg-ivory/15 px-3 py-1 font-semibold">Tout afficher ✕</button>
         </div>
@@ -115,7 +115,7 @@ export function OrdersPage() {
         <ul className="space-y-2">
           {list.data.rows.map((o) => (
             <li key={o.id}>
-              <button type="button" onClick={() => setOpen(o.id)} className="w-full rounded-2xl border border-line bg-white/70 p-3.5 text-start transition hover:border-plum-600/40 active:scale-[0.995]">
+              <button type="button" onClick={() => setOpen(o.id)} className="w-full rounded-xl border border-line bg-white p-3.5 text-start transition hover:border-plum-600/40 active:scale-[0.995]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{o.name}</p>
@@ -274,8 +274,8 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 {o.address && <p className="text-sm">🏠 {o.address}</p>}
               </div>
               <div className="flex flex-col gap-2">
-                <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-plum-600 px-4 text-sm font-semibold text-ivory">📞 Appeler</a>
-                <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white">WhatsApp</a>
+                <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">📞 Appeler</a>
+                <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white">WhatsApp</a>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 text-xs">

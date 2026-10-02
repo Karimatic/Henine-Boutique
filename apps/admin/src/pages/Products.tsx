@@ -45,7 +45,7 @@ export function ProductsPage() {
         group="Catalogue"
         title="Produits"
         subtitle={list.data ? `${list.data.length} produit(s)` : undefined}
-        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-full bg-plum-600 px-5 font-semibold text-ivory">+ Nouveau produit</Link>}
+        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-ivory">+ Nouveau produit</Link>}
       />
       <Pills
         value={status}
@@ -68,7 +68,7 @@ export function ProductsPage() {
         <ul className="grid gap-2 md:grid-cols-2">
           {list.data.map((p) => (
             <li key={p.id}>
-              <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-2xl border border-line bg-white/70 p-3 transition hover:border-plum-600/40">
+              <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-xl border border-line bg-white p-3 transition hover:border-plum-600/40">
                 {p.image ? <img src={p.image} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-rose-100 text-2xl">👗</span>}
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-semibold">{p.name_fr}</p>
@@ -279,7 +279,7 @@ export function ProductEditor() {
           <VariantsTable form={form} onChange={(variants) => set("variants", variants)} disabled={readOnly} />
           {!isNew ? <ImagesEditor productId={form.id!} images={form.images ?? []} options={form.options} onChange={(images) => set("images", images)} /> : (
             <Card title="Photos">
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white/60 p-6 text-center text-sm text-ink-soft hover:border-plum-600">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white p-6 text-center text-sm text-ink-soft hover:border-plum-600">
                 <span className="text-2xl">＋</span>
                 Ajouter des photos
                 <span className="text-xs">Le produit est d'abord enregistré en brouillon, puis les photos sont envoyées.</span>
@@ -417,7 +417,7 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
             <p className="mb-2 text-sm font-medium">{o.nameFr}</p>
             <div className="flex flex-wrap gap-2">
               {o.values.map((v) => (
-                <span key={v.ref} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white ps-2 pe-1 text-sm">
+                <span key={v.ref} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white ps-2 pe-1 text-sm">
                   {o.kind === "couleur" && (
                     <input
                       type="color"
@@ -443,7 +443,7 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
                   {(o.kind === "taille" ? SIZE_PRESETS.map((s) => [s, s, null] as const) : COLOR_PRESETS)
                     .filter(([fr]) => !o.values.some((v) => v.labelFr === fr))
                     .map(([fr, ar, hex]) => (
-                      <button key={fr} type="button" onClick={() => addValue(i, fr, ar, hex)} className="h-8 rounded-full border border-dashed border-line px-3 text-xs text-ink-soft hover:border-plum-600">
+                      <button key={fr} type="button" onClick={() => addValue(i, fr, ar, hex)} className="h-8 rounded-lg border border-dashed border-line px-3 text-xs text-ink-soft hover:border-plum-600">
                         + {fr}
                       </button>
                     ))}
@@ -487,7 +487,7 @@ function RelatedPicker({ productId, ids, onChange }: { productId?: number; ids: 
       {ids.length > 0 && (
         <ul className="mb-3 flex flex-wrap gap-2">
           {ids.map((id) => (
-            <li key={id} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white ps-1 pe-1 text-sm">
+            <li key={id} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white ps-1 pe-1 text-sm">
               {byId.get(id)?.image ? <img src={byId.get(id)!.image!} alt="" className="size-7 rounded-full object-cover" /> : <span className="grid size-7 place-items-center rounded-full bg-rose-100 text-xs">👗</span>}
               {byId.get(id)?.name_fr ?? `#${id}`}
               <button type="button" onClick={() => onChange(ids.filter((x) => x !== id))} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100" aria-label="Retirer">
@@ -753,7 +753,7 @@ function ImagesEditor({ productId, images, options, onChange }: { productId: num
           </li>
         ))}
         <li>
-          <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white/60 text-center text-xs text-ink-soft hover:border-plum-600">
+          <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white text-center text-xs text-ink-soft hover:border-plum-600">
             <span className="text-2xl">＋</span>
             Ajouter des photos
             <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { void handleFiles(e.target.files); e.target.value = ""; }} disabled={!!busy} />

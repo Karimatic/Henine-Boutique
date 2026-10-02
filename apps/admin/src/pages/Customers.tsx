@@ -61,7 +61,7 @@ export function CustomersPage() {
       />
       <SearchBox value={q} onChange={setQ} placeholder="Nom ou téléphone…" />
       {list.error ? <ErrorState error={list.error} onRetry={list.refetch} /> : !list.data ? <ListSkeleton /> : list.data.rows.length === 0 ? <Empty title="Aucune cliente" /> : (
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
           {list.data.rows.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setOpen(c.id)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30">
@@ -265,7 +265,7 @@ export function CartsPage() {
           {q.data.rows.map((c) => {
             const [stepLabel, stepN] = STEP_LABEL[c.step ?? "details"] ?? ["—", 1];
             return (
-            <li key={c.id} className="rounded-2xl border border-line bg-white/70 p-4">
+            <li key={c.id} className="rounded-xl border border-line bg-white p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold">{c.name ?? "Sans nom"} · <span className="font-mono text-sm">{formatDzPhone(c.phone)}</span></p>
@@ -291,7 +291,7 @@ export function CartsPage() {
                 <Badge tone="bg-emerald-100 text-emerald-800">✓ Commande {c.recovered_code}</Badge>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                <a href={telLink(c.phone)} onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))} className="inline-flex h-9 items-center rounded-full bg-plum-600 px-4 text-sm font-semibold text-ivory">
+                <a href={telLink(c.phone)} onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))} className="inline-flex h-9 items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">
                   📞 Appeler
                 </a>
                 <a
@@ -299,7 +299,7 @@ export function CartsPage() {
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
-                  className="inline-flex h-9 items-center rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white"
+                  className="inline-flex h-9 items-center rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white"
                 >
                   WhatsApp
                 </a>

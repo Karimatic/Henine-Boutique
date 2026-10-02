@@ -54,7 +54,7 @@ export function StockPage() {
       ) : data.data.rows.length === 0 ? (
         <Empty title="Rien à afficher" />
       ) : (
-        <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
           {data.data.rows.map((r) => {
             const available = r.stock_on_hand - r.stock_reserved;
             return (

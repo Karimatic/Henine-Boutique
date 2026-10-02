@@ -1,9 +1,12 @@
 import { hasPermission } from "@henine/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, Outlet } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { Link, Outlet, useRouterState } from "@tanstack/react-router";
+import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, PanelLeft, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { api, ApiError, auth, post, type Me } from "./api";
-import { NAV, TABS } from "./nav";
+import { Wordmark } from "./brand";
+import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
 
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/me"), staleTime: 5 * 60_000, retry: false });
@@ -14,7 +17,7 @@ export function useCan() {
   return (permission: Parameters<typeof hasPermission>[1]) => !!me.data && hasPermission(me.data.permissions, permission);
 }
 
-export function visibleNav(me: Me | undefined) {
+export function visibleNav(me: Me | undefined): NavGroup[] {
   if (!me) return [];
   return NAV.map((g) => ({ ...g, items: g.items.filter((i) => hasPermission(me.permissions, i.permission)) })).filter((g) => g.items.length > 0);
 }
@@ -51,9 +54,148 @@ function useDevTelegramPolling(me: Me | undefined) {
   }, [me?.dev, me?.telegramConfigured, qc]);
 }
 
+/** Current path inside the admin ("/commandes"), whatever the router reports for the basepath. */
+function useAdminPath(): string {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  return pathname.replace(/^\/admin(?=\/|$)/, "") || "/";
+}
+
+/** Breadcrumb for the current screen: "Commandes › Clients", "Catalogue › Produits"… */
+function useCrumbs(path: string): string[] {
+  if (path === "/") return [DASHBOARD.label];
+  if (path === "/plus") return ["Menu"];
+  for (const g of NAV) {
+    const item = [...g.items].sort((a, b) => b.path.length - a.path.length).find((i) => path === i.path || path.startsWith(`${i.path}/`));
+    if (item) return path === item.path ? [g.label, item.label] : [g.label, item.label, path.endsWith("/nouveau") ? "Nouveau" : "Fiche"];
+  }
+  return [];
+}
+
+const initials = (name: string) =>
+  name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((w) => w[0]!.toUpperCase())
+    .join("");
+
+const SIDEBAR_KEY = "henine.admin.sidebar";
+
+/* ───────────── Sidebar ───────────── */
+
+function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; collapsed: boolean; onNavigate?: () => void }) {
+  const item = (to: string, label: string, Icon: typeof DASHBOARD.icon, exact = false) => (
+    <Link
+      key={to}
+      to={to}
+      onClick={onNavigate}
+      activeOptions={{ exact }}
+      title={collapsed ? label : undefined}
+      className={`group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-rose-100/70 [&.active]:bg-plum-600/10 [&.active]:font-semibold [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
+    >
+      <Icon className="size-[18px] shrink-0 text-ink-soft transition group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </Link>
+  );
+  return (
+    <nav className="space-y-5" aria-label="Menu de l'administration">
+      <div>{item(DASHBOARD.path, DASHBOARD.label, DASHBOARD.icon, true)}</div>
+      {groups.map((g) => (
+        <div key={g.label}>
+          {collapsed ? (
+            <div className="mx-auto mb-2 h-px w-6 bg-line" aria-hidden="true" />
+          ) : (
+            <p className="mb-1.5 px-2.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft/70">{g.label}</p>
+          )}
+          <div className="space-y-0.5">{g.items.map((i) => item(i.path, i.label, i.icon))}</div>
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+/* ───────────── Profile menu ───────────── */
+
+function ProfileMenu({ me }: { me: Me }) {
+  const [open, setOpen] = useState(false);
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent | KeyboardEvent) => {
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !box.current?.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+  const avatar = (cls: string) => (
+    <span className={`relative grid shrink-0 place-items-center rounded-full bg-gradient-to-br from-rose-500 via-plum-600 to-plum-700 font-semibold text-white ${cls}`}>
+      {initials(me.name)}
+      <span className="absolute bottom-0 end-0 block size-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+    </span>
+  );
+  return (
+    <div ref={box} className="relative">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Mon profil" className="rounded-full">
+        {avatar("size-9 text-sm")}
+      </button>
+      {open && (
+        <div role="menu" className="animate-pop absolute end-0 top-11 z-50 w-64 overflow-hidden rounded-xl border border-line bg-white p-1.5 shadow-lg">
+          <div className="flex items-center gap-3 px-2.5 py-2.5">
+            {avatar("size-10 text-sm")}
+            <div className="min-w-0">
+              <p className="truncate font-semibold">{me.name}</p>
+              <p className="truncate text-xs text-ink-soft">{me.email}</p>
+              <p className="mt-0.5 inline-block rounded-md bg-rose-100 px-1.5 text-[11px] font-semibold text-plum-700">{me.roleName}</p>
+            </div>
+          </div>
+          <div className="my-1 h-px bg-line" />
+          <Link to="/comptes" role="menuitem" onClick={() => setOpen(false)} className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
+            <KeyRound className="size-4 text-ink-soft" /> Mon compte
+          </Link>
+          <a href="/" target="_blank" rel="noreferrer" role="menuitem" className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
+            <ExternalLink className="size-4 text-ink-soft" /> Voir la boutique
+          </a>
+          <div className="my-1 h-px bg-line" />
+          <button type="button" role="menuitem" onClick={logout} className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm text-red-700 hover:bg-red-50">
+            <LogOut className="size-4" /> Déconnexion
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ───────────── Shell ───────────── */
+
 export function Shell() {
   const me = useMe();
   useDevTelegramPolling(me.data);
+  const path = useAdminPath();
+  const crumbs = useCrumbs(path);
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
+    } catch {
+      return false;
+    }
+  });
+  const [drawer, setDrawer] = useState(false);
+  useEffect(() => setDrawer(false), [path]);
+  useEffect(() => {
+    if (!drawer) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setDrawer(false);
+    document.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [drawer]);
 
   if (me.isPending) return <ShellSkeleton />;
   if (me.error) {
@@ -61,53 +203,107 @@ export function Shell() {
     return <AccessProblem error={me.error} />;
   }
   const groups = visibleNav(me.data);
+  const toggle = () => {
+    // desktop: rail ↔ full sidebar; phones: slide-in sidebar
+    if (window.matchMedia("(min-width: 768px)").matches) {
+      setCollapsed((c) => {
+        try {
+          localStorage.setItem(SIDEBAR_KEY, c ? "open" : "collapsed");
+        } catch {
+          /* private mode */
+        }
+        return !c;
+      });
+    } else setDrawer(true);
+  };
 
   return (
-    <div className="min-h-dvh md:grid md:grid-cols-[15rem_1fr]">
-      <aside className="sticky top-0 hidden h-dvh flex-col overflow-y-auto border-e border-line bg-ivory-deep px-3 py-5 md:flex">
-        <Link to="/" className="mb-6 flex items-center gap-2 px-3 text-xl font-semibold text-plum-700">
-          🌸 Henine Boutique
+    <div className="flex min-h-dvh">
+      {/* Desktop sidebar (full or icon rail) */}
+      <aside
+        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-line/80 bg-white transition-[width] duration-200 md:flex ${collapsed ? "w-[4.25rem]" : "w-64"}`}
+      >
+        <Link to="/" className={`flex h-16 shrink-0 items-center border-b border-line/60 ${collapsed ? "justify-center" : "px-4"}`}>
+          <Wordmark size="md" subtitle="Administration" iconOnly={collapsed} />
         </Link>
-        <Link to="/" activeOptions={{ exact: true }} className="mb-4 block rounded-lg px-3 py-2 text-sm font-medium hover:bg-rose-100 [&.active]:bg-plum-600 [&.active]:text-ivory">
-          Tableau de bord
-        </Link>
-        {groups.map((g) => (
-          <div key={g.label} className="mb-4">
-            <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{g.label}</p>
-            {g.items.map((i) => (
-              <Link key={i.path} to={i.path} className="block rounded-lg px-3 py-2 text-sm hover:bg-rose-100 [&.active]:bg-plum-600 [&.active]:text-ivory">
-                {i.label}
-              </Link>
-            ))}
-          </div>
-        ))}
-        <div className="mt-auto space-y-2 border-t border-line px-3 pt-4 text-xs text-ink-soft">
-          <p className="truncate font-medium text-ink">{me.data.name}</p>
-          <p className="truncate">{me.data.roleName}</p>
-          <div className="flex gap-3">
-            <a href="/" target="_blank" rel="noreferrer" className="font-semibold text-plum-600">Voir la boutique ↗</a>
-            <button type="button" onClick={logout} className="font-semibold text-plum-600">Déconnexion</button>
-          </div>
-          {me.data.dev && <p className="rounded-lg bg-amber-100 px-2 py-1 text-amber-900">Mode développement</p>}
+        <div className={`flex-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"}`}>
+          <SidebarNav groups={groups} collapsed={collapsed} />
         </div>
+        {me.data.dev && !collapsed && (
+          <p className="m-3 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-medium text-amber-900">Mode développement</p>
+        )}
       </aside>
 
-      <div className="flex min-w-0 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
-        <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-ivory/90 px-4 backdrop-blur md:hidden">
-          <Link to="/" className="text-lg font-semibold text-plum-700">🌸 Henine Boutique</Link>
-          <span className="max-w-[55%] truncate text-xs text-ink-soft">{me.data.name}</span>
+      {/* Phone sidebar */}
+      {drawer &&
+        createPortal(
+          <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
+            <button type="button" aria-label="Fermer" className="animate-fade absolute inset-0 bg-ink/40" onClick={() => setDrawer(false)} />
+            <aside className="animate-drawer absolute inset-y-0 start-0 flex w-[min(18rem,86vw)] flex-col bg-white shadow-2xl">
+              <div className="flex h-16 shrink-0 items-center justify-between border-b border-line/60 px-4">
+                <Wordmark size="sm" subtitle="Administration" />
+                <button type="button" onClick={() => setDrawer(false)} aria-label="Fermer" className="grid size-9 place-items-center rounded-lg hover:bg-rose-100">
+                  <X className="size-5" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto px-3 py-4">
+                <SidebarNav groups={groups} collapsed={false} onNavigate={() => setDrawer(false)} />
+              </div>
+            </aside>
+          </div>,
+          document.body,
+        )}
+
+      <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
+        <header className="sticky top-0 z-30 border-b border-line/70 bg-white/85 backdrop-blur">
+          <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between gap-3 px-3 sm:px-6 md:h-16">
+            <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+              <button type="button" onClick={toggle} aria-label="Afficher / masquer le menu" className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-soft hover:bg-rose-100 hover:text-plum-700">
+                <PanelLeft className="hidden size-5 md:block" />
+                <Menu className="size-5 md:hidden" />
+              </button>
+              <span className="hidden h-4 w-px bg-line sm:block" aria-hidden="true" />
+              <Link to="/" className="md:hidden" aria-label="Tableau de bord">
+                <Wordmark size="sm" />
+              </Link>
+              <ol className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex" aria-label="Fil d'Ariane">
+                {crumbs.map((c, i) => (
+                  <li key={c + i} className="flex min-w-0 items-center gap-1.5">
+                    {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-ink-soft/60" />}
+                    <span className={`truncate ${i === crumbs.length - 1 ? "font-medium text-ink" : "text-ink-soft"}`}>{c}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <a
+                href="/"
+                target="_blank"
+                rel="noreferrer"
+                className="hidden h-9 items-center gap-1.5 rounded-lg border border-line bg-white px-3 text-sm font-medium hover:border-plum-600 hover:text-plum-700 sm:inline-flex"
+              >
+                <ExternalLink className="size-4" /> Voir la boutique
+              </a>
+              <ProfileMenu me={me.data} />
+            </div>
+          </div>
         </header>
-        <main className="mx-auto w-full max-w-6xl flex-1 p-4 md:p-8">
+        <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6">
           <Outlet />
         </main>
+        <footer className="mx-auto hidden w-full max-w-[90rem] items-center justify-between px-6 pb-6 text-xs text-ink-soft md:flex">
+          <span>© {new Date().getFullYear()} Henine Boutique · Administration</span>
+          <span>Boumerdès · 69 wilayas</span>
+        </footer>
       </div>
 
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-ivory/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      {/* Phone tab bar */}
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <ul className="grid grid-cols-5 text-[11px] font-medium">
-          {[...TABS, { path: "/plus", label: "Plus", icon: "☰" }].map((t) => (
+          {TABS.map((t) => (
             <li key={t.path}>
-              <Link to={t.path} activeOptions={{ exact: t.path === "/" }} className="flex h-16 flex-col items-center justify-center gap-0.5 text-ink-soft [&.active]:text-plum-600">
-                <span className="text-lg leading-none">{t.icon}</span>
+              <Link to={t.path} activeOptions={{ exact: t.path === "/" }} className="group flex h-16 flex-col items-center justify-center gap-1 text-ink-soft [&.active]:text-plum-600">
+                <t.icon className="size-5" strokeWidth={1.8} />
                 {t.label}
               </Link>
             </li>
@@ -124,13 +320,16 @@ export function MoreMenu() {
     <div className="space-y-6">
       {visibleNav(me.data).map((g) => (
         <section key={g.label}>
-          <h2 className="mb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">{g.label}</h2>
-          <ul className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-white/70">
+          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">{g.label}</h2>
+          <ul className="divide-y divide-line/70 overflow-hidden rounded-xl border border-line/70 bg-white shadow-[0_1px_2px_rgb(43_22_32/0.04)]">
             {g.items.map((i) => (
               <li key={i.path}>
-                <Link to={i.path} className="flex h-14 items-center justify-between px-4 font-medium active:bg-rose-100">
-                  {i.label}
-                  <span aria-hidden="true" className="text-ink-soft">›</span>
+                <Link to={i.path} className="flex h-13 items-center gap-3 px-4 font-medium active:bg-rose-100">
+                  <span className="grid size-8 place-items-center rounded-lg bg-plum-600/10 text-plum-600">
+                    <i.icon className="size-4" />
+                  </span>
+                  <span className="flex-1">{i.label}</span>
+                  <ChevronRight className="size-4 text-ink-soft" />
                 </Link>
               </li>
             ))}
@@ -138,11 +337,11 @@ export function MoreMenu() {
         </section>
       ))}
       <div className="flex gap-3">
-        <a href="/" target="_blank" rel="noreferrer" className="flex h-12 flex-1 items-center justify-center rounded-full border border-line bg-white font-semibold">
-          Voir la boutique ↗
+        <a href="/" target="_blank" rel="noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-white font-semibold">
+          <ExternalLink className="size-4" /> Voir la boutique
         </a>
-        <button type="button" onClick={logout} className="h-12 flex-1 rounded-full border border-red-200 bg-white font-semibold text-red-700">
-          Déconnexion
+        <button type="button" onClick={logout} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white font-semibold text-red-700">
+          <LogOut className="size-4" /> Déconnexion
         </button>
       </div>
     </div>
@@ -151,14 +350,19 @@ export function MoreMenu() {
 
 function ShellSkeleton() {
   return (
-    <div className="grid min-h-dvh md:grid-cols-[15rem_1fr]" aria-busy="true">
-      <div className="hidden space-y-3 border-e border-line p-5 md:block">
-        {Array.from({ length: 12 }, (_, i) => <div key={i} className="skeleton h-8" />)}
+    <div className="flex min-h-dvh" aria-busy="true">
+      <div className="hidden w-64 space-y-3 border-e border-line bg-white p-4 md:block">
+        <div className="skeleton mb-6 h-9" />
+        {Array.from({ length: 12 }, (_, i) => (
+          <div key={i} className="skeleton h-8" />
+        ))}
       </div>
-      <div className="space-y-4 p-4 md:p-8">
+      <div className="flex-1 space-y-4 p-4 md:p-8">
         <div className="skeleton h-8 w-48" />
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {Array.from({ length: 4 }, (_, i) => <div key={i} className="skeleton h-24" />)}
+          {Array.from({ length: 4 }, (_, i) => (
+            <div key={i} className="skeleton h-28" />
+          ))}
         </div>
       </div>
     </div>
@@ -169,10 +373,10 @@ function AccessProblem({ error }: { error: Error }) {
   return (
     <div className="grid min-h-dvh place-items-center p-6 text-center">
       <div className="max-w-sm">
-        <p className="mb-2 text-4xl">🌸</p>
+        <Wordmark size="lg" className="mb-6" />
         <p className="text-lg font-semibold">Connexion au serveur impossible</p>
         <p className="mt-2 text-sm text-ink-soft">{error.message}</p>
-        <button type="button" onClick={() => location.reload()} className="mt-6 h-11 rounded-full bg-plum-600 px-6 font-semibold text-ivory">
+        <button type="button" onClick={() => location.reload()} className="mt-6 h-10 rounded-lg bg-plum-600 px-5 font-semibold text-white">
           Réessayer
         </button>
       </div>

@@ -1,19 +1,33 @@
 @import "tailwindcss";
+/* self-hosted (the admin CSP only allows fonts from 'self') */
+@import "@fontsource-variable/dm-sans/wght.css";
+@import "@fontsource/playfair-display/latin-600.css";
+@import "@fontsource/playfair-display/latin-700.css";
+@import "@fontsource/playfair-display/latin-600-italic.css";
+@import "@fontsource/playfair-display/latin-700-italic.css";
 
+/*
+ * Same brand tokens as the storefront (apps/web/src/styles/globals.css): pinky-white ground,
+ * white cards, deep rose ink, vivid pink accent, gold hairlines. Layout and component shapes
+ * follow the shadcn "admincn" template (sidebar + top bar, rounded-xl cards, rounded-lg controls).
+ */
 @theme {
-  --color-ivory: #fefcf9;
-  --color-ivory-deep: #f8f3ee;
-  --color-ink: #2a1a24;
-  --color-ink-soft: #5b4652;
-  --color-line: #eee4dc;
-  --color-plum-600: #6b2d52;
-  --color-plum-700: #57223f;
-  --color-rose-100: #fbe7ec;
-  --color-rose-300: #f2b8c6;
-  --color-rose-500: #d9738c;
-  --color-rose-700: #a8445e;
+  --color-ivory: #fdeef3;
+  --color-ivory-deep: #fbe0ea;
+  --color-ink: #2b1620;
+  --color-ink-soft: #6b4a57;
+  --color-line: #f4c6d6;
+  --color-plum-600: #c2255f;
+  --color-plum-700: #9d174d;
+  --color-rose-100: #f9d3e0;
+  --color-rose-300: #f48fb1;
+  --color-rose-500: #ec407a;
+  --color-rose-700: #c2185b;
   --color-gold: #b08d57;
-  --font-sans: "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-lavender: #b39ddb;
+  --color-peach: #ffab91;
+  --font-sans: "DM Sans Variable", "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Playfair Display", Georgia, "Times New Roman", serif;
 }
 
 @layer base {
@@ -24,6 +38,8 @@
   }
   body {
     min-height: 100dvh;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
   }
   input, select, textarea {
     font-size: max(16px, 1rem);
@@ -31,6 +47,9 @@
   :focus-visible {
     outline: 2px solid var(--color-plum-600);
     outline-offset: 2px;
+  }
+  button:not(:disabled), [role="switch"]:not(:disabled), label:has([role="switch"]) {
+    cursor: pointer;
   }
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
@@ -42,8 +61,74 @@
     background: linear-gradient(90deg, var(--color-ivory-deep) 25%, var(--color-rose-100) 50%, var(--color-ivory-deep) 75%);
     background-size: 200% 100%;
     animation: shimmer 1.4s ease-in-out infinite;
-    border-radius: 0.5rem;
+    border-radius: 0.625rem;
   }
+  .font-display {
+    font-family: var(--font-display);
+  }
+}
+
+/* ── Brand wordmark: written in from left to right, then a slow flow of pink, rose, gold,
+ *    lavender and peach travels through the letters (gradient clipped to the text). ── */
+.wordmark {
+  display: inline-block;
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+  padding-inline-end: 0.12em; /* italic overhang stays inside the clip */
+  color: transparent;
+  background: linear-gradient(
+    100deg,
+    var(--color-plum-700) 0%,
+    var(--color-rose-500) 18%,
+    var(--color-gold) 32%,
+    var(--color-lavender) 46%,
+    var(--color-peach) 60%,
+    var(--color-rose-700) 76%,
+    var(--color-plum-700) 100%
+  );
+  background-size: 300% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  clip-path: inset(0 100% 0 0);
+  animation: wordmark-write 1.1s cubic-bezier(0.3, 0.7, 0.2, 1) 0.15s forwards, wordmark-flow 9s ease-in-out 1.3s infinite alternate;
+}
+@keyframes wordmark-write {
+  to { clip-path: inset(0 0 0 0); }
+}
+@keyframes wordmark-flow {
+  from { background-position: 0% 50%; }
+  to { background-position: 100% 50%; }
+}
+.wordmark-blossom {
+  animation: blossom-bloom 1s cubic-bezier(0.2, 0.8, 0.2, 1) both, blossom-sway 7s ease-in-out 1.2s infinite;
+  transform-origin: 50% 50%;
+}
+@keyframes blossom-bloom {
+  from { transform: scale(0.4) rotate(-60deg); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+@keyframes blossom-sway {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(18deg) scale(1.06); }
+}
+.wordmark-sparkle {
+  position: absolute;
+  color: var(--color-gold);
+  pointer-events: none;
+  animation: sparkle-twinkle 2.8s ease-in-out infinite;
+}
+@keyframes sparkle-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0deg); }
+  45%, 55% { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wordmark { clip-path: none; animation: none; background-position: 30% 50%; }
+  .wordmark-blossom, .wordmark-sparkle { animation: none; }
+  .wordmark-sparkle { opacity: 0; }
 }
 
 @keyframes shimmer {
@@ -58,12 +143,22 @@
   from { transform: translateX(100%); }
   to { transform: none; }
 }
+@keyframes drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: none; }
+}
 @keyframes fade-in {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to { opacity: 1; transform: none; }
 }
 .animate-sheet { animation: sheet-up 0.28s cubic-bezier(0.2, 0.8, 0.2, 1); }
 @media (min-width: 768px) {
   .animate-sheet { animation-name: sheet-side; }
 }
+.animate-drawer { animation: drawer-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .animate-fade { animation: fade-in 0.2s ease-out; }
+.animate-pop { animation: pop-in 0.16s ease-out; }
