@@ -163,3 +163,22 @@
 .animate-drawer { animation: drawer-in 0.26s cubic-bezier(0.2, 0.8, 0.2, 1); }
 .animate-fade { animation: fade-in 0.2s ease-out; }
 .animate-pop { animation: pop-in 0.16s ease-out; }
+
+/* Packing slips: two per A4 sheet, colours kept */
+@media print {
+  @page {
+    size: A4;
+    margin: 8mm;
+  }
+  html,
+  body {
+    background: #fff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .slip {
+    break-inside: avoid;
+    min-height: 136mm;
+    margin-bottom: 4mm;
+  }
+}

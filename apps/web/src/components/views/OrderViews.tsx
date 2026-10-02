@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { dateLocale, formatDA, normalizeDzPhone, toE164, TRACKING_STEPS, trackingStepIndex, type SiteConfigDTO, type TrackedOrderDTO } from "@henine/shared";
+import { CUSTOMER_CANCEL_REASONS, dateLocale, formatDA, normalizeDzPhone, toE164, TRACKING_STEPS, trackingStepIndex, type SiteConfigDTO, type TrackedOrderDTO } from "@henine/shared";
 import { ReviewForm } from "@/components/product/ReviewForm";
 import { ErrorBox, inputCls, PageTitle, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
@@ -108,9 +108,109 @@ function Timeline({ o }: { o: TrackedOrderDTO }) {
   );
 }
 
-function OrderCard({ o, token }: { o: TrackedOrderDTO; token?: string }) {
+/** Before confirmation: fix the address or cancel, from the private link. */
+function SelfService({ o, token, onChanged }: { o: TrackedOrderDTO; token: string; onChanged: (msg: string) => void }) {
+  const { t } = useLocale();
+  const C = t.trackPlus.change;
+  const [mode, setMode] = useState<"idle" | "edit" | "cancel">("idle");
+  const [address, setAddress] = useState(o.details?.address ?? "");
+  const [note, setNote] = useState("");
+  const [reason, setReason] = useState<(typeof CUSTOMER_CANCEL_REASONS)[number]>("changed_mind");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function run(path: "edit" | "cancel", payload: Record<string, unknown>, ok: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await apiPost(`/track/${o.code}/${path}`, { t: token, ...payload });
+      setMode("idle");
+      onChanged(ok);
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === "already_confirmed" ? C.tooLate : t.common.error);
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <section className="rounded-2xl border border-plum-600/20 bg-rose-100/40 p-4">
+      <p className="font-semibold">{C.title}</p>
+      <p className="mt-1 text-sm text-ink-soft">{C.text}</p>
+      {mode === "idle" && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" onClick={() => setMode("edit")} className="h-11 rounded-full bg-plum-600 px-5 text-sm font-semibold text-ivory">
+            {C.edit}
+          </button>
+          <button type="button" onClick={() => setMode("cancel")} className="h-11 rounded-full border border-ink/15 bg-white px-5 text-sm font-semibold text-danger">
+            {C.cancel}
+          </button>
+        </div>
+      )}
+      {mode === "edit" && (
+        <form
+          className="mt-3 space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run("edit", { address: address.trim(), note: note.trim() || undefined }, C.saved);
+          }}
+        >
+          <label className="block text-sm font-medium">
+            {C.address}
+            <textarea className={`${inputCls} mt-1 h-auto py-2.5`} rows={2} value={address} maxLength={300} required minLength={3} onChange={(e) => setAddress(e.target.value)} />
+          </label>
+          <label className="block text-sm font-medium">
+            {C.note}
+            <input className={`${inputCls} mt-1`} value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} />
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="submit" disabled={busy || address.trim().length < 3} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-5 text-sm font-semibold text-ivory disabled:opacity-50">
+              {busy && <Spinner className="size-4" />}
+              {C.save}
+            </button>
+            <button type="button" onClick={() => setMode("idle")} className="h-11 rounded-full px-4 text-sm font-semibold text-ink-soft">
+              {t.common.back}
+            </button>
+          </div>
+        </form>
+      )}
+      {mode === "cancel" && (
+        <div className="mt-3 space-y-3 rounded-2xl bg-white p-3">
+          <p className="font-semibold">{C.cancelTitle}</p>
+          <label className="block text-sm font-medium">
+            {C.reason}
+            <select className={`${inputCls} mt-1`} value={reason} onChange={(e) => setReason(e.target.value as typeof reason)}>
+              {CUSTOMER_CANCEL_REASONS.map((r) => (
+                <option key={r} value={r}>
+                  {C.reasons[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" disabled={busy} onClick={() => void run("cancel", { reason }, C.cancelled)} className="flex h-11 items-center gap-2 rounded-full bg-danger px-5 text-sm font-semibold text-white disabled:opacity-50">
+              {busy && <Spinner className="size-4" />}
+              {C.confirmCancel}
+            </button>
+            <button type="button" onClick={() => setMode("idle")} className="h-11 rounded-full border border-ink/15 bg-white px-5 text-sm font-semibold">
+              {C.keep}
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <p className="mt-2 text-sm text-danger">{error}</p>}
+    </section>
+  );
+}
+
+function OrderCard({ o: initial, token }: { o: TrackedOrderDTO; token?: string }) {
   const { t, ar, locale, href } = useLocale();
   const T = t.trackPlus;
+  const [o, setO] = useState(initial);
+  const [notice, setNotice] = useState<string | null>(null);
+  useEffect(() => setO(initial), [initial]);
+  const changed = (msg: string) => {
+    setNotice(msg);
+    if (token) apiGet<TrackedOrderDTO>(`/track/${o.code}?t=${encodeURIComponent(token)}`).then(setO, () => undefined);
+  };
   const site = useApi<SiteConfigDTO>("/site");
   const [reviewing, setReviewing] = useState<number | null>(null);
   const [reviewed, setReviewed] = useState<number[]>([]);
@@ -137,7 +237,9 @@ function OrderCard({ o, token }: { o: TrackedOrderDTO; token?: string }) {
 
       <div className="grid gap-6 p-5 md:grid-cols-2">
         <div className="space-y-4">
+          {notice && <p className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">{notice}</p>}
           <Timeline o={o} />
+          {token && o.canChange && <SelfService o={o} token={token} onChanged={changed} />}
           {o.trackingNumber && (
             <p className="rounded-2xl bg-rose-100 p-3 text-sm">
               {t.track.trackingNumber} :{" "}

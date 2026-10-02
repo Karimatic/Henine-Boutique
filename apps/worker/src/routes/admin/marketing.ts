@@ -42,6 +42,57 @@ marketingRoutes.get("/coupons", requirePermission("promos.edit"), async (c) => {
   return c.json({ coupons: results, freeShippingOver: checkout.free_shipping_over });
 });
 
+/**
+ * Influencer report for a period: what each one's codes brought. The commission is due on
+ * delivered orders only, on the items (after discount, delivery excluded).
+ */
+marketingRoutes.get("/influencers", requirePermission("promos.edit"), async (c) => {
+  const from = Number(c.req.query("from") ?? 0) || 0;
+  const to = Number(c.req.query("to") ?? 0) || Date.now() + 1;
+  const { results } = await c.env.DB.prepare(
+    `SELECT cp.influencer_name AS name, cp.code, COALESCE(cp.commission_pct, 0) AS pct,
+            COUNT(o.id) AS orders,
+            SUM(CASE WHEN o.status = 'livree' THEN 1 ELSE 0 END) AS delivered,
+            SUM(CASE WHEN o.status IN ('retour','retour_recu') THEN 1 ELSE 0 END) AS returned,
+            SUM(CASE WHEN o.status IN ('nouvelle','injoignable','confirmee','en_preparation','expediee','en_livraison') THEN 1 ELSE 0 END) AS pending,
+            COALESCE(SUM(CASE WHEN o.status = 'livree' THEN o.subtotal - o.discount_total ELSE 0 END), 0) AS delivered_sales,
+            COALESCE(SUM(CASE WHEN o.status IN ('nouvelle','injoignable','confirmee','en_preparation','expediee','en_livraison') THEN o.subtotal - o.discount_total ELSE 0 END), 0) AS pending_sales,
+            SUM(CASE WHEN o.id = (SELECT MIN(o2.id) FROM orders o2 WHERE o2.customer_id = o.customer_id) THEN 1 ELSE 0 END) AS new_customers
+       FROM coupons cp
+       LEFT JOIN orders o ON o.coupon_code = cp.code AND o.status NOT IN ('annulee','doublon','fausse') AND o.created_at >= ? AND o.created_at < ?
+      WHERE cp.influencer_name IS NOT NULL AND cp.influencer_name != ''
+      GROUP BY cp.id
+      ORDER BY cp.influencer_name, cp.code`,
+  )
+    .bind(from, to)
+    .all<{
+      name: string; code: string; pct: number; orders: number; delivered: number | null; returned: number | null; pending: number | null;
+      delivered_sales: number; pending_sales: number; new_customers: number | null;
+    }>();
+  const people = new Map<string, {
+    name: string; codes: string[]; orders: number; delivered: number; returned: number; pending: number; newCustomers: number;
+    deliveredSales: number; pendingSales: number; commission: number; pendingCommission: number;
+  }>();
+  for (const r of results) {
+    const key = r.name.trim().toLowerCase();
+    const p = people.get(key) ?? {
+      name: r.name.trim(), codes: [], orders: 0, delivered: 0, returned: 0, pending: 0, newCustomers: 0, deliveredSales: 0, pendingSales: 0, commission: 0, pendingCommission: 0,
+    };
+    p.codes.push(r.pct ? `${r.code} (${r.pct} %)` : r.code);
+    p.orders += r.orders;
+    p.delivered += r.delivered ?? 0;
+    p.returned += r.returned ?? 0;
+    p.pending += r.pending ?? 0;
+    p.newCustomers += r.new_customers ?? 0;
+    p.deliveredSales += r.delivered_sales;
+    p.pendingSales += r.pending_sales;
+    p.commission += Math.round((r.delivered_sales * r.pct) / 100);
+    p.pendingCommission += Math.round((r.pending_sales * r.pct) / 100);
+    people.set(key, p);
+  }
+  return c.json([...people.values()].sort((a, b) => b.deliveredSales - a.deliveredSales));
+});
+
 async function saveCoupon(c: Parameters<typeof body>[0], id: number | null) {
   const input = await body(c, couponInput);
   if (input.type === "percent" && input.value > 100) throw new HttpError(422, "percent_over_100");

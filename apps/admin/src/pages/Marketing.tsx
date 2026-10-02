@@ -54,6 +54,7 @@ export function PromosPage() {
     <div>
       <PageHeader group="Commandes" title="Promos" subtitle="Codes promo, codes influenceuses et livraison offerte." actions={<Button variant="primary" onClick={() => setEdit({ type: "percent", value: 10, is_active: 1 })}>+ Nouveau code</Button>} />
       <FreeShipping current={q.data?.freeShippingOver ?? null} />
+      <InfluencerReport />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.coupons.length === 0 ? <Empty title="Aucun code promo" icon="🏷" /> : (
         <ul className="grid gap-2 md:grid-cols-2">
           {q.data.coupons.map((c) => {
@@ -77,6 +78,100 @@ export function PromosPage() {
       )}
       {edit && <CouponSheet coupon={edit} onClose={() => setEdit(null)} />}
     </div>
+  );
+}
+
+interface InfluencerRow {
+  name: string;
+  codes: string[];
+  orders: number;
+  delivered: number;
+  returned: number;
+  pending: number;
+  newCustomers: number;
+  deliveredSales: number;
+  pendingSales: number;
+  commission: number;
+  pendingCommission: number;
+}
+
+/** Start of a month in Algiers time (UTC+1), `offset` months from now. */
+function monthStart(offset = 0): number {
+  const now = new Date(Date.now() + 3600_000);
+  return Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1) - 3600_000;
+}
+
+function InfluencerReport() {
+  const [period, setPeriod] = useState<"month" | "last" | "30" | "all">("month");
+  const range = period === "month" ? [monthStart(), 0] : period === "last" ? [monthStart(-1), monthStart()] : period === "30" ? [Date.now() - 30 * 86400_000, 0] : [0, 0];
+  const q = useQuery({ queryKey: ["influencers", period], queryFn: () => api<InfluencerRow[]>(`/influencers?from=${range[0]}&to=${range[1] || ""}`) });
+  if (q.data && q.data.length === 0) return null; // no influencer codes yet: nothing to show
+  const total = (q.data ?? []).reduce((s, r) => s + r.commission, 0);
+  return (
+    <Card title="👤 Influenceuses : ce que leurs codes rapportent" className="mb-4">
+      <Pills
+        value={period}
+        onChange={setPeriod}
+        options={[
+          { value: "month", label: "Ce mois-ci" },
+          { value: "last", label: "Mois dernier" },
+          { value: "30", label: "30 derniers jours" },
+          { value: "all", label: "Depuis le début" },
+        ]}
+      />
+      {q.error ? (
+        <ErrorState error={q.error} onRetry={q.refetch} />
+      ) : !q.data ? (
+        <ListSkeleton rows={2} />
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-sm">
+              <thead>
+                <tr className="border-b border-line text-xs text-ink-soft">
+                  <th className="py-2 text-start font-medium">Influenceuse</th>
+                  <th className="px-2 text-end font-medium">Commandes</th>
+                  <th className="px-2 text-end font-medium">Livrées</th>
+                  <th className="px-2 text-end font-medium">Nouvelles clientes</th>
+                  <th className="px-2 text-end font-medium">Ventes livrées</th>
+                  <th className="ps-2 text-end font-medium">Commission due</th>
+                </tr>
+              </thead>
+              <tbody>
+                {q.data.map((r) => (
+                  <tr key={r.name} className="border-b border-line/60 last:border-0">
+                    <td className="py-2.5">
+                      <span className="block font-semibold">{r.name}</span>
+                      <span className="block font-mono text-xs text-ink-soft">{r.codes.join(" · ")}</span>
+                    </td>
+                    <td className="px-2 text-end tabular-nums">
+                      {r.orders}
+                      {r.pending ? <span className="block text-xs text-ink-soft">{r.pending} en cours</span> : null}
+                    </td>
+                    <td className="px-2 text-end tabular-nums">
+                      {r.delivered}
+                      {r.returned ? <span className="block text-xs text-orange-700">{r.returned} retour(s)</span> : null}
+                    </td>
+                    <td className="px-2 text-end tabular-nums">{r.newCustomers}</td>
+                    <td className="px-2 text-end tabular-nums">{da(r.deliveredSales)}</td>
+                    <td className="ps-2 text-end tabular-nums">
+                      <b>{da(r.commission)}</b>
+                      {r.pendingCommission ? <span className="block text-xs text-ink-soft">+ {da(r.pendingCommission)} si livrées</span> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-3 flex flex-wrap justify-between gap-2 text-xs text-ink-soft">
+            <span>Commission calculée sur les commandes <b>livrées</b> uniquement, sur les articles (après remise, livraison non comptée).</span>
+            <span>
+              Total à payer : <b className="text-ink">{da(total)}</b>
+            </span>
+          </p>
+        </>
+      )}
+    </Card>
   );
 }
 

@@ -21,6 +21,9 @@ const publicRoutes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/mot-de-passe-oublie", component: ForgotPage }),
 ];
 
+// Printable pages: no sidebar / header around them
+const printRoutes = [createRoute({ getParentRoute: () => rootRoute, path: "/bordereaux", component: lazy(() => import("./pages/Slips"), "SlipsPage") as () => React.ReactNode })];
+
 // Everything else lives inside the authenticated shell
 const shellRoute = createRoute({ getParentRoute: () => rootRoute, id: "app", component: Shell });
 const page = (path: string, component: unknown) => createRoute({ getParentRoute: () => shellRoute, path, component: component as () => React.ReactNode });
@@ -53,7 +56,7 @@ const appRoutes = [
 ];
 
 export const router = createRouter({
-  routeTree: rootRoute.addChildren([...publicRoutes, shellRoute.addChildren(appRoutes)]),
+  routeTree: rootRoute.addChildren([...publicRoutes, ...printRoutes, shellRoute.addChildren(appRoutes)]),
   basepath: "/admin",
   defaultPreload: "intent",
   // ?o=12 style params: parse numbers so links like search={{ o: id }} round-trip

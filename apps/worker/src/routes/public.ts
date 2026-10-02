@@ -1,6 +1,8 @@
 import { Hono, type Context } from "hono";
 import {
   cartSaveInput,
+  cleanText,
+  CUSTOMER_CANCEL_REASONS,
   clientErrorInput,
   contactInput,
   createOrderInput,
@@ -23,9 +25,10 @@ import { recordError } from "../lib/audit";
 import { featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, variantLabels, type ImageRow } from "../lib/catalog";
 import { cached } from "../lib/edge-cache";
 import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, verifyTurnstile } from "../lib/http";
-import { createOrder, quote } from "../lib/orders";
+import { applyStatusChange, createOrder, quote } from "../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings } from "../lib/settings";
-import { notifyNewOrder, sendTelegramText } from "../lib/telegram";
+import { notifyNewOrder, sendTelegramText, syncOrderMessage } from "../lib/telegram";
+import { z } from "zod";
 
 export const publicRoutes = new Hono<AppEnv>();
 
@@ -144,7 +147,7 @@ publicRoutes.get("/geo/wilayas/:code/communes", (c) => {
 publicRoutes.post("/quote", async (c) => {
   await rateLimit(c.env.RL_LOOKUP, `quote:${clientIp(c)}`);
   const input = await body(c, quoteInput);
-  const { couponRow: _, ...dto } = await quote(c.env, input);
+  const { couponRow: _, pointsUsed: __, pointsDiscount: ___, ...dto } = await quote(c.env, input);
   return c.json(dto);
 });
 
@@ -277,8 +280,60 @@ async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[]
       .filter((e) => e.order_id === o.id)
       .map((e) => ({ status: e.to_status, at: e.created_at })),
     details: withDetails ? { name: o.name, phoneMasked: maskDzPhone(o.phone), address: o.address } : null,
+    canChange: withDetails && CHANGEABLE.includes(o.status),
   }));
 }
+
+/** Until the team confirms it, the customer can still fix her address or cancel (private link only). */
+const CHANGEABLE: string[] = ["nouvelle", "injoignable"];
+
+async function orderByToken(c: Context<AppEnv>, code: string, token: string) {
+  const o = await c.env.DB.prepare("SELECT id, public_code, status, address, track_token_hash FROM orders WHERE public_code = ?")
+    .bind(code.toUpperCase())
+    .first<{ id: number; public_code: string; status: string; address: string | null; track_token_hash: string }>();
+  if (!o || !token || !timingSafeEqual(await sha256Hex(token, c.env.TRACK_TOKEN_PEPPER), o.track_token_hash)) throw new HttpError(404, "not_found");
+  if (!CHANGEABLE.includes(o.status)) throw new HttpError(409, "already_confirmed");
+  return o;
+}
+
+const tokenField = z.string().min(10).max(200);
+
+publicRoutes.post("/track/:code/cancel", async (c) => {
+  await rateLimit(c.env.RL_WRITE, `selfcancel:${clientIp(c)}`);
+  const input = await body(c, z.object({ t: tokenField, reason: z.enum(CUSTOMER_CANCEL_REASONS).default("changed_mind") }));
+  const o = await orderByToken(c, c.req.param("code"), input.t);
+  await applyStatusChange(c.env, o.id, "annulee", "customer", "customer", "Annulée par la cliente depuis son lien de suivi", input.reason);
+  c.executionCtx.waitUntil(
+    Promise.all([
+      syncOrderMessage(c.env, o.id).catch(() => undefined),
+      sendTelegramText(c.env, `🚫 La cliente a annulé la commande ${o.public_code} depuis son lien de suivi.`).catch(() => undefined),
+    ]),
+  );
+  return c.json({ ok: true });
+});
+
+publicRoutes.post("/track/:code/edit", async (c) => {
+  await rateLimit(c.env.RL_WRITE, `selfedit:${clientIp(c)}`);
+  const input = await body(c, z.object({ t: tokenField, address: cleanText(300).pipe(z.string().min(3)), note: cleanText(300).optional() }));
+  const o = await orderByToken(c, c.req.param("code"), input.t);
+  const now = Date.now();
+  const [upd] = await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE orders SET address = ?, customer_note = COALESCE(?, customer_note), updated_at = ? WHERE id = ? AND status IN ('nouvelle','injoignable')`).bind(
+      input.address, input.note || null, now, o.id,
+    ),
+    c.env.DB.prepare("INSERT INTO order_events (order_id, kind, actor, source, note, created_at) VALUES (?, 'edit', 'customer', 'customer', ?, ?)").bind(
+      o.id, `Adresse modifiée par la cliente : « ${o.address ?? "—"} » → « ${input.address} »${input.note ? ` · note : ${input.note}` : ""}`, now,
+    ),
+  ]);
+  if (!upd!.meta.changes) throw new HttpError(409, "already_confirmed");
+  c.executionCtx.waitUntil(
+    Promise.all([
+      syncOrderMessage(c.env, o.id).catch(() => undefined),
+      sendTelegramText(c.env, `✏️ La cliente a modifié l'adresse de la commande ${o.public_code}.`).catch(() => undefined),
+    ]),
+  );
+  return c.json({ ok: true });
+});
 
 /** By phone number (+ optional order code). Limited info: no name, no address. */
 publicRoutes.post("/track", async (c) => {

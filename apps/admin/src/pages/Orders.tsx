@@ -9,7 +9,7 @@ import {
   type RiskLevel,
 } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate, useSearch } from "@tanstack/react-router";
+import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { api, errorMessage, patch, post } from "../api";
 import { ago, CHANNEL_LABEL, da, dateTime, statusLabel, telLink, waLink } from "../lib/format";
@@ -83,6 +83,12 @@ export function OrdersPage() {
   const setOpen = (id: number | null) => void navigate({ to: "/commandes", search: (s: Record<string, unknown>) => ({ ...s, o: id ?? undefined }) });
   const counts = list.data?.counts ?? {};
   const toConfirm = (counts.nouvelle ?? 0) + (counts.injoignable ?? 0);
+  // several orders at once: tick them, then one button
+  const [picked, setPicked] = useState<number[]>([]);
+  useEffect(() => setPicked([]), [status, debounced, attention]);
+  const rows = list.data?.rows ?? [];
+  const allPicked = rows.length > 0 && rows.every((r) => picked.includes(r.id));
+  const toggle = (id: number) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
 
   return (
     <div>
@@ -112,10 +118,18 @@ export function OrdersPage() {
       ) : list.data.rows.length === 0 ? (
         <Empty title="Aucune commande ici">Les nouvelles commandes du site arrivent automatiquement (et sur Telegram).</Empty>
       ) : (
+        <>
+        <label className="mb-2 flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-ink-soft">
+          <input type="checkbox" className="size-4 accent-plum-600" checked={allPicked} onChange={() => setPicked(allPicked ? [] : rows.map((r) => r.id))} />
+          Tout sélectionner ({rows.length})
+        </label>
         <ul className="space-y-2">
           {list.data.rows.map((o) => (
-            <li key={o.id}>
-              <button type="button" onClick={() => setOpen(o.id)} className="w-full rounded-xl border border-line bg-white p-3.5 text-start transition hover:border-plum-600/40 active:scale-[0.995]">
+            <li key={o.id} className="flex items-stretch gap-2">
+              <label className={`grid w-10 shrink-0 cursor-pointer place-items-center rounded-xl border transition ${picked.includes(o.id) ? "border-plum-600 bg-rose-100/60" : "border-line bg-white"}`}>
+                <input type="checkbox" className="size-4 accent-plum-600" checked={picked.includes(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner ${o.public_code}`} />
+              </label>
+              <button type="button" onClick={() => setOpen(o.id)} className="min-w-0 flex-1 rounded-xl border border-line bg-white p-3.5 text-start transition hover:border-plum-600/40 active:scale-[0.995]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{o.name}</p>
@@ -140,8 +154,64 @@ export function OrdersPage() {
             </li>
           ))}
         </ul>
+        </>
       )}
+      {picked.length > 0 && <BulkBar ids={picked} rows={rows} onDone={() => setPicked([])} />}
       <OrderSheet id={openId} onClose={() => setOpen(null)} />
+    </div>
+  );
+}
+
+const BULK: { to: OrderStatus; label: string; from: OrderStatus[]; perm: "orders.confirm" | "orders.ship" }[] = [
+  { to: "confirmee", label: "✅ Confirmer", from: ["nouvelle", "injoignable"], perm: "orders.confirm" },
+  { to: "en_preparation", label: "📦 En préparation", from: ["confirmee"], perm: "orders.ship" },
+  { to: "en_livraison", label: "🛵 En livraison", from: ["expediee"], perm: "orders.ship" },
+  { to: "livree", label: "🎉 Livrées", from: ["expediee", "en_livraison"], perm: "orders.ship" },
+];
+
+/** Bottom bar shown while orders are ticked: one status for all of them, or print their slips. */
+function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDone: () => void }) {
+  const can = useCan();
+  const qc = useQueryClient();
+  const toast = useToast();
+  const chosen = rows.filter((r) => ids.includes(r.id));
+  const run = useMutation({
+    mutationFn: (to: OrderStatus) => post<{ done: string[]; failed: { id: number; error: string }[] }>("/orders/bulk-status", { ids, to }),
+    onSuccess: (r, to) => {
+      toast(`${r.done.length} commande(s) : ${statusLabel(to)}${r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : ""}`, r.failed.length ? "error" : undefined);
+      void qc.invalidateQueries({ queryKey: ["orders"] });
+      void qc.invalidateQueries({ queryKey: ["dashboard"] });
+      onDone();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  return (
+    <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-white/95 p-3 shadow-[0_-4px_16px_rgb(43_22_32/0.08)] backdrop-blur md:bottom-0 md:ps-[15rem]">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-1 md:px-8">
+        <p className="me-auto text-sm">
+          <b>{ids.length}</b> sélectionnée(s)
+          <button type="button" onClick={onDone} className="ms-2 text-ink-soft underline">annuler</button>
+        </p>
+        {BULK.filter((b) => can(b.perm)).map((b) => {
+          const n = chosen.filter((r) => b.from.includes(r.status)).length;
+          return (
+            <Button
+              key={b.to}
+              size="sm"
+              variant={b.to === "confirmee" ? "primary" : "secondary"}
+              disabled={n === 0}
+              loading={run.isPending && run.variables === b.to}
+              title={n < ids.length ? `${n} sur ${ids.length} peuvent passer à ce statut` : undefined}
+              onClick={() => confirm(`${b.label} : ${n} commande(s) ?`) && run.mutate(b.to)}
+            >
+              {b.label}{n && n < ids.length ? ` (${n})` : ""}
+            </Button>
+          );
+        })}
+        <Link to="/bordereaux" search={{ ids: ids.join(",") }} className="inline-flex h-8 items-center rounded-lg border border-line bg-white px-3 text-sm font-semibold">
+          🖨 Bordereaux
+        </Link>
+      </div>
     </div>
   );
 }
@@ -276,6 +346,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
               <div className="flex flex-col gap-2">
                 <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">📞 Appeler</a>
                 <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white">WhatsApp</a>
+                <Link to="/bordereaux" search={{ ids: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-white px-4 text-sm font-semibold">🖨 Bordereau</Link>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 text-xs">

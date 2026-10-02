@@ -47,6 +47,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [couponInput, setCouponInput] = useState("");
   const [coupon, setCoupon] = useState("");
   const [showCoupon, setShowCoupon] = useState(false);
+  const [usePoints, setUsePoints] = useState(false);
   const [token, setToken] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -74,16 +75,20 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [quote, setQuote] = useState<QuoteDTO | null>(null);
   const [quoting, setQuoting] = useState(false);
   const linesKey = JSON.stringify(lines);
+  const quotePhone = normalizeDzPhone(phone) ?? undefined; // a full number shows her loyalty points
+  const quoteBody = () => ({
+    lines, wilaya, communeId: typeof communeId === "number" ? communeId : null, deliveryType, coupon: coupon || undefined, phone: quotePhone, usePoints,
+  });
   useEffect(() => {
     if (!lines.length) return;
     setQuoting(true);
     const id = setTimeout(() => {
-      apiPost<QuoteDTO>("/quote", { lines, wilaya, communeId: typeof communeId === "number" ? communeId : null, deliveryType, coupon: coupon || undefined })
+      apiPost<QuoteDTO>("/quote", quoteBody())
         .then(setQuote, () => undefined)
         .finally(() => setQuoting(false));
     }, 250);
     return () => clearTimeout(id);
-  }, [linesKey, wilaya, communeId, deliveryType, coupon]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [linesKey, wilaya, communeId, deliveryType, coupon, quotePhone, usePoints]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /*
    * Checkout autosave (abandoned checkouts): once the phone number is valid, the progress is
@@ -147,6 +152,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         address: deliveryType === "domicile" ? address.trim() : undefined,
         note: note.trim() || undefined,
         coupon: coupon || undefined,
+        usePoints: !!quote?.points?.applied,
         lines,
         channel,
         locale,
@@ -176,7 +182,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
       } else {
         setFormError(e.code === "maintenance" ? texts.pause : (L.errors[e.code] ?? L.errors.generic!));
         if (e.code === "stock_problem" || e.code === "coupon_invalid") {
-          apiPost<QuoteDTO>("/quote", { lines, wilaya, communeId: typeof communeId === "number" ? communeId : null, deliveryType, coupon: coupon || undefined }).then(
+          apiPost<QuoteDTO>("/quote", quoteBody()).then(
             setQuote,
             () => undefined,
           );
@@ -352,6 +358,17 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
           <button type="button" onClick={() => setShowCoupon(true)} className="text-sm font-semibold text-plum-600 underline-offset-4 hover:underline">
             + {L.coupon}
           </button>
+        )}
+        {quote?.points && quote.points.usable > 0 && (
+          <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 text-sm transition ${usePoints ? "border-plum-600 bg-rose-100/60" : "border-line bg-white"}`}>
+            <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-plum-600" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} />
+            <span>
+              <span className="block font-semibold">
+                🎁 {L.points.use} <span dir="ltr">−{formatDA(quote.points.value, locale)}</span>
+              </span>
+              <span className="block text-ink-soft">{L.points.balance(quote.points.balance)}</span>
+            </span>
+          </label>
         )}
         {quote?.coupon && (
           <p className={`text-sm ${quote.coupon.valid ? "text-success" : "text-danger"}`}>

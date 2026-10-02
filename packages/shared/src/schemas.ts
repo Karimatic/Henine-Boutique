@@ -100,6 +100,9 @@ export const quoteInput = z.object({
   communeId: z.number().int().positive().nullable().optional(),
   deliveryType: deliveryType.optional(),
   coupon: couponCode.optional(),
+  /** loyalty: the customer's number (her points) and whether she spends them */
+  phone: dzPhone.optional(),
+  usePoints: z.boolean().optional(),
 });
 export type QuoteInput = z.infer<typeof quoteInput>;
 

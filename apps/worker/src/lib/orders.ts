@@ -36,6 +36,8 @@ export interface QuoteRequest {
   deliveryType?: "domicile" | "bureau";
   coupon?: string;
   phone?: string;
+  /** spend the customer's loyalty points on this order */
+  usePoints?: boolean;
   /** admin manual sales may sell drafts / ignore desk setting */
   admin?: boolean;
 }
@@ -59,6 +61,9 @@ interface VariantRow {
 
 export interface QuoteResult extends QuoteDTO {
   couponRow: { id: number; code: string } | null;
+  /** points spent and the DA they take off (already in `discount` and `total`) */
+  pointsUsed: number;
+  pointsDiscount: number;
 }
 
 function couponLabel(c: CouponRule): string {
@@ -116,7 +121,7 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
     });
   }
 
-  const { checkout } = await getSettings(env, ["checkout"]);
+  const { checkout, loyalty } = await getSettings(env, ["checkout", "loyalty"]);
   const w = (wilayaRes!.results as { home_price: number | null; desk_price: number | null; is_active: number; delay_days: string | null }[])[0];
   const commune = (communeRes!.results as { home_price: number | null; home_supported: number }[])[0];
   let shippingPrice: number | null = null;
@@ -170,12 +175,33 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
     couponRow = null;
   }
 
+  // Loyalty: points pay part of the items (never the delivery), from `min_redeem` points up
+  let points: QuoteDTO["points"] = null;
+  let pointsUsed = 0;
+  let pointsDiscount = 0;
+  if (loyalty.enabled && req.phone && loyalty.redeem_value_da > 0) {
+    const cust = await env.DB.prepare("SELECT points_balance FROM customers WHERE phone = ?").bind(req.phone).first<{ points_balance: number }>();
+    const balance = cust?.points_balance ?? 0;
+    if (balance >= loyalty.min_redeem) {
+      const usable = Math.min(balance, Math.floor(Math.max(0, totals.subtotal - totals.discount) / loyalty.redeem_value_da));
+      const applied = !!req.usePoints && usable > 0;
+      if (applied) {
+        pointsUsed = usable;
+        pointsDiscount = usable * loyalty.redeem_value_da;
+      }
+      points = { balance, usable, value: usable * loyalty.redeem_value_da, applied };
+    }
+  }
+
   return {
     lines,
     subtotal: totals.subtotal,
-    discount: totals.discount,
+    discount: totals.discount + pointsDiscount,
     shipping: totals.shipping,
-    total: totals.total,
+    total: totals.total - pointsDiscount,
+    points,
+    pointsUsed,
+    pointsDiscount,
     freeShipping: totals.freeShipping,
     deliveryAvailable: shippingPrice != null,
     delay: w?.is_active ? w.delay_days : null,
@@ -200,6 +226,7 @@ export interface NewOrder {
   address?: string;
   note?: string;
   coupon?: string;
+  usePoints?: boolean;
   lines: { variantId: number; qty: number }[];
   channel: "web" | "express" | "instagram" | "whatsapp" | "boutique" | "telephone";
   locale: "fr" | "ar";
@@ -232,6 +259,7 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
     deliveryType: input.deliveryType,
     coupon: input.coupon,
     phone: input.phone,
+    usePoints: input.usePoints,
     admin: isAdmin,
   });
   const bad = q.lines.filter((l) => l.problem);
@@ -296,14 +324,14 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
       ).bind(input.phone, input.name, input.wilaya, input.communeId, input.address ?? null, now, now, now),
       env.DB.prepare(
         `INSERT INTO orders (public_code, track_token_hash, idempotency_key, status, channel, locale, customer_id, name, phone, wilaya_code,
-            commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code,
+            commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code, points_used,
             customer_note, internal_note, risk_score, risk_flags, utm_source, utm_medium, utm_campaign, ip_hash, ua_short, created_at, updated_at,
             confirmed_at, delivered_at)
-         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         code, tokenHash, input.idempotencyKey, status, input.channel, input.locale, input.phone, input.name, input.phone, input.wilaya,
         input.communeId, input.communeText ?? null, input.deliveryType, input.stopDeskId ?? null, input.address ?? null,
-        q.subtotal, q.discount, shipping, total, q.couponRow?.code ?? null, input.note ?? null, input.internalNote ?? null, risk,
+        q.subtotal, q.discount, shipping, total, q.couponRow?.code ?? null, q.pointsUsed, input.note ?? null, input.internalNote ?? null, risk,
         riskFlags ? JSON.stringify(riskFlags) : null,
         input.utm?.source ?? null, input.utm?.medium ?? null, input.utm?.campaign ?? null, input.ipHash ?? null, input.uaShort ?? null,
         now, now, status === "confirmee" || status === "livree" ? now : null, status === "livree" ? now : null,
@@ -341,6 +369,14 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
       ).bind(status, actor, isAdmin ? "admin" : "customer", input.channel === "express" ? "Commande express" : null, now),
     );
     if (q.couponRow) stmts.push(env.DB.prepare("UPDATE coupons SET used_count = used_count + 1 WHERE id = ?").bind(q.couponRow.id));
+    if (q.pointsUsed > 0) {
+      stmts.push(
+        env.DB.prepare("UPDATE customers SET points_balance = MAX(points_balance - ?, 0) WHERE phone = ?").bind(q.pointsUsed, input.phone),
+        env.DB.prepare(
+          `INSERT INTO loyalty_ledger (customer_id, delta, reason, order_id, actor, note, created_at) VALUES ((SELECT id FROM customers WHERE phone = ?), ?, 'redeem', ${orderRef}, ?, ?, ?)`,
+        ).bind(input.phone, -q.pointsUsed, actor, `−${q.pointsDiscount} DA`, now),
+      );
+    }
     if (input.cartId) {
       stmts.push(
         env.DB.prepare(`UPDATE carts SET recovered_order_id = ${orderRef}, step = 'ready', updated_at = ? WHERE id = ? AND recovered_order_id IS NULL`).bind(
@@ -486,13 +522,13 @@ export async function applyStatusChange(
   orderId: number,
   to: OrderStatus,
   actor: string,
-  source: "admin" | "telegram" | "carrier" | "system",
+  source: "admin" | "telegram" | "carrier" | "system" | "customer",
   note?: string,
   reason?: OutcomeReason,
 ): Promise<StatusChangeResult> {
-  const order = await env.DB.prepare("SELECT id, public_code, status, customer_id, total FROM orders WHERE id = ?")
+  const order = await env.DB.prepare("SELECT id, public_code, status, customer_id, total, points_used FROM orders WHERE id = ?")
     .bind(orderId)
-    .first<{ id: number; public_code: string; status: OrderStatus; customer_id: number; total: number }>();
+    .first<{ id: number; public_code: string; status: OrderStatus; customer_id: number; total: number; points_used: number }>();
   if (!order) throw new HttpError(404, "order_not_found");
   const from = order.status;
   if (!canTransition(from, to)) throw new HttpError(409, "invalid_transition", { from, to });
@@ -567,6 +603,18 @@ export async function applyStatusChange(
   } else if (from === "annulee" && to === "nouvelle") {
     stmts.push(
       env.DB.prepare(`UPDATE customers SET cancelled_count = MAX(cancelled_count - 1, 0), orders_count = orders_count + 1 WHERE id = ? AND ${guard}`).bind(order.customer_id),
+    );
+  }
+
+  // points spent on an order that won't be paid come back; reopening spends them again
+  const undone = (s: OrderStatus) => s === "annulee" || s === "doublon" || s === "fausse" || s === "retour" || s === "retour_recu";
+  if (order.points_used > 0 && undone(to) !== undone(from)) {
+    const delta = undone(to) ? order.points_used : -order.points_used;
+    stmts.push(
+      env.DB.prepare(`UPDATE customers SET points_balance = MAX(points_balance + ?, 0) WHERE id = ? AND ${guard}`).bind(delta, order.customer_id),
+      env.DB.prepare(
+        `INSERT INTO loyalty_ledger (customer_id, delta, reason, order_id, actor, note, created_at) SELECT ?, ?, ?, ?, ?, ?, ? WHERE ${guard}`,
+      ).bind(order.customer_id, delta, delta > 0 ? "reversal" : "redeem", orderId, actor, delta > 0 ? "points rendus (commande annulée / retour)" : "points de nouveau utilisés", now),
     );
   }
 

@@ -242,6 +242,8 @@ export interface QuoteDTO {
   deliveryAvailable: boolean;
   /** usual delivery time for the wilaya, e.g. "1-2" (days) */
   delay: string | null;
+  /** loyalty points of this phone number (programme on, enough points): what they're worth here */
+  points: { balance: number; usable: number; value: number; applied: boolean } | null;
 }
 
 export interface CreatedOrderDTO {
@@ -287,4 +289,9 @@ export interface TrackedOrderDTO {
   events: { status: string; at: number }[];
   /** only with a valid token */
   details: { name: string; phoneMasked: string; address: string | null } | null;
+  /** private link only: not confirmed yet, so the customer can still fix her address or cancel */
+  canChange: boolean;
 }
+
+/** Reasons a customer can give when she cancels from her tracking link. */
+export const CUSTOMER_CANCEL_REASONS = ["changed_mind", "size_issue", "wrong_address", "other"] as const;

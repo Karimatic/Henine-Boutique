@@ -25,7 +25,7 @@ import { auditStmt } from "../../lib/audit";
 import { variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
 import { applyStatusChange, CANCELLED_SQL, createOrder } from "../../lib/orders";
-import { getSetting, setSetting } from "../../lib/settings";
+import { getSetting, getSettings, setSetting } from "../../lib/settings";
 import { permissionFor, syncOrderMessage } from "../../lib/telegram";
 import { actorOf, requirePermission } from "../../middleware/access";
 import { hasPermission } from "@henine/shared";
@@ -110,6 +110,55 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
       return { ...r, risk: { level: risk.level, score: risk.score } };
     }),
     counts: Object.fromEntries((counts!.results as { status: string; n: number }[]).map((r) => [r.status, r.n])),
+  });
+});
+
+/**
+ * Several orders at once (selection in the orders list). Only the steps that need nothing
+ * else: cancelling / returning still asks for a reason, "Expédiée" for the tracking number,
+ * so those stay one by one. Each order goes through the same checks as a single change.
+ */
+const BULK_TARGETS = ["confirmee", "injoignable", "en_preparation", "en_livraison", "livree"] as const;
+
+orderRoutes.post("/orders/bulk-status", requirePermission("orders.view"), async (c) => {
+  const input = await body(c, z.object({ ids: z.array(z.number().int().positive()).min(1).max(50), to: z.enum(BULK_TARGETS) }));
+  if (!hasPermission(c.get("member").permissions, permissionFor(input.to))) throw new HttpError(403, "forbidden");
+  const actor = actorOf(c.get("member"));
+  const done: string[] = [];
+  const failed: { id: number; error: string }[] = [];
+  for (const id of new Set(input.ids)) {
+    try {
+      const r = await applyStatusChange(c.env, id, input.to, actor, "admin", "action groupée");
+      done.push(r.code);
+      c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
+    } catch (err) {
+      failed.push({ id, error: err instanceof HttpError ? err.code : "error" });
+    }
+  }
+  return c.json({ done, failed });
+});
+
+/** Packing slips: everything the parcel needs, for up to 50 orders. */
+orderRoutes.get("/order-slips", requirePermission("orders.view"), async (c) => {
+  const ids = [...new Set((c.req.query("ids") ?? "").split(",").map(Number).filter((n) => Number.isInteger(n) && n > 0))].slice(0, 50);
+  if (!ids.length) throw new HttpError(400, "no_orders");
+  const ph = ids.map(() => "?").join(",");
+  const [orders, items] = await c.env.DB.batch([
+    c.env.DB.prepare(
+      `SELECT o.id, o.public_code, o.status, o.created_at, o.name, o.phone, o.wilaya_code, w.name_fr AS wilaya_fr, w.name_ar AS wilaya_ar,
+              COALESCE(cm.name_fr, o.commune_text) AS commune_fr, COALESCE(cm.name_ar, o.commune_text) AS commune_ar, o.address, o.delivery_type,
+              o.subtotal, o.discount_total, o.shipping_price, o.total, o.customer_note, o.tracking_number, o.locale
+         FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN communes cm ON cm.id = o.commune_id
+        WHERE o.id IN (${ph})`,
+    ).bind(...ids),
+    c.env.DB.prepare(`SELECT order_id, name_fr, name_ar, options_label, sku, qty, unit_price FROM order_items WHERE order_id IN (${ph}) ORDER BY id`).bind(...ids),
+  ]);
+  const { contact, store } = await getSettings(c.env, ["contact", "store"]);
+  const byId = new Map((orders!.results as { id: number }[]).map((o) => [o.id, o]));
+  const lines = items!.results as { order_id: number }[];
+  return c.json({
+    store: { name: store.name, phone: contact.phone ?? contact.whatsapp, address: contact.address_fr },
+    slips: ids.filter((id) => byId.has(id)).map((id) => ({ ...byId.get(id)!, items: lines.filter((l) => l.order_id === id) })),
   });
 });
 
