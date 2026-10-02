@@ -73,6 +73,7 @@ function useCrumbs(path: string): string[] {
 
 const initials = (name: string) =>
   name
+    .replace(/[^\p{L}\s]/gu, " ") // "Design (temporaire)" → D T, never "D("
     .split(/\s+/)
     .filter(Boolean)
     .slice(0, 2)
@@ -300,12 +301,14 @@ export function Shell() {
       </div>
 
       {/* Phone tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgb(23_10_16/0.06)] backdrop-blur md:hidden">
         <ul className="grid grid-cols-5 text-[11px] font-medium">
           {TABS.map((t) => (
             <li key={t.path}>
-              <Link to={t.path} activeOptions={{ exact: t.path === "/" }} className="group flex h-16 flex-col items-center justify-center gap-1 text-ink-soft [&.active]:text-plum-600">
-                <t.icon className="size-5" strokeWidth={1.8} />
+              <Link to={t.path} activeOptions={{ exact: t.path === "/" }} className="group flex h-16 flex-col items-center justify-center gap-1 text-ink-soft [&.active]:text-ink">
+                <span className="grid h-7 w-12 place-items-center rounded-full transition group-[.active]:bg-ink group-[.active]:text-white">
+                  <t.icon className="size-5" strokeWidth={1.8} />
+                </span>
                 {t.label}
               </Link>
             </li>

@@ -3,6 +3,10 @@ import { Link } from "@tanstack/react-router";
 import {
   BadgePercent,
   Banknote,
+  Boxes,
+  PhoneCall,
+  Plus,
+  Receipt,
   ChevronDown,
   ChevronRight,
   ChevronUp,
@@ -118,13 +122,13 @@ function IconChip({ icon: Icon, size = "md" }: { icon: LucideIcon; size?: "md" |
 function MetricCard({ icon, value, title, cur, prev, suffix = "que la semaine dernière" }: { icon: LucideIcon; value: string; title: string; cur: number; prev: number; suffix?: string }) {
   const c = change(cur, prev);
   return (
-    <Card>
+    <Card className="p-3.5! md:p-6!">
       <div className="flex items-center gap-2.5">
-        <IconChip icon={icon} />
-        <span className="text-2xl font-medium tabular-nums">{value}</span>
+        <span className="hidden md:block"><IconChip icon={icon} /></span>
+        <span className="truncate text-lg font-semibold tabular-nums md:text-2xl md:font-medium">{value}</span>
       </div>
-      <p className="mt-4 text-base font-semibold">{title}</p>
-      <p className="mt-1.5 text-sm">
+      <p className="mt-1 text-xs font-medium text-ink-soft md:mt-4 md:text-base md:font-semibold md:text-ink">{title}</p>
+      <p className="mt-1.5 hidden text-sm md:block">
         {c ? (
           <>
             <span className={c.up ? "text-emerald-700" : "text-red-700"}>{c.text}</span> <span className="text-ink-soft">{suffix}</span>
@@ -133,7 +137,45 @@ function MetricCard({ icon, value, title, cur, prev, suffix = "que la semaine de
           <span className="text-ink-soft">pas encore de comparaison</span>
         )}
       </p>
+      {c && (
+        <p className={`mt-1 text-[11px] font-semibold md:hidden ${c.up ? "text-emerald-700" : "text-red-700"}`}>{c.text}</p>
+      )}
     </Card>
+  );
+}
+
+/** The 4 things done every day, one tap away. */
+function QuickActions({ toConfirm }: { toConfirm: number }) {
+  const can = useCan();
+  const actions: { to: string; search?: Record<string, string>; label: string; hint: string; icon: LucideIcon; perm: string; strong?: boolean }[] = [
+    { to: "/commandes", search: { status: "a_confirmer" }, label: toConfirm ? `${toConfirm} à confirmer` : "Commandes", hint: toConfirm ? "appeler / confirmer" : "tout est à jour", icon: PhoneCall, perm: "orders.view", strong: toConfirm > 0 },
+    { to: "/produits/nouveau", label: "Nouveau produit", hint: "photos, tailles, prix", icon: Plus, perm: "products.edit" },
+    { to: "/ventes", search: { nouvelle: "1" }, label: "Vente manuelle", hint: "boutique, Instagram…", icon: Receipt, perm: "sales.create" },
+    { to: "/stock", label: "Stock", hint: "ajuster les quantités", icon: Boxes, perm: "stock.view" },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      {actions
+        .filter((a) => can(a.perm as Parameters<typeof can>[0]))
+        .map((a) => (
+          <Link
+            key={a.label}
+            to={a.to}
+            search={a.search ?? {}}
+            className={`group flex items-center gap-3 rounded-2xl border p-3.5 transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgb(106_12_54/0.35)] ${
+              a.strong ? "border-transparent bg-gradient-to-br from-plum-600 to-plum-700 text-white" : "border-line bg-white"
+            }`}
+          >
+            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${a.strong ? "bg-white/15" : "bg-ink text-white"}`}>
+              <a.icon className="size-5" strokeWidth={2} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-sm font-semibold leading-snug sm:truncate">{a.label}</span>
+              <span className={`hidden truncate text-xs sm:block ${a.strong ? "text-white/75" : "text-ink-soft"}`}>{a.hint}</span>
+            </span>
+          </Link>
+        ))}
+    </div>
   );
 }
 
@@ -366,24 +408,9 @@ export function Dashboard() {
         <ListSkeleton rows={4} />
       ) : (
         <>
-          <div className="grid gap-6 md:grid-cols-3">
-            <MetricCard icon={ShoppingBag} value={String(d.week.orders)} title="Commandes (7 jours)" cur={d.week.orders} prev={d.prevWeek.orders} />
-            <MetricCard icon={Banknote} value={da(d.week.revenue)} title="Chiffre d'affaires (7 jours)" cur={d.week.revenue} prev={d.prevWeek.revenue} />
-            <MetricCard icon={Truck} value={String(d.week.delivered)} title="Commandes livrées (7 jours)" cur={d.week.delivered} prev={d.prevWeek.delivered} />
-          </div>
+          <QuickActions toConfirm={(d.pipeline.nouvelle ?? 0) + (d.pipeline.injoignable ?? 0)} />
 
-          <div className="grid gap-6 lg:grid-cols-3">
-            <div className="flex flex-col gap-6">
-              <ProductInsight p={d.topProduct} />
-              <Earnings month={d.month} prevMonth={d.prevMonth} channels={d.channels} />
-            </div>
-            <div className="flex flex-col gap-6 lg:col-span-2">
-              <SalesMetrics month={d.month} prevMonth={d.prevMonth} />
-              <Loyalty share={d.returningShare} />
-            </div>
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
+          <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr] lg:items-start">
             <Card title="À faire maintenant" padded={false}>
               {list.length === 0 ? (
                 <p className="px-6 pb-6 text-sm text-emerald-700">Tout est à jour ✓ Rien d'urgent pour le moment.</p>
@@ -421,6 +448,23 @@ export function Dashboard() {
                 {d.kpis.cancelledToday ? ` · ${d.kpis.cancelledToday} annulée(s) non comptée(s)` : ""}
               </p>
             </Card>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3 md:gap-6">
+            <MetricCard icon={ShoppingBag} value={String(d.week.orders)} title="Commandes · 7 j" cur={d.week.orders} prev={d.prevWeek.orders} />
+            <MetricCard icon={Banknote} value={da(d.week.revenue)} title="Ventes · 7 j" cur={d.week.revenue} prev={d.prevWeek.revenue} />
+            <MetricCard icon={Truck} value={String(d.week.delivered)} title="Livrées · 7 j" cur={d.week.delivered} prev={d.prevWeek.delivered} />
+          </div>
+
+          <div className="grid gap-6 lg:grid-cols-3">
+            <div className="flex flex-col gap-6">
+              <ProductInsight p={d.topProduct} />
+              <Earnings month={d.month} prevMonth={d.prevMonth} channels={d.channels} />
+            </div>
+            <div className="flex flex-col gap-6 lg:col-span-2">
+              <SalesMetrics month={d.month} prevMonth={d.prevMonth} />
+              <Loyalty share={d.returningShare} />
+            </div>
           </div>
 
           <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">

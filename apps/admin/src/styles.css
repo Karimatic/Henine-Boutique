@@ -15,16 +15,17 @@
   --color-ivory: #fcfafb;
   --color-ivory-deep: #f4eff1;
   --color-sidebar: #faf7f8;
-  --color-ink: #2b1620;
-  --color-ink-soft: #6f5b65;
-  --color-line: #ebe2e6;
-  --color-plum-600: #c2255f;
-  --color-plum-700: #9d174d;
-  --color-rose-100: #fbe8ef;
-  --color-rose-300: #f48fb1;
-  --color-rose-500: #ec407a;
-  --color-rose-700: #c2185b;
-  --color-gold: #b08d57;
+  /* same "bold luxury" palette as the store: near-black plum ink, deep raspberry accent */
+  --color-ink: #170a10;
+  --color-ink-soft: #5c4852;
+  --color-line: #ebe0e5;
+  --color-plum-600: #8e1048;
+  --color-plum-700: #6a0c36;
+  --color-rose-100: #fbe4ec;
+  --color-rose-300: #f2a5bf;
+  --color-rose-500: #e0487f;
+  --color-rose-700: #b0164f;
+  --color-gold: #a8824a;
   --color-lavender: #b39ddb;
   --color-peach: #ffab91;
   --font-sans: "DM Sans Variable", "DM Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

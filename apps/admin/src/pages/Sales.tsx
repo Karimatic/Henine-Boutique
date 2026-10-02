@@ -1,5 +1,6 @@
 import { normalizeDzPhone } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useSearch } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { api, errorMessage, post } from "../api";
 import { CHANNEL_LABEL, da, date } from "../lib/format";
@@ -17,7 +18,9 @@ interface SalesData {
 export function SalesPage() {
   const can = useCan();
   const [days, setDays] = useState("30");
-  const [open, setOpen] = useState(false);
+  // "Vente manuelle" shortcut on the dashboard opens the form directly
+  const search = useSearch({ strict: false }) as { nouvelle?: string | number };
+  const [open, setOpen] = useState(() => search.nouvelle != null);
   const q = useQuery({ queryKey: ["sales", days], queryFn: () => api<SalesData>(`/sales?days=${days}`) });
   const d = q.data;
   const margin = d && d.byProduct.every((p) => p.cost != null) ? d.byProduct.reduce((s, p) => s + p.revenue - (p.cost ?? 0), 0) : null;
