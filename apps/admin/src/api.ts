@@ -1,4 +1,5 @@
-export class ApiError extends Error {
+
+import { tr } from "./i18n";export class ApiError extends Error {
   constructor(
     public status: number,
     public code: string,
@@ -105,9 +106,9 @@ export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) {
     if (err.code === "validation_failed" && err.details && typeof err.details === "object") {
       const first = Object.entries(err.details as Record<string, string>)[0];
-      if (first) return `${MESSAGES.validation_failed} (${first[0]})`;
+      if (first) return `${tr(MESSAGES.validation_failed)} (${first[0]})`;
     }
-    return MESSAGES[err.code] ?? `Erreur (${err.code})`;
+    return MESSAGES[err.code] ? tr(MESSAGES[err.code]!) : tr("Erreur ({code})", { code: err.code });
   }
-  return "Une erreur est survenue.";
+  return tr("Une erreur est survenue.");
 }

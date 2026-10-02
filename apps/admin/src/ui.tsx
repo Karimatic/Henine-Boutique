@@ -6,6 +6,7 @@
 import { createContext, useCallback, useContext, useEffect, useId, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { STATUS_TONE, statusLabel } from "./lib/format";
+import { tr } from "./i18n";
 
 /* ── Buttons ── */
 
@@ -216,10 +217,10 @@ export function ErrorState({ error, onRetry }: { error: unknown; onRetry?: () =>
   const msg = error instanceof Error ? error.message : "";
   return (
     <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-      Impossible de charger ({msg}).
+      {tr("Impossible de charger (")}{msg}).
       {onRetry && (
         <button type="button" onClick={onRetry} className="ms-2 font-semibold underline">
-          Réessayer
+          {tr("Réessayer")}
         </button>
       )}
     </div>
@@ -243,12 +244,12 @@ export function Sheet({ open, onClose, title, children, footer, wide = false }: 
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-stretch md:justify-end" role="dialog" aria-modal="true">
-      <button type="button" aria-label="Fermer" onClick={onClose} className="animate-fade absolute inset-0 bg-ink/40" />
+      <button type="button" aria-label={tr("Fermer")} onClick={onClose} className="animate-fade absolute inset-0 bg-ink/40" />
       <div className={`animate-sheet relative flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-ivory shadow-2xl md:max-h-none md:rounded-none md:rounded-s-2xl ${wide ? "md:w-[44rem]" : "md:w-[32rem]"}`}>
         <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-line/70 bg-white px-4 py-3 md:rounded-none md:rounded-ss-2xl">
           <div className="min-w-0 font-semibold">{title}</div>
-          <button type="button" onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-lg text-xl hover:bg-rose-100" aria-label="Fermer">
-            ×
+          <button type="button" onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-lg text-xl hover:bg-rose-100" aria-label={tr("Fermer")}>
+            {tr("×")}
           </button>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain p-4">{children}</div>

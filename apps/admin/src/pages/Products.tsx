@@ -10,6 +10,7 @@ import { useCan } from "../Shell";
 import {
   Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Spinner, TextArea, TextField, useToast,
 } from "../ui";
+import { tr } from "../i18n";
 
 /* ───────────── List ───────────── */
 
@@ -29,10 +30,10 @@ interface ProductRow {
 }
 
 const STATUS_BADGE: Record<string, [string, string]> = {
-  published: ["En ligne", "bg-emerald-100 text-emerald-800"],
-  draft: ["Brouillon", "bg-stone-200 text-stone-700"],
-  archived: ["Archivé", "bg-stone-200 text-stone-500"],
-  scheduled: ["Programmé", "bg-sky-100 text-sky-800"],
+  published: [tr("En ligne"), "bg-emerald-100 text-emerald-800"],
+  draft: [tr("Brouillon"), "bg-stone-200 text-stone-700"],
+  archived: [tr("Archivé"), "bg-stone-200 text-stone-500"],
+  scheduled: [tr("Programmé"), "bg-sky-100 text-sky-800"],
 };
 
 export function ProductsPage() {
@@ -43,28 +44,28 @@ export function ProductsPage() {
   return (
     <div>
       <PageHeader
-        group="Catalogue"
-        title="Produits"
-        subtitle={list.data ? `${list.data.length} produit(s)` : undefined}
-        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-ivory">+ Nouveau produit</Link>}
+        group={tr("Catalogue")}
+        title={tr("Produits")}
+        subtitle={list.data ? tr("{0} produit(s)", { 0: list.data.length }) : undefined}
+        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-ivory">{tr("+ Nouveau produit")}</Link>}
       />
       <Pills
         value={status}
         onChange={setStatus}
         options={[
-          { value: "all", label: "Tous" },
-          { value: "published", label: "En ligne" },
-          { value: "draft", label: "Brouillons" },
-          { value: "archived", label: "Archivés" },
+          { value: "all", label: tr("Tous") },
+          { value: "published", label: tr("En ligne") },
+          { value: "draft", label: tr("Brouillons") },
+          { value: "archived", label: tr("Archivés") },
         ]}
       />
-      <SearchBox value={q} onChange={setQ} placeholder="Nom, SKU…" />
+      <SearchBox value={q} onChange={setQ} placeholder={tr("Nom, SKU…")} />
       {list.error ? (
         <ErrorState error={list.error} onRetry={list.refetch} />
       ) : !list.data ? (
         <ListSkeleton />
       ) : list.data.length === 0 ? (
-        <Empty title="Aucun produit">Créez votre premier produit avec « Nouveau produit ».</Empty>
+        <Empty title={tr("Aucun produit")}>{tr("Créez votre premier produit avec « Nouveau produit ».")}</Empty>
       ) : (
         <ul className="grid gap-2 md:grid-cols-2">
           {list.data.map((p) => (
@@ -77,12 +78,12 @@ export function ProductsPage() {
                     {da(p.price)} {p.compare_at_price ? <s className="text-ink-soft">{da(p.compare_at_price)}</s> : null}
                   </p>
                   <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
-                    <Badge tone={STATUS_BADGE[p.status]?.[1]}>{STATUS_BADGE[p.status]?.[0] ?? p.status}</Badge>
+                    <Badge tone={STATUS_BADGE[p.status]?.[1]}>{tr(STATUS_BADGE[p.status]?.[0] ?? "") ?? p.status}</Badge>
                     <Badge tone={p.available <= 0 ? "bg-red-100 text-red-800" : p.available <= 5 ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-700"}>
-                      Stock {p.available}
+                      {tr("Stock")} {p.available}
                     </Badge>
-                    <Badge tone="bg-stone-100 text-stone-700">{p.variant_count} variante(s)</Badge>
-                    {p.sold > 0 && <Badge tone="bg-stone-100 text-stone-700">{p.sold} vendu(s)</Badge>}
+                    <Badge tone="bg-stone-100 text-stone-700">{p.variant_count} {tr("variante(s)")}</Badge>
+                    {p.sold > 0 && <Badge tone="bg-stone-100 text-stone-700">{p.sold} {tr("vendu(s)")}</Badge>}
                   </div>
                 </div>
               </Link>
@@ -207,7 +208,7 @@ export function ProductEditor() {
       return isNew ? post<ProductForm>("/products", payload) : put<ProductForm>(`/products/${f.id}`, payload);
     },
     onSuccess: (saved) => {
-      toast(saved.status === "published" ? "Produit en ligne ✓" : "Brouillon enregistré ✓");
+      toast(saved.status === "published" ? tr("Produit en ligne ✓") : tr("Brouillon enregistré ✓"));
       void qc.invalidateQueries({ queryKey: ["products"] });
       qc.setQueryData(["product", String(saved.id)], saved);
       setForm(saved);
@@ -247,31 +248,31 @@ export function ProductEditor() {
   return (
     <div className="pb-24">
       <PageHeader
-        group="Catalogue › Produits"
-        title={isNew ? "Nouveau produit" : form.nameFr}
-        subtitle={!isNew && form.status === "published" ? <a href={`/produit/${form.slug}`} target="_blank" rel="noreferrer" className="font-semibold text-plum-600">Voir sur la boutique ↗</a> : undefined}
+        group={tr("Catalogue › Produits")}
+        title={isNew ? tr("Nouveau produit") : form.nameFr}
+        subtitle={!isNew && form.status === "published" ? <a href={`/produit/${form.slug}`} target="_blank" rel="noreferrer" className="font-semibold text-plum-600">{tr("Voir sur la boutique ↗")}</a> : undefined}
         actions={!isNew && can("products.edit") && <ProductActions id={form.id!} />}
       />
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
         <div className="space-y-4">
-          <Card title="Informations">
+          <Card title={tr("Informations")}>
             <div className="grid gap-3 sm:grid-cols-2">
-              <TextField label="Nom (français)" value={form.nameFr} onChange={(e) => set("nameFr", e.target.value)} disabled={readOnly} />
+              <TextField label={tr("Nom (français)")} value={form.nameFr} onChange={(e) => set("nameFr", e.target.value)} disabled={readOnly} />
               <TextField label="الاسم (عربي)" dir="rtl" value={form.nameAr} onChange={(e) => set("nameAr", e.target.value)} disabled={readOnly} />
-              <TextArea label="Description (français)" hint="**gras**, - listes" value={form.descriptionFr} onChange={(e) => set("descriptionFr", e.target.value)} rows={5} disabled={readOnly} />
+              <TextArea label={tr("Description (français)")} hint={tr("**gras**, - listes")} value={form.descriptionFr} onChange={(e) => set("descriptionFr", e.target.value)} rows={5} disabled={readOnly} />
               <TextArea label="الوصف (عربي)" dir="rtl" value={form.descriptionAr} onChange={(e) => set("descriptionAr", e.target.value)} rows={5} disabled={readOnly} />
             </div>
           </Card>
 
-          <Card title="Prix">
+          <Card title={tr("Prix")}>
             <div className="grid gap-3 sm:grid-cols-3">
-              <NumberField label="Prix de vente" suffix="DA" value={form.price} onChange={(v) => set("price", v)} />
-              <NumberField label="Prix barré" hint="avant promo" suffix="DA" value={form.compareAtPrice} onChange={(v) => set("compareAtPrice", v)} />
+              <NumberField label={tr("Prix de vente")} suffix={tr("DA")} value={form.price} onChange={(v) => set("price", v)} />
+              <NumberField label={tr("Prix barré")} hint={tr("avant promo")} suffix={tr("DA")} value={form.compareAtPrice} onChange={(v) => set("compareAtPrice", v)} />
               {can("cost.view") && (
                 <NumberField
-                  label="Prix d'achat"
-                  hint={form.price && form.costPrice ? `marge ${Math.round(((form.price - form.costPrice) / form.price) * 100)} %` : "privé"}
-                  suffix="DA"
+                  label={tr("Prix d'achat")}
+                  hint={form.price && form.costPrice ? tr("marge {0} %", { 0: Math.round(((form.price - form.costPrice) / form.price) * 100) }) : tr("privé")}
+                  suffix={tr("DA")}
                   value={form.costPrice}
                   onChange={(v) => set("costPrice", v)}
                 />
@@ -291,7 +292,7 @@ export function ProductEditor() {
             />
           ) : (
             <Card
-              title="Photos"
+              title={tr("Photos")}
               actions={
                 !readOnly && (
                   <InstagramButton
@@ -307,8 +308,8 @@ export function ProductEditor() {
             >
               <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white p-6 text-center text-sm text-ink-soft hover:border-plum-600">
                 <span className="text-2xl">＋</span>
-                Ajouter des photos
-                <span className="text-xs">Le produit est d'abord enregistré en brouillon, puis les photos sont envoyées.</span>
+                {tr("Ajouter des photos")}
+                <span className="text-xs">{tr("Le produit est d'abord enregistré en brouillon, puis les photos sont envoyées.")}</span>
                 <input
                   type="file"
                   accept="image/*"
@@ -330,26 +331,26 @@ export function ProductEditor() {
         </div>
 
         <div className="space-y-4">
-          <Card title="Publication">
-            <Select label="Statut" value={form.status} onChange={(e) => set("status", e.target.value as ProductForm["status"])} disabled={readOnly}>
-              <option value="draft">Brouillon (invisible)</option>
-              <option value="published">En ligne</option>
-              <option value="archived">Archivé</option>
+          <Card title={tr("Publication")}>
+            <Select label={tr("Statut")} value={form.status} onChange={(e) => set("status", e.target.value as ProductForm["status"])} disabled={readOnly}>
+              <option value="draft">{tr("Brouillon (invisible)")}</option>
+              <option value="published">{tr("En ligne")}</option>
+              <option value="archived">{tr("Archivé")}</option>
             </Select>
-            <Select label="Catégorie" className="mt-3" value={form.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
+            <Select label={tr("Catégorie")} className="mt-3" value={form.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
               <option value="">—</option>
               {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
             </Select>
-            <Select label="📏 Guide des tailles" className="mt-3" value={form.sizeGuideId ?? ""} onChange={(e) => set("sizeGuideId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
-              <option value="">Aucun</option>
+            <Select label={tr("📏 Guide des tailles")} className="mt-3" value={form.sizeGuideId ?? ""} onChange={(e) => set("sizeGuideId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
+              <option value="">{tr("Aucun")}</option>
               {sizeGuides.data?.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </Select>
             <p className="mt-1 text-xs text-ink-soft">
-              Affiché à côté des tailles sur la fiche produit. <Link to="/contenu" search={{ tab: "tailles" }} className="font-semibold text-plum-600">Créer / modifier les guides</Link>
+              {tr("Affiché à côté des tailles sur la fiche produit.")} <Link to="/contenu" search={{ tab: "tailles" }} className="font-semibold text-plum-600">{tr("Créer / modifier les guides")}</Link>
             </p>
             <div className="mt-3 space-y-1.5">
-              <p className="text-sm font-medium">Étiquettes</p>
-              {[["nouveaute", "Nouveauté"], ["best-seller", "Coup de cœur"], ["promo", "Promo"]].map(([tag, label]) => (
+              <p className="text-sm font-medium">{tr("Étiquettes")}</p>
+              {[["nouveaute", tr("Nouveauté")], ["best-seller", tr("Coup de cœur")], ["promo", tr("Promo")]].map(([tag, label]) => (
                 <label key={tag} className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
@@ -363,11 +364,11 @@ export function ProductEditor() {
               ))}
             </div>
           </Card>
-          <Card title="Référencement">
-            <TextField label="Adresse (slug)" hint={`/produit/${form.slug || slugify(form.nameFr) || "…"}`} value={form.slug} placeholder={slugify(form.nameFr)} onChange={(e) => set("slug", e.target.value)} disabled={readOnly} />
-            <TextField label="Titre Google" className="mt-3" value={form.seoTitle ?? ""} onChange={(e) => set("seoTitle", e.target.value)} maxLength={120} disabled={readOnly} />
-            <TextArea label="Description Google / WhatsApp" className="mt-3" rows={3} value={form.seoDescription ?? ""} onChange={(e) => set("seoDescription", e.target.value)} maxLength={300} disabled={readOnly} />
-            <TextField label="Lien de la publication Instagram" className="mt-3" value={form.instagramUrl ?? ""} onChange={(e) => set("instagramUrl", e.target.value)} disabled={readOnly} />
+          <Card title={tr("Référencement")}>
+            <TextField label={tr("Adresse (slug)")} hint={`/produit/${form.slug || slugify(form.nameFr) || "…"}`} value={form.slug} placeholder={slugify(form.nameFr)} onChange={(e) => set("slug", e.target.value)} disabled={readOnly} />
+            <TextField label={tr("Titre Google")} className="mt-3" value={form.seoTitle ?? ""} onChange={(e) => set("seoTitle", e.target.value)} maxLength={120} disabled={readOnly} />
+            <TextArea label={tr("Description Google / WhatsApp")} className="mt-3" rows={3} value={form.seoDescription ?? ""} onChange={(e) => set("seoDescription", e.target.value)} maxLength={300} disabled={readOnly} />
+            <TextField label={tr("Lien de la publication Instagram")} className="mt-3" value={form.instagramUrl ?? ""} onChange={(e) => set("instagramUrl", e.target.value)} disabled={readOnly} />
           </Card>
         </div>
       </div>
@@ -379,20 +380,20 @@ export function ProductEditor() {
             <div className="flex shrink-0 gap-2">
               {form.status === "published" ? (
                 <>
-                  <Button loading={save.isPending && save.variables?.status === "draft"} onClick={() => confirm("Retirer ce produit de la boutique ?") && submit("draft")}>
-                    Mettre hors ligne
+                  <Button loading={save.isPending && save.variables?.status === "draft"} onClick={() => confirm(tr("Retirer ce produit de la boutique ?")) && submit("draft")}>
+                    {tr("Mettre hors ligne")}
                   </Button>
                   <Button variant="primary" loading={save.isPending && save.variables?.status === "published"} onClick={() => submit()}>
-                    Enregistrer
+                    {tr("Enregistrer")}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button loading={save.isPending && save.variables?.status !== "published"} onClick={() => submit(form.status === "archived" ? "archived" : "draft")}>
-                    {form.status === "archived" ? "Enregistrer" : "Enregistrer le brouillon"}
+                    {form.status === "archived" ? tr("Enregistrer") : tr("Enregistrer le brouillon")}
                   </Button>
                   <Button variant="primary" loading={save.isPending && save.variables?.status === "published"} onClick={() => submit("published")}>
-                    Publier
+                    {tr("Publier")}
                   </Button>
                 </>
               )}
@@ -411,7 +412,7 @@ function ProductActions({ id }: { id: number }) {
   const dup = useMutation({
     mutationFn: () => post<{ id: number }>(`/products/${id}/duplicate`),
     onSuccess: (r) => {
-      toast("Copie créée (brouillon)");
+      toast(tr("Copie créée (brouillon)"));
       void qc.invalidateQueries({ queryKey: ["products"] });
       void navigate({ to: "/produits/$id", params: { id: String(r.id) } });
     },
@@ -419,16 +420,16 @@ function ProductActions({ id }: { id: number }) {
   const remove = useMutation({
     mutationFn: () => del<{ archived?: boolean }>(`/products/${id}`),
     onSuccess: (r) => {
-      toast(r.archived ? "Produit archivé (il a déjà été commandé)" : "Produit supprimé");
+      toast(r.archived ? tr("Produit archivé (il a déjà été commandé)") : tr("Produit supprimé"));
       void qc.invalidateQueries({ queryKey: ["products"] });
       void navigate({ to: "/produits" });
     },
   });
   return (
     <>
-      <Button size="sm" onClick={() => dup.mutate()} loading={dup.isPending}>Dupliquer</Button>
-      <Button size="sm" variant="danger" onClick={() => confirm("Supprimer ce produit ? (archivé s'il a déjà des commandes)") && remove.mutate()} loading={remove.isPending}>
-        Supprimer
+      <Button size="sm" onClick={() => dup.mutate()} loading={dup.isPending}>{tr("Dupliquer")}</Button>
+      <Button size="sm" variant="danger" onClick={() => confirm(tr("Supprimer ce produit ? (archivé s'il a déjà des commandes)")) && remove.mutate()} loading={remove.isPending}>
+        {tr("Supprimer")}
       </Button>
     </>
   );
@@ -443,7 +444,7 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
     update(i, { ...o, values: [...o.values, { ref: newRef(), labelFr: labelFr.trim(), labelAr: labelAr || labelFr.trim(), hex: o.kind === "couleur" ? hex ?? "#e8b4bc" : null }] });
   };
   return (
-    <Card title="Tailles & couleurs" actions={<span className="text-xs text-ink-soft">Les variantes sont créées automatiquement</span>}>
+    <Card title={tr("Tailles & couleurs")} actions={<span className="text-xs text-ink-soft">{tr("Les variantes sont créées automatiquement")}</span>}>
       <div className="space-y-5">
         {options.map((o, i) => (
           <div key={i}>
@@ -458,13 +459,13 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
                       disabled={disabled}
                       onChange={(e) => update(i, { ...o, values: o.values.map((x) => (x.ref === v.ref ? { ...x, hex: e.target.value } : x)) })}
                       className="size-6 cursor-pointer rounded-full border-0 bg-transparent p-0"
-                      aria-label={`Couleur ${v.labelFr}`}
+                      aria-label={tr("Couleur {0}", { 0: v.labelFr })}
                     />
                   )}
                   {v.labelFr}
                   {!disabled && (
-                    <button type="button" aria-label={`Retirer ${v.labelFr}`} onClick={() => update(i, { ...o, values: o.values.filter((x) => x.ref !== v.ref) })} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100">
-                      ×
+                    <button type="button" aria-label={tr("Retirer {0}", { 0: v.labelFr })} onClick={() => update(i, { ...o, values: o.values.filter((x) => x.ref !== v.ref) })} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100">
+                      {tr("×")}
                     </button>
                   )}
                 </span>
@@ -484,7 +485,7 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
                 <div className="mt-2 flex gap-2">
                   <input
                     className={`${inputCls} h-10`}
-                    placeholder={o.kind === "taille" ? "Autre taille (ex : 38, Unique)" : "Autre couleur"}
+                    placeholder={o.kind === "taille" ? tr("Autre taille (ex : 38, Unique)") : tr("Autre couleur")}
                     value={draft[i] ?? ""}
                     onChange={(e) => setDraft((d) => ({ ...d, [i]: e.target.value }))}
                     onKeyDown={(e) => {
@@ -495,7 +496,7 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
                       }
                     }}
                   />
-                  <Button size="sm" className="h-10" onClick={() => { addValue(i, draft[i] ?? ""); setDraft((d) => ({ ...d, [i]: "" })); }}>Ajouter</Button>
+                  <Button size="sm" className="h-10" onClick={() => { addValue(i, draft[i] ?? ""); setDraft((d) => ({ ...d, [i]: "" })); }}>{tr("Ajouter")}</Button>
                 </div>
               </>
             )}
@@ -513,9 +514,9 @@ function RelatedPicker({ productId, ids, onChange }: { productId?: number; ids: 
   const byId = new Map((products.data ?? []).map((p) => [p.id, p]));
   const matches = q ? (products.data ?? []).filter((p) => p.id !== productId && !ids.includes(p.id) && p.name_fr.toLowerCase().includes(q.toLowerCase())).slice(0, 8) : [];
   return (
-    <Card title="Complétez le look" actions={<span className="text-xs text-ink-soft">facultatif</span>}>
+    <Card title={tr("Complétez le look")} actions={<span className="text-xs text-ink-soft">{tr("facultatif")}</span>}>
       <p className="mb-3 text-sm text-ink-soft">
-        Choisissez les pièces à proposer avec celle-ci (ex : une robe → la lingerie assortie). Sans choix, la boutique montre les articles achetés ensemble, puis ceux de la même catégorie.
+        {tr("Choisissez les pièces à proposer avec celle-ci (ex : une robe → la lingerie assortie). Sans choix, la boutique montre les articles achetés ensemble, puis ceux de la même catégorie.")}
       </p>
       {ids.length > 0 && (
         <ul className="mb-3 flex flex-wrap gap-2">
@@ -523,8 +524,8 @@ function RelatedPicker({ productId, ids, onChange }: { productId?: number; ids: 
             <li key={id} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white ps-1 pe-1 text-sm">
               {byId.get(id)?.image ? <img src={byId.get(id)!.image!} alt="" className="size-7 rounded-full object-cover" /> : <span className="grid size-7 place-items-center rounded-full bg-rose-100 text-xs">👗</span>}
               {byId.get(id)?.name_fr ?? `#${id}`}
-              <button type="button" onClick={() => onChange(ids.filter((x) => x !== id))} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100" aria-label="Retirer">
-                ×
+              <button type="button" onClick={() => onChange(ids.filter((x) => x !== id))} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100" aria-label={tr("Retirer")}>
+                {tr("×")}
               </button>
             </li>
           ))}
@@ -532,7 +533,7 @@ function RelatedPicker({ productId, ids, onChange }: { productId?: number; ids: 
       )}
       {ids.length < 8 && (
         <>
-          <input className={inputCls} placeholder="Ajouter une pièce : tapez son nom…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className={inputCls} placeholder={tr("Ajouter une pièce : tapez son nom…")} value={q} onChange={(e) => setQ(e.target.value)} />
           <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
             {matches.map((p) => (
               <li key={p.id}>
@@ -564,9 +565,9 @@ function StockGrid({ form, onChange, disabled }: { form: ProductForm; onChange: 
       <table className="w-full border-separate border-spacing-1 text-sm">
         <thead>
           <tr>
-            <th className="text-start text-xs font-medium text-ink-soft">Couleur \ Taille</th>
+            <th className="text-start text-xs font-medium text-ink-soft">{tr("Couleur \\ Taille")}</th>
             {sizes.map((s) => <th key={s.ref} className="min-w-14 text-center text-xs font-semibold">{s.labelFr}</th>)}
-            <th className="text-center text-xs font-medium text-ink-soft">Total</th>
+            <th className="text-center text-xs font-medium text-ink-soft">{tr("Total")}</th>
           </tr>
         </thead>
         <tbody>
@@ -589,8 +590,8 @@ function StockGrid({ form, onChange, disabled }: { form: ProductForm; onChange: 
                       inputMode="numeric"
                       min={v.stockReserved ?? 0}
                       disabled={disabled || !v.isActive}
-                      aria-label={`Stock ${c.labelFr} ${s.labelFr}`}
-                      title={v.stockReserved ? `${v.stockReserved} réservé(s) par des commandes` : undefined}
+                      aria-label={tr("Stock {0} {1}", { 0: c.labelFr, 1: s.labelFr })}
+                      title={v.stockReserved ? tr("{0} réservé(s) par des commandes", { 0: v.stockReserved }) : undefined}
                       className={`h-11 w-full min-w-14 rounded-lg border text-center tabular-nums outline-none focus:border-plum-600 ${
                         !v.isActive ? "border-line bg-stone-100 text-ink-soft" : v.stockOnHand - (v.stockReserved ?? 0) <= 0 ? "border-red-200 bg-red-50" : v.stockOnHand - (v.stockReserved ?? 0) <= v.lowStockThreshold ? "border-amber-200 bg-amber-50" : "border-line bg-white"
                       }`}
@@ -605,7 +606,7 @@ function StockGrid({ form, onChange, disabled }: { form: ProductForm; onChange: 
           ))}
         </tbody>
       </table>
-      <p className="mt-1 text-xs text-ink-soft">Rouge = épuisé, orange = stock bas. Les quantités réservées par des commandes en cours ne peuvent pas être retirées.</p>
+      <p className="mt-1 text-xs text-ink-soft">{tr("Rouge = épuisé, orange = stock bas. Les quantités réservées par des commandes en cours ne peuvent pas être retirées.")}</p>
     </div>
   );
 }
@@ -627,33 +628,33 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
 
   return (
     <Card
-      title={`Variantes & stock (${form.variants.length})`}
+      title={tr("Variantes & stock ({0})", { 0: form.variants.length })}
       actions={
         <span className="flex items-center gap-3 text-sm text-ink-soft">
           {gridable && (
             <span className="inline-flex rounded-full border border-line p-0.5 text-xs">
               {(["grid", "list"] as const).map((k) => (
                 <button key={k} type="button" onClick={() => setView(k)} className={`rounded-full px-2.5 py-1 font-semibold ${view === k ? "bg-plum-600 text-ivory" : ""}`}>
-                  {k === "grid" ? "Tableau" : "Liste"}
+                  {k === "grid" ? tr("Tableau") : tr("Liste")}
                 </button>
               ))}
             </span>
           )}
-          <span>Total : <b className="text-ink">{total}</b></span>
+          <span>{tr("Total :")} <b className="text-ink">{total}</b></span>
         </span>
       }
     >
       {gridable && view === "grid" ? (
         <>
           <StockGrid form={form} onChange={onChange} disabled={disabled} />
-          {!disabled && <p className="mt-2 text-xs text-ink-soft">Prix spécifique ou désactivation d'une variante : vue « Liste ».</p>}
+          {!disabled && <p className="mt-2 text-xs text-ink-soft">{tr("Prix spécifique ou désactivation d'une variante : vue « Liste ».")}</p>}
         </>
       ) : (
       <>
       {!disabled && form.variants.length > 1 && (
         <div className="mb-3 flex items-end gap-2">
-          <NumberField label="Mettre le même stock partout" value={bulk} onChange={setBulk} className="flex-1" />
-          <Button onClick={() => bulk != null && onChange(form.variants.map((v) => ({ ...v, stockOnHand: Math.max(bulk, v.stockReserved ?? 0) })))}>Appliquer</Button>
+          <NumberField label={tr("Mettre le même stock partout")} value={bulk} onChange={setBulk} className="flex-1" />
+          <Button onClick={() => bulk != null && onChange(form.variants.map((v) => ({ ...v, stockOnHand: Math.max(bulk, v.stockReserved ?? 0) })))}>{tr("Appliquer")}</Button>
         </div>
       )}
       <ul className="divide-y divide-line">
@@ -663,11 +664,11 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
               {colorOf(v.refs) && <span className="size-4 shrink-0 rounded-full border border-line" style={{ background: colorOf(v.refs)! }} />}
               <span className="min-w-0">
                 <span className="block truncate text-sm font-medium">{label(v.refs)}</span>
-                <span className="block truncate text-xs text-ink-soft">{v.sku || "SKU automatique"}{v.stockReserved ? ` · ${v.stockReserved} réservé(s)` : ""}</span>
+                <span className="block truncate text-xs text-ink-soft">{v.sku || tr("SKU automatique")}{v.stockReserved ? tr(" · {0} réservé(s)", { 0: v.stockReserved }) : ""}</span>
               </span>
             </span>
             <label className="text-xs text-ink-soft">
-              Stock
+              {tr("Stock")}
               <input
                 type="number"
                 inputMode="numeric"
@@ -679,7 +680,7 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
               />
             </label>
             <label className="text-xs text-ink-soft">
-              Prix spécifique
+              {tr("Prix spécifique")}
               <input
                 type="number"
                 inputMode="numeric"
@@ -692,7 +693,7 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
             </label>
             <label className="col-span-2 flex items-center gap-1.5 text-xs sm:col-span-1 sm:justify-self-end">
               <input type="checkbox" className="size-4 accent-plum-600" checked={v.isActive} disabled={disabled} onChange={(e) => update(i, { isActive: e.target.checked })} />
-              Active
+              {tr("Active")}
             </label>
           </li>
         ))}
@@ -742,7 +743,7 @@ function ImagesEditor({
         current = [...current, saved];
         onChange(current);
       } catch (e) {
-        toast(e instanceof Error && e.message === "not_an_image" ? "Ce fichier n'est pas une image." : errorMessage(e), "error");
+        toast(e instanceof Error && e.message === "not_an_image" ? tr("Ce fichier n'est pas une image.") : errorMessage(e), "error");
       }
     }
     setBusy(null);
@@ -756,7 +757,7 @@ function ImagesEditor({
 
   return (
     <Card
-      title={`Photos (${images.length})`}
+      title={tr("Photos ({0})", { 0: images.length })}
       actions={
         busy ? (
           <span className="flex items-center gap-2 text-xs text-ink-soft"><Spinner className="size-3.5" />{busy}</span>
@@ -769,28 +770,28 @@ function ImagesEditor({
         {images.map((img, i) => (
           <li key={img.id} className="group relative">
             <img src={imageUrl(img, 480)} alt="" className="aspect-[4/5] w-full rounded-xl object-cover" style={img.lqip ? { backgroundImage: `url(${img.lqip})`, backgroundSize: "cover" } : undefined} />
-            {i === 0 && <span className="absolute start-1.5 top-1.5 rounded-full bg-ink/75 px-2 py-0.5 text-[10px] font-semibold text-ivory">Principale</span>}
+            {i === 0 && <span className="absolute start-1.5 top-1.5 rounded-full bg-ink/75 px-2 py-0.5 text-[10px] font-semibold text-ivory">{tr("Principale")}</span>}
             <div className="mt-1 flex items-center justify-between gap-1">
-              <button type="button" disabled={i === 0} className="grid size-8 place-items-center rounded-full border border-line bg-white text-sm disabled:opacity-30" aria-label="Avancer" onClick={() => { const n = [...images]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; void persist(n); }}>
+              <button type="button" disabled={i === 0} className="grid size-8 place-items-center rounded-full border border-line bg-white text-sm disabled:opacity-30" aria-label={tr("Avancer")} onClick={() => { const n = [...images]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; void persist(n); }}>
                 ←
               </button>
               {colors.length > 0 && (
                 <select
                   className="h-8 min-w-0 flex-1 rounded-lg border border-line bg-white px-1 text-xs"
                   value={img.optionValueId ?? ""}
-                  aria-label="Couleur de la photo"
+                  aria-label={tr("Couleur de la photo")}
                   onChange={(e) => void persist(images.map((x) => (x.id === img.id ? { ...x, optionValueId: e.target.value ? Number(e.target.value) : null } : x)))}
                 >
-                  <option value="">Toutes</option>
+                  <option value="">{tr("Toutes")}</option>
                   {colors.map((c) => colorIdOf(c.ref) && <option key={c.ref} value={colorIdOf(c.ref)!}>{c.labelFr}</option>)}
                 </select>
               )}
               <button
                 type="button"
                 className="grid size-8 place-items-center rounded-full border border-red-200 bg-white text-sm text-red-700"
-                aria-label="Supprimer la photo"
+                aria-label={tr("Supprimer la photo")}
                 onClick={async () => {
-                  if (!confirm("Supprimer cette photo ?")) return;
+                  if (!confirm(tr("Supprimer cette photo ?"))) return;
                   await del(`/images/${img.id}`).catch((e) => toast(errorMessage(e), "error"));
                   onChange(images.filter((x) => x.id !== img.id));
                 }}
@@ -803,13 +804,13 @@ function ImagesEditor({
         <li>
           <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white text-center text-xs text-ink-soft hover:border-plum-600">
             <span className="text-2xl">＋</span>
-            Ajouter des photos
+            {tr("Ajouter des photos")}
             <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { void handleFiles(e.target.files); e.target.value = ""; }} disabled={!!busy} />
           </label>
         </li>
       </ul>
-      <p className="mt-3 text-xs text-ink-soft">Les photos sont redimensionnées et compressées sur votre téléphone (et leur localisation GPS est supprimée) avant l'envoi.</p>
-      {colors.some((c) => !colorIdOf(c.ref)) && <p className="mt-1 text-xs text-amber-700">Enregistrez le produit pour associer les photos aux nouvelles couleurs.</p>}
+      <p className="mt-3 text-xs text-ink-soft">{tr("Les photos sont redimensionnées et compressées sur votre téléphone (et leur localisation GPS est supprimée) avant l'envoi.")}</p>
+      {colors.some((c) => !colorIdOf(c.ref)) && <p className="mt-1 text-xs text-amber-700">{tr("Enregistrez le produit pour associer les photos aux nouvelles couleurs.")}</p>}
     </Card>
   );
 }

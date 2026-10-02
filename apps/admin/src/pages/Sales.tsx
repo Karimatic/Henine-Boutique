@@ -6,6 +6,7 @@ import { api, errorMessage, post } from "../api";
 import { CHANNEL_LABEL, da, date } from "../lib/format";
 import { useCan } from "../Shell";
 import { Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, Select, Sheet, Stat, StatusBadge, TextField, useToast } from "../ui";
+import { tr } from "../i18n";
 
 interface SalesData {
   days: number;
@@ -27,12 +28,12 @@ export function SalesPage() {
   return (
     <div>
       <PageHeader
-        group="Catalogue"
-        title="Ventes"
-        subtitle="Performance par produit + ventes réalisées en boutique, sur Instagram ou par téléphone."
-        actions={can("sales.create") && <Button variant="primary" onClick={() => setOpen(true)}>+ Vente manuelle</Button>}
+        group={tr("Catalogue")}
+        title={tr("Ventes")}
+        subtitle={tr("Performance par produit + ventes réalisées en boutique, sur Instagram ou par téléphone.")}
+        actions={can("sales.create") && <Button variant="primary" onClick={() => setOpen(true)}>{tr("+ Vente manuelle")}</Button>}
       />
-      <Pills value={days} onChange={setDays} options={[{ value: "7", label: "7 jours" }, { value: "30", label: "30 jours" }, { value: "90", label: "90 jours" }, { value: "365", label: "1 an" }]} />
+      <Pills value={days} onChange={setDays} options={[{ value: "7", label: tr("7 jours") }, { value: "30", label: tr("30 jours") }, { value: "90", label: tr("90 jours") }, { value: "365", label: tr("1 an") }]} />
       {q.error ? (
         <ErrorState error={q.error} onRetry={q.refetch} />
       ) : !d ? (
@@ -40,29 +41,29 @@ export function SalesPage() {
       ) : (
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="Ventes confirmées" value={d.totals.orders} />
-            <Stat label="Chiffre d'affaires" value={da(d.totals.revenue)} hint="livraison incluse" />
-            <Stat label="Marchandise" value={da(d.totals.merch)} hint="hors livraison" />
-            <Stat label="Marge brute" value={margin == null ? "🔒" : da(margin)} hint={margin == null ? "prix d'achat requis" : undefined} />
+            <Stat label={tr("Ventes confirmées")} value={d.totals.orders} />
+            <Stat label={tr("Chiffre d'affaires")} value={da(d.totals.revenue)} hint={tr("livraison incluse")} />
+            <Stat label={tr("Marchandise")} value={da(d.totals.merch)} hint={tr("hors livraison")} />
+            <Stat label={tr("Marge brute")} value={margin == null ? "🔒" : da(margin)} hint={margin == null ? tr("prix d'achat requis") : undefined} />
           </div>
-          <Card title="Par canal">
-            {d.byChannel.length === 0 ? <p className="text-sm text-ink-soft">Aucune vente sur la période.</p> : (
+          <Card title={tr("Par canal")}>
+            {d.byChannel.length === 0 ? <p className="text-sm text-ink-soft">{tr("Aucune vente sur la période.")}</p> : (
               <ul className="grid gap-2 sm:grid-cols-3">
                 {d.byChannel.map((c) => (
                   <li key={c.channel} className="rounded-xl bg-ivory-deep px-3 py-2 text-sm">
-                    <span className="font-semibold">{CHANNEL_LABEL[c.channel] ?? c.channel}</span>
-                    <span className="block text-ink-soft">{c.orders} vente(s) · {da(c.revenue)}</span>
+                    <span className="font-semibold">{tr(CHANNEL_LABEL[c.channel]) ?? c.channel}</span>
+                    <span className="block text-ink-soft">{c.orders} {tr("vente(s) ·")} {da(c.revenue)}</span>
                   </li>
                 ))}
               </ul>
             )}
           </Card>
-          <Card title="Par produit" padded={false}>
-            {d.byProduct.length === 0 ? <p className="px-4 pb-4 text-sm text-ink-soft">Aucune vente sur la période.</p> : (
+          <Card title={tr("Par produit")} padded={false}>
+            {d.byProduct.length === 0 ? <p className="px-4 pb-4 text-sm text-ink-soft">{tr("Aucune vente sur la période.")}</p> : (
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="text-xs text-ink-soft">
-                    <tr className="border-b border-line"><th className="px-4 py-2 text-start font-medium">Produit</th><th className="px-2 text-end font-medium">Pièces</th><th className="px-2 text-end font-medium">CA</th><th className="px-4 text-end font-medium">Retours</th></tr>
+                    <tr className="border-b border-line"><th className="px-4 py-2 text-start font-medium">{tr("Produit")}</th><th className="px-2 text-end font-medium">{tr("Pièces")}</th><th className="px-2 text-end font-medium">{tr("CA")}</th><th className="px-4 text-end font-medium">{tr("Retours")}</th></tr>
                   </thead>
                   <tbody>
                     {d.byProduct.map((p) => (
@@ -78,12 +79,12 @@ export function SalesPage() {
               </div>
             )}
           </Card>
-          <Card title="Dernières ventes manuelles">
-            {d.recentManual.length === 0 ? <p className="text-sm text-ink-soft">Enregistrez ici les ventes faites en boutique à Boumerdès ou en message privé Instagram : le stock se met à jour.</p> : (
+          <Card title={tr("Dernières ventes manuelles")}>
+            {d.recentManual.length === 0 ? <p className="text-sm text-ink-soft">{tr("Enregistrez ici les ventes faites en boutique à Boumerdès ou en message privé Instagram : le stock se met à jour.")}</p> : (
               <ul className="space-y-2 text-sm">
                 {d.recentManual.map((o) => (
                   <li key={o.id} className="flex items-center justify-between gap-2">
-                    <span>{o.name} · <span className="text-ink-soft">{CHANNEL_LABEL[o.channel]} · {date(o.created_at)}</span></span>
+                    <span>{o.name} · <span className="text-ink-soft">{tr(CHANNEL_LABEL[o.channel])} · {date(o.created_at)}</span></span>
                     <span className="flex items-center gap-2"><b>{da(o.total)}</b><StatusBadge status={o.status} /></span>
                   </li>
                 ))}
@@ -142,7 +143,7 @@ function ManualSale({ onClose }: { onClose: () => void }) {
         shipping: boutique ? 0 : ship,
       }),
     onSuccess: () => {
-      toast(boutique ? "Vente enregistrée, stock mis à jour ✓" : "Commande créée (confirmée) ✓");
+      toast(boutique ? tr("Vente enregistrée, stock mis à jour ✓") : tr("Commande créée (confirmée) ✓"));
       void qc.invalidateQueries();
       onClose();
     },
@@ -155,32 +156,32 @@ function ManualSale({ onClose }: { onClose: () => void }) {
     <Sheet
       open
       onClose={onClose}
-      title="Vente manuelle"
+      title={tr("Vente manuelle")}
       footer={
         <div className="flex items-center justify-between gap-3">
-          <span className="text-sm">Total : <b>{da(subtotal + ship)}</b></span>
-          <Button variant="primary" disabled={!valid} loading={save.isPending} onClick={() => save.mutate()}>Enregistrer</Button>
+          <span className="text-sm">{tr("Total :")} <b>{da(subtotal + ship)}</b></span>
+          <Button variant="primary" disabled={!valid} loading={save.isPending} onClick={() => save.mutate()}>{tr("Enregistrer")}</Button>
         </div>
       }
     >
       <div className="space-y-4">
-        <Pills value={channel} onChange={setChannel} options={(["boutique", "instagram", "whatsapp", "telephone"] as const).map((c) => ({ value: c, label: CHANNEL_LABEL[c]! }))} />
-        <p className="text-xs text-ink-soft">{boutique ? "Vente en boutique : marquée « livrée », le stock est retiré immédiatement." : "Commande reçue par message/téléphone : créée « confirmée » et suivie comme les commandes du site."}</p>
+        <Pills value={channel} onChange={setChannel} options={(["boutique", "instagram", "whatsapp", "telephone"] as const).map((c) => ({ value: c, label: tr(CHANNEL_LABEL[c])! }))} />
+        <p className="text-xs text-ink-soft">{boutique ? tr("Vente en boutique : marquée « livrée », le stock est retiré immédiatement.") : tr("Commande reçue par message/téléphone : créée « confirmée » et suivie comme les commandes du site.")}</p>
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label="Nom de la cliente" value={name} onChange={(e) => setName(e.target.value)} />
-          <TextField label="Téléphone" inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} error={phone && !normalizeDzPhone(phone) ? "Numéro invalide" : null} />
+          <TextField label={tr("Nom de la cliente")} value={name} onChange={(e) => setName(e.target.value)} />
+          <TextField label={tr("Téléphone")} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} error={phone && !normalizeDzPhone(phone) ? "Numéro invalide" : null} />
         </div>
-        <Card title="Articles">
+        <Card title={tr("Articles")}>
           <div className="flex gap-2">
-            <select className={inputCls} value={pick} onChange={(e) => setPick(e.target.value)} aria-label="Choisir un article">
-              <option value="">Choisir un article…</option>
+            <select className={inputCls} value={pick} onChange={(e) => setPick(e.target.value)} aria-label={tr("Choisir un article")}>
+              <option value="">{tr("Choisir un article…")}</option>
               {variants.map((v) => (
-                <option key={v.id} value={v.id} disabled={v.available <= 0}>{v.label} ({v.available} dispo)</option>
+                <option key={v.id} value={v.id} disabled={v.available <= 0}>{v.label} ({v.available} {tr("dispo)")}</option>
               ))}
             </select>
-            <Button onClick={() => { const id = Number(pick); if (id && !lines.some((l) => l.variantId === id)) setLines([...lines, { variantId: id, qty: 1 }]); setPick(""); }}>Ajouter</Button>
+            <Button onClick={() => { const id = Number(pick); if (id && !lines.some((l) => l.variantId === id)) setLines([...lines, { variantId: id, qty: 1 }]); setPick(""); }}>{tr("Ajouter")}</Button>
           </div>
-          {lines.length === 0 ? <Empty title="Aucun article" icon="🛍" /> : (
+          {lines.length === 0 ? <Empty title={tr("Aucun article")} icon="🛍" /> : (
             <ul className="mt-3 space-y-2">
               {lines.map((l) => {
                 const v = variants.find((x) => x.id === l.variantId);
@@ -188,8 +189,8 @@ function ManualSale({ onClose }: { onClose: () => void }) {
                   <li key={l.variantId} className="flex items-center justify-between gap-2 text-sm">
                     <span className="min-w-0 truncate">{v?.label}</span>
                     <span className="flex items-center gap-2">
-                      <input type="number" min={1} max={v?.available ?? 20} className={`${inputCls} h-9 w-16 text-center`} value={l.qty} onChange={(e) => setLines(lines.map((x) => (x.variantId === l.variantId ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x)))} aria-label="Quantité" />
-                      <button type="button" onClick={() => setLines(lines.filter((x) => x.variantId !== l.variantId))} className="text-red-700" aria-label="Retirer">✕</button>
+                      <input type="number" min={1} max={v?.available ?? 20} className={`${inputCls} h-9 w-16 text-center`} value={l.qty} onChange={(e) => setLines(lines.map((x) => (x.variantId === l.variantId ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x)))} aria-label={tr("Quantité")} />
+                      <button type="button" onClick={() => setLines(lines.filter((x) => x.variantId !== l.variantId))} className="text-red-700" aria-label={tr("Retirer")}>✕</button>
                     </span>
                   </li>
                 );
@@ -198,17 +199,17 @@ function ManualSale({ onClose }: { onClose: () => void }) {
           )}
         </Card>
         {!boutique && (
-          <Card title="Livraison">
+          <Card title={tr("Livraison")}>
             <div className="grid gap-3 sm:grid-cols-2">
-              <Select label="Wilaya" value={wilaya} onChange={(e) => { setWilaya(Number(e.target.value)); setShipping(null); }}>
+              <Select label={tr("Wilaya")} value={wilaya} onChange={(e) => { setWilaya(Number(e.target.value)); setShipping(null); }}>
                 {wilayas.data?.map((x) => <option key={x.code} value={x.code}>{x.code} - {x.fr}</option>)}
               </Select>
-              <Select label="Mode" value={deliveryType} onChange={(e) => { setDeliveryType(e.target.value as "domicile" | "bureau"); setShipping(null); }}>
-                <option value="domicile">Domicile</option>
-                <option value="bureau">Bureau (stop-desk)</option>
+              <Select label={tr("Mode")} value={deliveryType} onChange={(e) => { setDeliveryType(e.target.value as "domicile" | "bureau"); setShipping(null); }}>
+                <option value="domicile">{tr("Domicile")}</option>
+                <option value="bureau">{tr("Bureau (stop-desk)")}</option>
               </Select>
-              {deliveryType === "domicile" && <TextField label="Adresse" value={address} onChange={(e) => setAddress(e.target.value)} className="sm:col-span-2" />}
-              <TextField label="Frais de livraison (DA)" type="number" value={shipping ?? ship} onChange={(e) => setShipping(Number(e.target.value) || 0)} />
+              {deliveryType === "domicile" && <TextField label={tr("Adresse")} value={address} onChange={(e) => setAddress(e.target.value)} className="sm:col-span-2" />}
+              <TextField label={tr("Frais de livraison (DA)")} type="number" value={shipping ?? ship} onChange={(e) => setShipping(Number(e.target.value) || 0)} />
             </div>
           </Card>
         )}

@@ -7,6 +7,7 @@ import { api } from "../api";
 import { Blossom } from "../brand";
 import { da, date } from "../lib/format";
 import { ErrorState, ListSkeleton } from "../ui";
+import { tr } from "../i18n";
 
 /**
  * Packing slips, two per A4 sheet: who to deliver to, what's in the parcel and the exact
@@ -55,14 +56,14 @@ export function SlipsPage() {
     <div className="slips min-h-dvh bg-ivory-deep/50 print:bg-white">
       <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 print:hidden">
         <p className="text-sm">
-          <b>{q.data?.slips.length ?? 0}</b> bordereau(x) · 2 par feuille A4
+          <b>{q.data?.slips.length ?? 0}</b> {tr("bordereau(x) · 2 par feuille A4")}
         </p>
         <div className="flex gap-2">
           <button type="button" onClick={() => history.back()} className="h-9 rounded-lg border border-line px-3.5 text-sm font-semibold">
-            Retour
+            {tr("Retour")}
           </button>
           <button type="button" onClick={() => window.print()} className="inline-flex h-9 items-center gap-2 rounded-lg bg-plum-600 px-3.5 text-sm font-semibold text-white">
-            <Printer className="size-4" /> Imprimer
+            <Printer className="size-4" /> {tr("Imprimer")}
           </button>
         </div>
       </div>
@@ -97,13 +98,13 @@ function SlipCard({ s, store }: { s: Slip; store: SlipsData["store"] }) {
         </div>
         <div className="text-end">
           <p className="font-mono text-xl font-bold tracking-wider">{s.public_code}</p>
-          <p className="text-[11px] text-ink-soft">Commande du {date(s.created_at)}{s.tracking_number ? ` · Suivi ${s.tracking_number}` : ""}</p>
+          <p className="text-[11px] text-ink-soft">{tr("Commande du")} {date(s.created_at)}{s.tracking_number ? tr(" · Suivi {0}", { 0: s.tracking_number }) : ""}</p>
         </div>
       </header>
 
       <div className="mt-3 grid grid-cols-[1.4fr_1fr] gap-4">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-soft">Destinataire</p>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-ink-soft">{tr("Destinataire")}</p>
           <p className="mt-0.5 text-base font-bold">{s.name}</p>
           <p className="font-mono text-base font-semibold" dir="ltr">{formatDzPhone(s.phone)}</p>
           <p className="mt-1">
@@ -120,10 +121,10 @@ function SlipCard({ s, store }: { s: Slip; store: SlipsData["store"] }) {
         </div>
         <div className="space-y-2">
           <p className={`rounded-md px-2 py-1 text-center font-bold ${s.delivery_type === "bureau" ? "bg-ink text-white" : "border border-ink"}`}>
-            {s.delivery_type === "bureau" ? "STOP-DESK (bureau)" : "À DOMICILE"}
+            {s.delivery_type === "bureau" ? tr("STOP-DESK (bureau)") : tr("À DOMICILE")}
           </p>
           <div className="rounded-md border-2 border-ink p-2 text-center">
-            <p className="text-[10px] font-semibold uppercase tracking-widest">Montant à encaisser</p>
+            <p className="text-[10px] font-semibold uppercase tracking-widest">{tr("Montant à encaisser")}</p>
             <p className="text-2xl font-extrabold tabular-nums">{da(s.total)}</p>
           </div>
         </div>
@@ -132,10 +133,10 @@ function SlipCard({ s, store }: { s: Slip; store: SlipsData["store"] }) {
       <table className="mt-3 w-full border-collapse">
         <thead>
           <tr className="border-y border-ink/30 text-[10px] uppercase tracking-wider text-ink-soft">
-            <th className="py-1 text-start font-semibold">Article</th>
-            <th className="py-1 text-start font-semibold">Taille / couleur</th>
-            <th className="py-1 text-center font-semibold">Qté</th>
-            <th className="py-1 text-end font-semibold">Prix</th>
+            <th className="py-1 text-start font-semibold">{tr("Article")}</th>
+            <th className="py-1 text-start font-semibold">{tr("Taille / couleur")}</th>
+            <th className="py-1 text-center font-semibold">{tr("Qté")}</th>
+            <th className="py-1 text-end font-semibold">{tr("Prix")}</th>
           </tr>
         </thead>
         <tbody>
@@ -156,18 +157,18 @@ function SlipCard({ s, store }: { s: Slip; store: SlipsData["store"] }) {
 
       <div className="mt-2 flex items-end justify-between gap-4">
         <div className="min-w-0 text-[11px]">
-          <p><b>{units}</b> pièce(s) dans le colis</p>
+          <p><b>{units}</b> {tr("pièce(s) dans le colis")}</p>
           {s.customer_note && <p className="mt-1 rounded bg-ivory-deep px-2 py-1">📝 {s.customer_note}</p>}
         </div>
         <dl className="grid shrink-0 grid-cols-[auto_auto] gap-x-4 text-end tabular-nums">
-          <dt className="text-ink-soft">Sous-total</dt><dd>{da(s.subtotal)}</dd>
-          {s.discount_total > 0 && (<><dt className="text-ink-soft">Remise</dt><dd>−{da(s.discount_total)}</dd></>)}
-          <dt className="text-ink-soft">Livraison</dt><dd>{s.shipping_price ? da(s.shipping_price) : "Offerte"}</dd>
-          <dt className="font-bold">Total</dt><dd className="font-bold">{da(s.total)}</dd>
+          <dt className="text-ink-soft">{tr("Sous-total")}</dt><dd>{da(s.subtotal)}</dd>
+          {s.discount_total > 0 && (<><dt className="text-ink-soft">{tr("Remise")}</dt><dd>−{da(s.discount_total)}</dd></>)}
+          <dt className="text-ink-soft">{tr("Livraison")}</dt><dd>{s.shipping_price ? da(s.shipping_price) : tr("Offerte")}</dd>
+          <dt className="font-bold">{tr("Total")}</dt><dd className="font-bold">{da(s.total)}</dd>
         </dl>
       </div>
       <p className="mt-3 border-t border-ink/20 pt-2 text-center text-[11px] text-ink-soft">
-        Merci pour votre confiance 🌸 <span dir="rtl">شكرا لثقتك</span> · Échange possible sous 48 h
+        {tr("Merci pour votre confiance 🌸")} <span dir="rtl">شكرا لثقتك</span> {tr("· Échange possible sous 48 h")}
       </p>
     </section>
   );

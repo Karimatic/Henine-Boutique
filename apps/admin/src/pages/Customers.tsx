@@ -6,6 +6,7 @@ import { ago, da, date, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useCan } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Sheet, Stat, StatusBadge, TextArea, TextField, Toggle, useToast } from "../ui";
+import { tr } from "../i18n";
 
 /* ───────────── Clients ───────────── */
 
@@ -26,13 +27,13 @@ interface CustomerRow {
 }
 
 const SEGMENTS = [
-  { value: "all", label: "Toutes" },
-  { value: "new", label: "Nouvelles" },
-  { value: "returning", label: "Fidèles" },
-  { value: "vip", label: "VIP" },
-  { value: "high_risk", label: "Risque élevé" },
-  { value: "inactives", label: "Inactives 60 j" },
-  { value: "blacklist", label: "Liste noire" },
+  { value: "all", label: tr("Toutes") },
+  { value: "new", label: tr("Nouvelles") },
+  { value: "returning", label: tr("Fidèles") },
+  { value: "vip", label: tr("VIP") },
+  { value: "high_risk", label: tr("Risque élevé") },
+  { value: "inactives", label: tr("Inactives 60 j") },
+  { value: "blacklist", label: tr("Liste noire") },
 ];
 
 export function CustomersPage() {
@@ -47,9 +48,9 @@ export function CustomersPage() {
   return (
     <div>
       <PageHeader
-        group="Commandes"
-        title="Clients"
-        subtitle="Chaque numéro de téléphone = une cliente. Segments calculés sur l'historique réel (VIP : 3 livrées ou 25 000 DA dépensés)."
+        group={tr("Commandes")}
+        title={tr("Clients")}
+        subtitle={tr("Chaque numéro de téléphone = une cliente. Segments calculés sur l'historique réel (VIP : 3 livrées ou 25 000 DA dépensés).")}
       />
       <Pills
         value={segment}
@@ -59,8 +60,8 @@ export function CustomersPage() {
           label: counts && s.value !== "inactives" && s.value !== "blacklist" ? `${s.label} (${s.value === "all" ? counts.all_count : (counts[s.value] ?? 0)})` : s.label,
         }))}
       />
-      <SearchBox value={q} onChange={setQ} placeholder="Nom ou téléphone…" />
-      {list.error ? <ErrorState error={list.error} onRetry={list.refetch} /> : !list.data ? <ListSkeleton /> : list.data.rows.length === 0 ? <Empty title="Aucune cliente" /> : (
+      <SearchBox value={q} onChange={setQ} placeholder={tr("Nom ou téléphone…")} />
+      {list.error ? <ErrorState error={list.error} onRetry={list.refetch} /> : !list.data ? <ListSkeleton /> : list.data.rows.length === 0 ? <Empty title={tr("Aucune cliente")} /> : (
         <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
           {list.data.rows.map((c) => (
             <li key={c.id}>
@@ -75,7 +76,7 @@ export function CustomersPage() {
                 </span>
                 <span className="shrink-0 text-end text-sm">
                   <b className="tabular-nums">{da(c.total_spent)}</b>
-                  <span className="block text-xs text-ink-soft">{c.delivered_count}/{c.orders_count} livrées{c.returned_count ? ` · ${c.returned_count} retour(s)` : ""}</span>
+                  <span className="block text-xs text-ink-soft">{c.delivered_count}/{c.orders_count} {tr("livrées")}{c.returned_count ? tr(" · {0} retour(s)", { 0: c.returned_count }) : ""}</span>
                 </span>
               </button>
             </li>
@@ -115,7 +116,7 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
   const save = useMutation({
     mutationFn: (body: Record<string, unknown>) => patch(`/customers/${id}`, body),
     onSuccess: () => {
-      toast("Fiche mise à jour");
+      toast(tr("Fiche mise à jour"));
       void qc.invalidateQueries({ queryKey: ["customer", id] });
       void qc.invalidateQueries({ queryKey: ["customers"] });
     },
@@ -124,7 +125,7 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
   const addPoints = useMutation({
     mutationFn: () => post(`/customers/${id}/points`, { delta: points ?? 0, note: pointsNote || "Ajustement manuel" }),
     onSuccess: () => {
-      toast("Points mis à jour");
+      toast(tr("Points mis à jour"));
       setPoints(null);
       setPointsNote("");
       void qc.invalidateQueries({ queryKey: ["customer", id] });
@@ -133,31 +134,31 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
   });
   const c = q.data?.customer;
   return (
-    <Sheet open onClose={onClose} title={c ? `${c.name}` : "Cliente"} wide>
+    <Sheet open onClose={onClose} title={c ? `${c.name}` : tr("Cliente")} wide>
       {!q.data || !c ? <ListSkeleton rows={4} /> : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono">{formatDzPhone(c.phone)}</span>
-            <a href={telLink(c.phone)} className="rounded-full bg-plum-600 px-3 py-1.5 text-sm font-semibold text-ivory">📞 Appeler</a>
-            <a href={waLink(c.phone, `Bonjour ${c.name} 🌸 `)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1.5 text-sm font-semibold text-white">WhatsApp</a>
-            {c.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">⛔ Liste noire</Badge> : null}
+            <a href={telLink(c.phone)} className="rounded-full bg-plum-600 px-3 py-1.5 text-sm font-semibold text-ivory">{tr("📞 Appeler")}</a>
+            <a href={waLink(c.phone, `Bonjour ${c.name} 🌸 `)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1.5 text-sm font-semibold text-white">{tr("WhatsApp")}</a>
+            {c.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">{tr("⛔ Liste noire")}</Badge> : null}
             <SegmentBadge segment={q.data.segment} />
           </div>
           <RiskPanel risk={q.data.risk} />
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Stat label="Commandes" value={c.orders_count} />
-            <Stat label="Livrées" value={c.delivered_count} tone="good" />
-            <Stat label="Retours" value={c.returned_count} tone={c.returned_count ? "warn" : undefined} />
-            <Stat label="Total dépensé" value={da(c.total_spent)} />
+            <Stat label={tr("Commandes")} value={c.orders_count} />
+            <Stat label={tr("Livrées")} value={c.delivered_count} tone="good" />
+            <Stat label={tr("Retours")} value={c.returned_count} tone={c.returned_count ? "warn" : undefined} />
+            <Stat label={tr("Total dépensé")} value={da(c.total_spent)} />
           </div>
-          <Card title="Commandes">
+          <Card title={tr("Commandes")}>
             <ul className="space-y-1.5 text-sm">
               {q.data.orders.map((o) => (
                 <li key={o.id} className="flex items-center justify-between gap-2">
                   <a href={`/admin/commandes?o=${o.id}`} className="font-mono text-plum-600">{o.public_code}</a>
                   <span className="text-ink-soft">
                     {date(o.created_at)}
-                    {o.outcome_reason ? ` · ${OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason] ?? o.outcome_reason}` : ""}
+                    {o.outcome_reason ? ` · ${tr(OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason]) ?? o.outcome_reason}` : ""}
                   </span>
                   <span className="flex items-center gap-2"><b>{da(o.total)}</b><StatusBadge status={o.status} /></span>
                 </li>
@@ -165,26 +166,26 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
             </ul>
           </Card>
           {can("customers.edit") && (
-            <Card title="Notes & fiabilité">
-              <TextArea label="Notes internes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
-              <Button className="mt-2" size="sm" onClick={() => save.mutate({ notes: notes || null })}>Enregistrer la note</Button>
+            <Card title={tr("Notes & fiabilité")}>
+              <TextArea label={tr("Notes internes")} value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
+              <Button className="mt-2" size="sm" onClick={() => save.mutate({ notes: notes || null })}>{tr("Enregistrer la note")}</Button>
               <div className="mt-4 border-t border-line pt-3">
                 <Toggle
-                  label="Liste noire"
-                  hint="Ses prochaines commandes seront signalées ⛔ dans l'admin et sur Telegram."
+                  label={tr("Liste noire")}
+                  hint={tr("Ses prochaines commandes seront signalées ⛔ dans l'admin et sur Telegram.")}
                   checked={!!c.is_blacklisted}
                   onChange={(v) => save.mutate({ isBlacklisted: v, blacklistReason: v ? reason || "Non précisé" : null })}
                 />
-                {!!c.is_blacklisted && <TextField label="Raison" value={reason} onChange={(e) => setReason(e.target.value)} onBlur={() => save.mutate({ blacklistReason: reason || null })} />}
+                {!!c.is_blacklisted && <TextField label={tr("Raison")} value={reason} onChange={(e) => setReason(e.target.value)} onBlur={() => save.mutate({ blacklistReason: reason || null })} />}
               </div>
             </Card>
           )}
           {can("loyalty.edit") && (
-            <Card title={`Points fidélité : ${c.points_balance}`}>
+            <Card title={tr("Points fidélité : {0}", { 0: c.points_balance })}>
               <div className="grid gap-2 sm:grid-cols-[8rem_1fr_auto] sm:items-end">
-                <NumberField label="± points" min={-100000} value={points} onChange={setPoints} />
-                <TextField label="Raison" value={pointsNote} onChange={(e) => setPointsNote(e.target.value)} />
-                <Button onClick={() => addPoints.mutate()} disabled={!points} loading={addPoints.isPending}>Valider</Button>
+                <NumberField label={tr("± points")} min={-100000} value={points} onChange={setPoints} />
+                <TextField label={tr("Raison")} value={pointsNote} onChange={(e) => setPointsNote(e.target.value)} />
+                <Button onClick={() => addPoints.mutate()} disabled={!points} loading={addPoints.isPending}>{tr("Valider")}</Button>
               </div>
               {q.data.ledger.length > 0 && (
                 <ul className="mt-3 space-y-1 text-sm">
@@ -222,11 +223,11 @@ interface CartRow {
 }
 
 const STEP_LABEL: Record<string, [string, number]> = {
-  details: ["Coordonnées saisies", 1],
+  details: [tr("Coordonnées saisies"), 1],
   address: ["Wilaya choisie", 2],
   delivery: ["Commune / livraison", 3],
-  ready: ["Formulaire complet, non envoyé", 4],
-  checkout: ["Coordonnées saisies", 1],
+  ready: [tr("Formulaire complet, non envoyé"), 4],
+  checkout: [tr("Coordonnées saisies"), 1],
 };
 
 export function CartsPage() {
@@ -242,24 +243,24 @@ export function CartsPage() {
   return (
     <div>
       <PageHeader
-        group="Commandes"
-        title="Paniers abandonnés"
-        subtitle="Commandes commencées (numéro saisi) mais non envoyées depuis 30 min. Aucun message automatique : c'est vous qui décidez de rappeler."
+        group={tr("Commandes")}
+        title={tr("Paniers abandonnés")}
+        subtitle={tr("Commandes commencées (numéro saisi) mais non envoyées depuis 30 min. Aucun message automatique : c'est vous qui décidez de rappeler.")}
       />
       {s && (
         <div className="mb-4 grid grid-cols-3 gap-3">
-          <Stat label="Paniers (30 j)" value={s.total} />
-          <Stat label="Récupérés" value={s.recovered} tone="good" hint={s.total ? `${Math.round((s.recovered / s.total) * 100)} %` : undefined} />
-          <Stat label="Valeur non récupérée" value={da(s.lost_value)} />
+          <Stat label={tr("Paniers (30 j)")} value={s.total} />
+          <Stat label={tr("Récupérés")} value={s.recovered} tone="good" hint={s.total ? `${Math.round((s.recovered / s.total) * 100)} %` : undefined} />
+          <Stat label={tr("Valeur non récupérée")} value={da(s.lost_value)} />
         </div>
       )}
       <Pills
         value={filter}
         onChange={setFilter}
-        options={[{ value: "abandoned", label: "À relancer" }, { value: "active", label: "En cours (< 30 min)" }, { value: "recovered", label: "Récupérés" }, { value: "all", label: "Tous" }]}
+        options={[{ value: "abandoned", label: tr("À relancer") }, { value: "active", label: tr("En cours (< 30 min)") }, { value: "recovered", label: tr("Récupérés") }, { value: "all", label: tr("Tous") }]}
       />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.rows.length === 0 ? (
-        <Empty title="Aucun panier" icon="🛒">Ils apparaissent quand une cliente saisit un numéro valide au moment de commander, sans envoyer la commande.</Empty>
+        <Empty title={tr("Aucun panier")} icon="🛒">{tr("Ils apparaissent quand une cliente saisit un numéro valide au moment de commander, sans envoyer la commande.")}</Empty>
       ) : (
         <ul className="space-y-2">
           {q.data.rows.map((c) => {
@@ -268,15 +269,15 @@ export function CartsPage() {
             <li key={c.id} className="rounded-xl border border-line bg-white p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold">{c.name ?? "Sans nom"} · <span className="font-mono text-sm">{formatDzPhone(c.phone)}</span></p>
+                  <p className="font-semibold">{c.name ?? tr("Sans nom")} · <span className="font-mono text-sm">{formatDzPhone(c.phone)}</span></p>
                   <p className="text-sm text-ink-soft">{c.items.map((i) => `${i.name} ×${i.qty}`).join(", ")}</p>
                   <p className="text-xs text-ink-soft">
-                    📍 {c.wilaya ?? "wilaya non choisie"}{c.commune ? ` › ${c.commune}` : ""}{c.delivery_type ? ` · ${c.delivery_type === "bureau" ? "Bureau" : "Domicile"}` : ""}
-                    {c.channel === "express" ? " · commande express" : ""}
+                    📍 {c.wilaya ?? tr("wilaya non choisie")}{c.commune ? ` › ${c.commune}` : ""}{c.delivery_type ? ` · ${c.delivery_type === "bureau" ? "Bureau" : "Domicile"}` : ""}
+                    {c.channel === "express" ? tr(" · commande express") : ""}
                   </p>
                   <p className="text-xs text-ink-soft">
-                    Dernière activité {ago(c.updated_at)}{c.last_contacted_at ? ` · relancée ${ago(c.last_contacted_at)}` : ""}
-                    {c.customer_orders ? ` · ${c.customer_orders} commande(s) passée(s)` : " · jamais commandé"}
+                    {tr("Dernière activité")} {ago(c.updated_at)}{c.last_contacted_at ? tr(" · relancée {0}", { 0: ago(c.last_contacted_at) }) : ""}
+                    {c.customer_orders ? tr(" · {0} commande(s) passée(s)", { 0: c.customer_orders }) : tr(" · jamais commandé")}
                   </p>
                   <div className="mt-1.5 flex items-center gap-2 text-xs">
                     <span className="flex gap-0.5" aria-hidden="true">
@@ -288,11 +289,11 @@ export function CartsPage() {
                 <b className="shrink-0">{da(c.value)}</b>
               </div>
               {c.recovered_code ? (
-                <Badge tone="bg-emerald-100 text-emerald-800">✓ Commande {c.recovered_code}</Badge>
+                <Badge tone="bg-emerald-100 text-emerald-800">{tr("✓ Commande")} {c.recovered_code}</Badge>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
                 <a href={telLink(c.phone)} onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))} className="inline-flex h-9 items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">
-                  📞 Appeler
+                  {tr("📞 Appeler")}
                 </a>
                 <a
                   href={waLink(c.phone, `Bonjour ${c.name ?? ""} 🌸 Ici Henine Boutique. Vous avez laissé des articles dans votre panier : ${c.items.map((i) => i.name).join(", ")}. Besoin d'aide pour finaliser ? ${origin}/panier`)}
@@ -301,7 +302,7 @@ export function CartsPage() {
                   onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
                   className="inline-flex h-9 items-center rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white"
                 >
-                  WhatsApp
+                  {tr("WhatsApp")}
                 </a>
                 </div>
               )}
@@ -336,7 +337,7 @@ export function LoyaltyPage() {
   const save = useMutation({
     mutationFn: () => put("/loyalty", s),
     onSuccess: () => {
-      toast("Programme fidélité enregistré");
+      toast(tr("Programme fidélité enregistré"));
       void qc.invalidateQueries({ queryKey: ["loyalty"] });
     },
     onError: (e) => toast(errorMessage(e), "error"),
@@ -346,31 +347,31 @@ export function LoyaltyPage() {
   const pctBack = s.points_per_100da * s.redeem_value_da;
   return (
     <div className="space-y-4">
-      <PageHeader group="Commandes" title="Fidélité" subtitle="Des points gagnés à chaque commande livrée (la livraison confirme le numéro)." />
+      <PageHeader group={tr("Commandes")} title={tr("Fidélité")} subtitle={tr("Des points gagnés à chaque commande livrée (la livraison confirme le numéro).")} />
       <div className="grid grid-cols-3 gap-3">
-        <Stat label="Clientes avec points" value={q.data.stats.members} />
-        <Stat label="Points en circulation" value={q.data.stats.outstanding} />
-        <Stat label="Valeur (engagement)" value={da(q.data.stats.liabilityDa)} />
+        <Stat label={tr("Clientes avec points")} value={q.data.stats.members} />
+        <Stat label={tr("Points en circulation")} value={q.data.stats.outstanding} />
+        <Stat label={tr("Valeur (engagement)")} value={da(q.data.stats.liabilityDa)} />
       </div>
-      <Card title="Règles du programme">
-        <Toggle label="Programme actif" hint="Les points sont crédités automatiquement quand une commande passe à « Livrée »." checked={s.enabled} onChange={(v) => setS({ ...s, enabled: v })} />
+      <Card title={tr("Règles du programme")}>
+        <Toggle label={tr("Programme actif")} hint={tr("Les points sont crédités automatiquement quand une commande passe à « Livrée ».")} checked={s.enabled} onChange={(v) => setS({ ...s, enabled: v })} />
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <NumberField label="Points gagnés par tranche de 100 DA" value={s.points_per_100da} onChange={(v) => setS({ ...s, points_per_100da: v ?? 0 })} />
-          <NumberField label="Valeur d'un point" suffix="DA" value={s.redeem_value_da} onChange={(v) => setS({ ...s, redeem_value_da: v ?? 0 })} />
-          <NumberField label="Minimum pour utiliser ses points" suffix="pts" value={s.min_redeem} onChange={(v) => setS({ ...s, min_redeem: v ?? 0 })} />
-          <NumberField label="Expiration" suffix="jours" value={s.expiry_days} onChange={(v) => setS({ ...s, expiry_days: v ?? 0 })} />
+          <NumberField label={tr("Points gagnés par tranche de 100 DA")} value={s.points_per_100da} onChange={(v) => setS({ ...s, points_per_100da: v ?? 0 })} />
+          <NumberField label={tr("Valeur d'un point")} suffix={tr("DA")} value={s.redeem_value_da} onChange={(v) => setS({ ...s, redeem_value_da: v ?? 0 })} />
+          <NumberField label={tr("Minimum pour utiliser ses points")} suffix={tr("pts")} value={s.min_redeem} onChange={(v) => setS({ ...s, min_redeem: v ?? 0 })} />
+          <NumberField label={tr("Expiration")} suffix={tr("jours")} value={s.expiry_days} onChange={(v) => setS({ ...s, expiry_days: v ?? 0 })} />
         </div>
         <p className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-plum-700">
-          Exemple : une commande de 10 000 DA livrée rapporte <b>{Math.floor(10000 / 100) * s.points_per_100da} points</b>, soit {da(Math.floor(10000 / 100) * s.points_per_100da * s.redeem_value_da)} de réduction ({pctBack} % reversé).
+          {tr("Exemple : une commande de 10 000 DA livrée rapporte")} <b>{Math.floor(10000 / 100) * s.points_per_100da} {tr("points")}</b>{tr(", soit")} {da(Math.floor(10000 / 100) * s.points_per_100da * s.redeem_value_da)} {tr("de réduction (")}{pctBack} {tr("% reversé).")}
         </p>
-        <p className="mt-2 text-xs text-ink-soft">L'utilisation des points au paiement arrive dans une prochaine étape ; en attendant, appliquez-les manuellement (fiche cliente → points).</p>
-        <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate()}>Enregistrer</Button>
+        <p className="mt-2 text-xs text-ink-soft">{tr("L'utilisation des points au paiement arrive dans une prochaine étape ; en attendant, appliquez-les manuellement (fiche cliente → points).")}</p>
+        <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate()}>{tr("Enregistrer")}</Button>
       </Card>
-      <Card title="Meilleures clientes">
-        {q.data.top.length === 0 ? <p className="text-sm text-ink-soft">Aucune cliente n'a encore de points.</p> : (
+      <Card title={tr("Meilleures clientes")}>
+        {q.data.top.length === 0 ? <p className="text-sm text-ink-soft">{tr("Aucune cliente n'a encore de points.")}</p> : (
           <ol className="space-y-1.5 text-sm">
             {q.data.top.map((c, i) => (
-              <li key={c.id} className="flex justify-between gap-2"><span>{i + 1}. {c.name} <span className="text-ink-soft">({c.delivered_count} livrées)</span></span><b>{c.points_balance} pts</b></li>
+              <li key={c.id} className="flex justify-between gap-2"><span>{i + 1}. {c.name} <span className="text-ink-soft">({c.delivered_count} {tr("livrées)")}</span></span><b>{c.points_balance} {tr("pts")}</b></li>
             ))}
           </ol>
         )}

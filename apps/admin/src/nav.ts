@@ -22,6 +22,7 @@ import {
   UsersRound,
   type LucideIcon,
 } from "lucide-react";
+import { tr } from "./i18n";
 
 export interface NavItem {
   path: string;
@@ -35,58 +36,58 @@ export interface NavGroup {
   items: NavItem[];
 }
 
-export const DASHBOARD = { path: "/", label: "Tableau de bord", icon: LayoutDashboard };
+export const DASHBOARD = { path: "/", label: tr("Tableau de bord"), icon: LayoutDashboard };
 
 /** Admin menu, grouped exactly as specified by Henine. */
 export const NAV: NavGroup[] = [
   {
-    label: "Catalogue",
+    label: tr("Catalogue"),
     items: [
-      { path: "/produits", label: "Produits", permission: "products.view", icon: Shirt },
-      { path: "/stock", label: "Stock", permission: "stock.view", icon: Boxes },
-      { path: "/ventes", label: "Ventes", permission: "sales.view", icon: Receipt },
+      { path: "/produits", label: tr("Produits"), permission: "products.view", icon: Shirt },
+      { path: "/stock", label: tr("Stock"), permission: "stock.view", icon: Boxes },
+      { path: "/ventes", label: tr("Ventes"), permission: "sales.view", icon: Receipt },
     ],
   },
   {
-    label: "Commandes",
+    label: tr("Commandes"),
     items: [
-      { path: "/commandes", label: "Commandes", permission: "orders.view", icon: ShoppingBag },
-      { path: "/clients", label: "Clients", permission: "customers.view", icon: Users },
-      { path: "/paniers", label: "Paniers", permission: "carts.view", icon: ShoppingCart },
-      { path: "/promos", label: "Promos", permission: "promos.edit", icon: TicketPercent },
-      { path: "/fidelite", label: "Fidélité", permission: "loyalty.edit", icon: Gift },
+      { path: "/commandes", label: tr("Commandes"), permission: "orders.view", icon: ShoppingBag },
+      { path: "/clients", label: tr("Clients"), permission: "customers.view", icon: Users },
+      { path: "/paniers", label: tr("Paniers"), permission: "carts.view", icon: ShoppingCart },
+      { path: "/promos", label: tr("Promos"), permission: "promos.edit", icon: TicketPercent },
+      { path: "/fidelite", label: tr("Fidélité"), permission: "loyalty.edit", icon: Gift },
     ],
   },
   {
-    label: "Marketing",
+    label: tr("Marketing"),
     items: [
-      { path: "/collections", label: "Collections", permission: "marketing.edit", icon: Sparkles },
-      { path: "/avis", label: "Avis", permission: "reviews.moderate", icon: Star },
-      { path: "/notifier", label: "Notifier", permission: "marketing.edit", icon: BellRing },
-      { path: "/liens", label: "Liens", permission: "marketing.edit", icon: Link },
-      { path: "/contact", label: "Contact", permission: "contact.view", icon: MessageSquare },
+      { path: "/collections", label: tr("Collections"), permission: "marketing.edit", icon: Sparkles },
+      { path: "/avis", label: tr("Avis"), permission: "reviews.moderate", icon: Star },
+      { path: "/notifier", label: tr("Notifier"), permission: "marketing.edit", icon: BellRing },
+      { path: "/liens", label: tr("Liens"), permission: "marketing.edit", icon: Link },
+      { path: "/contact", label: tr("Contact"), permission: "contact.view", icon: MessageSquare },
     ],
   },
   {
-    label: "Analyse",
-    items: [{ path: "/statistiques", label: "Statistiques", permission: "stats.view", icon: ChartColumn }],
+    label: tr("Analyse"),
+    items: [{ path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn }],
   },
   {
-    label: "Système",
+    label: tr("Système"),
     items: [
-      { path: "/equipe", label: "Équipe", permission: "team.manage", icon: UsersRound },
-      { path: "/parametres", label: "Paramètres", permission: "dashboard.view", icon: Settings },
-      { path: "/contenu", label: "Contenu", permission: "content.edit", icon: FileText },
-      { path: "/erreurs", label: "Erreurs", permission: "errors.view", icon: TriangleAlert },
+      { path: "/equipe", label: tr("Équipe"), permission: "team.manage", icon: UsersRound },
+      { path: "/parametres", label: tr("Paramètres"), permission: "dashboard.view", icon: Settings },
+      { path: "/contenu", label: tr("Contenu"), permission: "content.edit", icon: FileText },
+      { path: "/erreurs", label: tr("Erreurs"), permission: "errors.view", icon: TriangleAlert },
     ],
   },
 ];
 
 /** Mobile bottom tab bar: the four daily-use screens + "Plus". */
 export const TABS: { path: string; label: string; icon: LucideIcon }[] = [
-  { path: "/", label: "Accueil", icon: LayoutDashboard },
-  { path: "/commandes", label: "Commandes", icon: ShoppingBag },
-  { path: "/produits", label: "Produits", icon: Shirt },
-  { path: "/clients", label: "Clients", icon: Users },
-  { path: "/plus", label: "Plus", icon: Menu },
+  { path: "/", label: tr("Accueil"), icon: LayoutDashboard },
+  { path: "/commandes", label: tr("Commandes"), icon: ShoppingBag },
+  { path: "/produits", label: tr("Produits"), icon: Shirt },
+  { path: "/clients", label: tr("Clients"), icon: Users },
+  { path: "/plus", label: tr("Plus"), icon: Menu },
 ];

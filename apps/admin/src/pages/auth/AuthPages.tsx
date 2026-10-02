@@ -6,6 +6,7 @@ import { auth, errorMessage } from "../../api";
 import { Wordmark } from "../../brand";
 import { derivePasswordKey, passwordProblems } from "../../lib/password";
 import { Button, inputCls, TextField } from "../../ui";
+import { tr } from "../../i18n";
 
 function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: ReactNode; children: ReactNode }) {
   return (
@@ -20,12 +21,12 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
       </div>
       <div className="relative w-full max-w-md">
         <div className="rounded-xl border border-line/70 bg-white/90 p-6 shadow-[0_10px_40px_-12px_rgb(157_23_77/0.25)] backdrop-blur sm:p-8">
-          <Wordmark size="lg" subtitle="Administration" className="mb-7" />
+          <Wordmark size="lg" subtitle={tr("Administration")} className="mb-7" />
           <h1 className="font-display text-2xl font-semibold">{title}</h1>
           {subtitle && <p className="mt-1.5 text-sm text-ink-soft">{subtitle}</p>}
           <div className="mt-6">{children}</div>
         </div>
-        <p className="mt-6 text-center text-xs text-ink-soft">Administration privée · connexion sécurisée</p>
+        <p className="mt-6 text-center text-xs text-ink-soft">{tr("Administration privée · connexion sécurisée")}</p>
       </div>
     </div>
   );
@@ -35,7 +36,7 @@ function DevCode({ code }: { code?: string }) {
   if (!code) return null;
   return (
     <p className="mb-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-      🧪 Mode développement (aucun email réel) : votre code est <b className="font-mono tracking-widest">{code}</b>
+      {tr("🧪 Mode développement (aucun email réel) : votre code est")} <b className="font-mono tracking-widest">{code}</b>
     </p>
   );
 }
@@ -57,7 +58,7 @@ function CodeInput({ onComplete, disabled }: { onComplete: (code: string) => voi
       placeholder="••••••"
       disabled={disabled}
       value={value}
-      aria-label="Code reçu par email"
+      aria-label={tr("Code reçu par email")}
       onChange={(e) => {
         const v = e.target.value.replace(/\D/g, "").slice(0, 6);
         setValue(v);
@@ -113,35 +114,35 @@ export function LoginPage() {
 
   if (step === "code" && challenge) {
     return (
-      <AuthLayout title="Vérification par email" subtitle={<>Nous avons envoyé un code à 6 chiffres à <b>{challenge.hint}</b>.</>}>
+      <AuthLayout title={tr("Vérification par email")} subtitle={<>{tr("Nous avons envoyé un code à 6 chiffres à")} <b>{challenge.hint}</b>.</>}>
         <DevCode code={challenge.dev} />
         <CodeInput onComplete={submitCode} disabled={busy} />
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
         <div className="mt-4 flex justify-between text-sm">
           <button type="button" className="font-semibold text-plum-600" onClick={() => { setStep("password"); setError(null); }}>
-            ← Retour
+            {tr("← Retour")}
           </button>
-          <span className="text-ink-soft">Valable 10 minutes</span>
+          <span className="text-ink-soft">{tr("Valable 10 minutes")}</span>
         </div>
       </AuthLayout>
     );
   }
 
   return (
-    <AuthLayout title="Connexion" subtitle="Espace réservé à l'équipe Henine.">
+    <AuthLayout title={tr("Connexion")} subtitle={tr("Espace réservé à l'équipe Henine.")}>
       <form onSubmit={submitPassword} className="space-y-4">
-        <TextField label="Email" type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
-        <TextField label="Mot de passe" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
+        <TextField label={tr("Email")} type="email" autoComplete="username" required value={email} onChange={(e) => setEmail(e.target.value)} />
+        <TextField label={tr("Mot de passe")} type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)} />
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="size-4 accent-plum-600" checked={remember} onChange={(e) => setRemember(e.target.checked)} />
-          Rester connectée 30 jours sur cet appareil
+          {tr("Rester connectée 30 jours sur cet appareil")}
         </label>
         {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
         <Button type="submit" variant="primary" loading={busy} className="w-full">
-          {busy ? "Vérification…" : "Continuer"}
+          {busy ? tr("Vérification…") : tr("Continuer")}
         </Button>
         <a href="/admin/mot-de-passe-oublie" className="block text-center text-sm font-semibold text-plum-600">
-          Mot de passe oublié ?
+          {tr("Mot de passe oublié ?")}
         </a>
       </form>
     </AuthLayout>
@@ -163,7 +164,7 @@ function NewPasswordForm({ email, submitLabel, onKey }: { email: string; submitL
         e.preventDefault();
         setError(null);
         if (problem) return setError(problem);
-        if (password !== confirm) return setError("Les deux mots de passe ne correspondent pas.");
+        if (password !== confirm) return setError(tr("Les deux mots de passe ne correspondent pas."));
         setBusy(true);
         try {
           await onKey(await derivePasswordKey(email, password));
@@ -174,8 +175,8 @@ function NewPasswordForm({ email, submitLabel, onKey }: { email: string; submitL
         }
       }}
     >
-      <TextField label="Nouveau mot de passe" hint="10 caractères min." type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} error={problem} />
-      <TextField label="Confirmer" type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+      <TextField label={tr("Nouveau mot de passe")} hint={tr("10 caractères min.")} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} error={problem} />
+      <TextField label={tr("Confirmer")} type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
       {error && <p role="alert" className="text-sm text-red-700">{error}</p>}
       <Button type="submit" variant="primary" loading={busy} className="w-full">
         {submitLabel}
@@ -194,11 +195,11 @@ export function InvitationPage() {
     auth<{ email: string; name: string; role: string }>(`/invite/${encodeURIComponent(token)}`).then(setInfo, (err) => setError(errorMessage(err)));
   }, [token]);
 
-  if (error && !info) return <AuthLayout title="Invitation">{<p className="text-sm text-red-700">{error}</p>}</AuthLayout>;
-  if (!info) return <AuthLayout title="Invitation"><div className="skeleton h-24" /></AuthLayout>;
+  if (error && !info) return <AuthLayout title={tr("Invitation")}>{<p className="text-sm text-red-700">{error}</p>}</AuthLayout>;
+  if (!info) return <AuthLayout title={tr("Invitation")}><div className="skeleton h-24" /></AuthLayout>;
   if (challenge) {
     return (
-      <AuthLayout title="Confirmez votre email" subtitle={<>Code envoyé à <b>{info.email}</b>.</>}>
+      <AuthLayout title={tr("Confirmez votre email")} subtitle={<>{tr("Code envoyé à")} <b>{info.email}</b>.</>}>
         <DevCode code={challenge.dev} />
         <CodeInput
           disabled={busy}
@@ -219,7 +220,7 @@ export function InvitationPage() {
     );
   }
   return (
-    <AuthLayout title={`Bienvenue ${info.name} 🌸`} subtitle={<>Vous rejoignez l'équipe en tant que <b>{info.role}</b>. Choisissez votre mot de passe pour <b>{info.email}</b>.</>}>
+    <AuthLayout title={tr("Bienvenue {0} 🌸", { 0: info.name })} subtitle={<>{tr("Vous rejoignez l'équipe en tant que")} <b>{info.role}</b>{tr(". Choisissez votre mot de passe pour")} <b>{info.email}</b>.</>}>
       <NewPasswordForm
         email={info.email}
         submitLabel="Activer mon compte"
@@ -241,21 +242,21 @@ export function ForgotPage() {
 
   if (step === "email") {
     return (
-      <AuthLayout title="Mot de passe oublié" subtitle="Indiquez votre email d'équipe.">
+      <AuthLayout title={tr("Mot de passe oublié")} subtitle={tr("Indiquez votre email d'équipe.")}>
         <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); if (email.includes("@")) setStep("password"); }}>
-          <TextField label="Email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <Button type="submit" variant="primary" className="w-full">Continuer</Button>
-          <a href="/admin/connexion" className="block text-center text-sm font-semibold text-plum-600">← Connexion</a>
+          <TextField label={tr("Email")} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <Button type="submit" variant="primary" className="w-full">{tr("Continuer")}</Button>
+          <a href="/admin/connexion" className="block text-center text-sm font-semibold text-plum-600">{tr("← Connexion")}</a>
         </form>
       </AuthLayout>
     );
   }
   if (step === "password") {
     return (
-      <AuthLayout title="Nouveau mot de passe" subtitle="Un code de confirmation sera envoyé à votre email.">
+      <AuthLayout title={tr("Nouveau mot de passe")} subtitle={tr("Un code de confirmation sera envoyé à votre email.")}>
         <NewPasswordForm
           email={email}
-          submitLabel="Recevoir le code"
+          submitLabel={tr("Recevoir le code")}
           onKey={async (key) => {
             const res = await auth<{ challenge: string; devCode?: string }>("/forgot", { email: email.trim(), key });
             setChallenge({ id: res.challenge, dev: res.devCode });
@@ -266,7 +267,7 @@ export function ForgotPage() {
     );
   }
   return (
-    <AuthLayout title="Code de confirmation" subtitle="Si ce compte existe, un code vient d'être envoyé.">
+    <AuthLayout title={tr("Code de confirmation")} subtitle={tr("Si ce compte existe, un code vient d'être envoyé.")}>
       <DevCode code={challenge?.dev} />
       <CodeInput
         disabled={busy}

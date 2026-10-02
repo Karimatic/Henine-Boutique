@@ -183,3 +183,14 @@
     margin-bottom: 4mm;
   }
 }
+
+/* Arabic admin: Arabic letters in the system's Arabic font, arrows pointing the other way */
+html[lang="ar"] body {
+  font-family: "DM Sans Variable", "Segoe UI", Tahoma, "Noto Sans Arabic", "Geeza Pro", system-ui, sans-serif;
+}
+[dir="rtl"] svg.lucide-chevron-right,
+[dir="rtl"] svg.lucide-chevron-left,
+[dir="rtl"] svg.lucide-arrow-right,
+[dir="rtl"] svg.lucide-arrow-left {
+  transform: scaleX(-1);
+}

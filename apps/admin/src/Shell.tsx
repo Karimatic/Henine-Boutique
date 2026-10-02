@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { api, ApiError, auth, post, type Me } from "./api";
 import { Wordmark } from "./brand";
 import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
+import { tr } from "./i18n";
 
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/me"), staleTime: 5 * 60_000, retry: false });
@@ -99,7 +100,7 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
     </Link>
   );
   return (
-    <nav className="space-y-5" aria-label="Menu de l'administration">
+    <nav className="space-y-5" aria-label={tr("Menu de l'administration")}>
       <div>{item(DASHBOARD.path, DASHBOARD.label, DASHBOARD.icon, true)}</div>
       {groups.map((g) => (
         <div key={g.label}>
@@ -140,7 +141,7 @@ function ProfileMenu({ me }: { me: Me }) {
   );
   return (
     <div ref={box} className="relative">
-      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label="Mon profil" className="rounded-full">
+      <button type="button" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open} aria-label={tr("Mon profil")} className="rounded-full">
         {avatar("size-9 text-sm")}
       </button>
       {open && (
@@ -155,14 +156,14 @@ function ProfileMenu({ me }: { me: Me }) {
           </div>
           <div className="my-1 h-px bg-line" />
           <Link to="/parametres" search={{ tab: "compte" }} role="menuitem" onClick={() => setOpen(false)} className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
-            <KeyRound className="size-4 text-ink-soft" /> Mon compte
+            <KeyRound className="size-4 text-ink-soft" /> {tr("Mon compte")}
           </Link>
           <a href="/" target="_blank" rel="noreferrer" role="menuitem" className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
-            <ExternalLink className="size-4 text-ink-soft" /> Voir la boutique
+            <ExternalLink className="size-4 text-ink-soft" /> {tr("Voir la boutique")}
           </a>
           <div className="my-1 h-px bg-line" />
           <button type="button" role="menuitem" onClick={logout} className="flex h-9 w-full items-center gap-2.5 rounded-lg px-2.5 text-sm text-red-700 hover:bg-red-50">
-            <LogOut className="size-4" /> Déconnexion
+            <LogOut className="size-4" /> {tr("Déconnexion")}
           </button>
         </div>
       )}
@@ -225,25 +226,25 @@ export function Shell() {
         className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-line bg-sidebar transition-[width] duration-200 md:flex ${collapsed ? "w-[4.25rem]" : "w-64"}`}
       >
         <Link to="/" className={`flex h-16 shrink-0 items-center ${collapsed ? "justify-center" : "px-4"}`}>
-          <Wordmark size="sm" subtitle="Administration" iconOnly={collapsed} badge />
+          <Wordmark size="sm" subtitle={tr("Administration")} iconOnly={collapsed} badge />
         </Link>
         <div className={`flex-1 overflow-y-auto py-4 ${collapsed ? "px-2" : "px-3"}`}>
           <SidebarNav groups={groups} collapsed={collapsed} />
         </div>
         {me.data.dev && !collapsed && (
-          <p className="m-3 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-medium text-amber-900">Mode développement</p>
+          <p className="m-3 rounded-lg bg-amber-100 px-2.5 py-1.5 text-xs font-medium text-amber-900">{tr("Mode développement")}</p>
         )}
       </aside>
 
       {/* Phone sidebar */}
       {drawer &&
         createPortal(
-          <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Menu">
-            <button type="button" aria-label="Fermer" className="animate-fade absolute inset-0 bg-ink/40" onClick={() => setDrawer(false)} />
+          <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label={tr("Menu")}>
+            <button type="button" aria-label={tr("Fermer")} className="animate-fade absolute inset-0 bg-ink/40" onClick={() => setDrawer(false)} />
             <aside className="animate-drawer absolute inset-y-0 start-0 flex w-[min(18rem,86vw)] flex-col bg-white shadow-2xl">
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-line/60 px-4">
-                <Wordmark size="sm" subtitle="Administration" />
-                <button type="button" onClick={() => setDrawer(false)} aria-label="Fermer" className="grid size-9 place-items-center rounded-lg hover:bg-rose-100">
+                <Wordmark size="sm" subtitle={tr("Administration")} />
+                <button type="button" onClick={() => setDrawer(false)} aria-label={tr("Fermer")} className="grid size-9 place-items-center rounded-lg hover:bg-rose-100">
                   <X className="size-5" />
                 </button>
               </div>
@@ -259,15 +260,15 @@ export function Shell() {
         <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between gap-3 px-3 sm:px-6 md:h-16">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-              <button type="button" onClick={toggle} aria-label="Afficher / masquer le menu" className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-soft hover:bg-rose-100 hover:text-plum-700">
+              <button type="button" onClick={toggle} aria-label={tr("Afficher / masquer le menu")} className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-soft hover:bg-rose-100 hover:text-plum-700">
                 <PanelLeft className="hidden size-5 md:block" />
                 <Menu className="size-5 md:hidden" />
               </button>
               <span className="hidden h-4 w-px bg-line sm:block" aria-hidden="true" />
-              <Link to="/" className="md:hidden" aria-label="Tableau de bord">
+              <Link to="/" className="md:hidden" aria-label={tr("Tableau de bord")}>
                 <Wordmark size="sm" />
               </Link>
-              <ol className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex" aria-label="Fil d'Ariane">
+              <ol className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex" aria-label={tr("Fil d'Ariane")}>
                 {crumbs.map((c, i) => (
                   <li key={c + i} className="flex min-w-0 items-center gap-1.5">
                     {i > 0 && <ChevronRight className="size-3.5 shrink-0 text-ink-soft/60" />}
@@ -281,8 +282,8 @@ export function Shell() {
                 href="/"
                 target="_blank"
                 rel="noreferrer"
-                title="Voir la boutique"
-                aria-label="Voir la boutique"
+                title={tr("Voir la boutique")}
+                aria-label={tr("Voir la boutique")}
                 className="grid size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700"
               >
                 <Store className="size-5" strokeWidth={1.8} />
@@ -295,8 +296,8 @@ export function Shell() {
           <Outlet />
         </main>
         <footer className="mx-auto hidden w-full max-w-[90rem] items-center justify-between px-6 pb-6 text-xs text-ink-soft md:flex">
-          <span>© {new Date().getFullYear()} Henine Boutique · Administration</span>
-          <span>Boumerdès · 69 wilayas</span>
+          <span>© {new Date().getFullYear()} {tr("Henine Boutique · Administration")}</span>
+          <span>{tr("Boumerdès · 69 wilayas")}</span>
         </footer>
       </div>
 
@@ -343,10 +344,10 @@ export function MoreMenu() {
       ))}
       <div className="flex gap-3">
         <a href="/" target="_blank" rel="noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-white font-semibold">
-          <ExternalLink className="size-4" /> Voir la boutique
+          <ExternalLink className="size-4" /> {tr("Voir la boutique")}
         </a>
         <button type="button" onClick={logout} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white font-semibold text-red-700">
-          <LogOut className="size-4" /> Déconnexion
+          <LogOut className="size-4" /> {tr("Déconnexion")}
         </button>
       </div>
     </div>
@@ -379,10 +380,10 @@ function AccessProblem({ error }: { error: Error }) {
     <div className="grid min-h-dvh place-items-center p-6 text-center">
       <div className="max-w-sm">
         <Wordmark size="lg" className="mb-6" />
-        <p className="text-lg font-semibold">Connexion au serveur impossible</p>
+        <p className="text-lg font-semibold">{tr("Connexion au serveur impossible")}</p>
         <p className="mt-2 text-sm text-ink-soft">{error.message}</p>
         <button type="button" onClick={() => location.reload()} className="mt-6 h-10 rounded-lg bg-plum-600 px-5 font-semibold text-white">
-          Réessayer
+          {tr("Réessayer")}
         </button>
       </div>
     </div>

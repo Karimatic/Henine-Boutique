@@ -4,6 +4,7 @@ import { api } from "../api";
 import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import { CHANNEL_LABEL, da } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
+import { tr } from "../i18n";
 
 interface StatsData {
   range: { since: number; until: number; label: string; days: number };
@@ -51,8 +52,8 @@ function DailyChart({ data, since, days }: { data: StatsData["daily"]; since: nu
   const ticks = [0, Math.floor(series.length / 2), series.length - 1];
 
   return (
-    <Card title="Évolution" actions={<Pills value={metric} onChange={setMetric} options={[{ value: "orders", label: "Commandes" }, { value: "revenue", label: "CA" }]} />}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-48 w-full" role="img" aria-label={`${metric === "orders" ? "Commandes" : "Chiffre d'affaires"} par jour`}>
+    <Card title={tr("Évolution")} actions={<Pills value={metric} onChange={setMetric} options={[{ value: "orders", label: tr("Commandes") }, { value: "revenue", label: tr("CA") }]} />}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-48 w-full" role="img" aria-label={tr("{0} par jour", { 0: metric === "orders" ? "Commandes" : "Chiffre d'affaires" })}>
         <line x1={pad.l} x2={W - pad.r} y1={H - pad.b} y2={H - pad.b} stroke="var(--color-line)" />
         {series.map((s, i) => {
           const h = ((H - pad.t - pad.b) * s.value) / max;
@@ -81,7 +82,7 @@ function DailyChart({ data, since, days }: { data: StatsData["daily"]; since: nu
 /** Horizontal bars with the value printed at the end: easy to read on a phone. */
 function BarList({ rows }: { rows: { label: string; value: number; display: string; sub?: string }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
-  if (!rows.length) return <p className="text-sm text-ink-soft">Pas encore de données.</p>;
+  if (!rows.length) return <p className="text-sm text-ink-soft">{tr("Pas encore de données.")}</p>;
   return (
     <ul className="space-y-2">
       {rows.map((r) => (
@@ -105,27 +106,27 @@ function HoursChart({ hours }: { hours: StatsData["hours"] }) {
   const best = values.indexOf(Math.max(...values));
   return (
     <div>
-      <div className="flex h-24 items-end gap-0.5" role="img" aria-label="Commandes par heure">
+      <div className="flex h-24 items-end gap-0.5" role="img" aria-label={tr("Commandes par heure")}>
         {values.map((v, h) => (
-          <div key={h} className="flex-1 rounded-t" style={{ height: `${Math.max(2, (v / max) * 100)}%`, background: h === best && v > 0 ? "var(--color-plum-600)" : "var(--color-rose-300)" }} title={`${h}h : ${v} commande(s)`} />
+          <div key={h} className="flex-1 rounded-t" style={{ height: `${Math.max(2, (v / max) * 100)}%`, background: h === best && v > 0 ? "var(--color-plum-600)" : "var(--color-rose-300)" }} title={tr("{0}h : {1} commande(s)", { 0: h, 1: v })} />
         ))}
       </div>
-      <div className="mt-1 flex justify-between text-[10px] text-ink-soft"><span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span></div>
-      {Math.max(...values) > 0 && <p className="mt-2 text-sm">Heure la plus active : <b>{best}h–{best + 1}h</b> (idéal pour publier sur Instagram).</p>}
+      <div className="mt-1 flex justify-between text-[10px] text-ink-soft"><span>0h</span><span>6h</span><span>{tr("12h")}</span><span>{tr("18h")}</span><span>{tr("23h")}</span></div>
+      {Math.max(...values) > 0 && <p className="mt-2 text-sm">{tr("Heure la plus active :")} <b>{best}{tr("h–")}{best + 1}h</b> {tr("(idéal pour publier sur Instagram).")}</p>}
     </div>
   );
 }
 
 const RANGES = [
-  { value: "today", label: "Aujourd'hui" },
-  { value: "7", label: "7 jours" },
-  { value: "30", label: "30 jours" },
-  { value: "90", label: "90 jours" },
-  { value: "365", label: "1 an" },
-  { value: "custom", label: "Période…" },
+  { value: "today", label: tr("Aujourd'hui") },
+  { value: "7", label: tr("7 jours") },
+  { value: "30", label: tr("30 jours") },
+  { value: "90", label: tr("90 jours") },
+  { value: "365", label: tr("1 an") },
+  { value: "custom", label: tr("Période…") },
 ];
 
-const REASON_LABEL = (r: string) => (r === "unknown" ? "Non précisé" : (OUTCOME_REASON_LABEL[r as OutcomeReason] ?? r));
+const REASON_LABEL = (r: string) => (r === "unknown" ? "Non précisé" : (tr(OUTCOME_REASON_LABEL[r as OutcomeReason]) ?? r));
 
 type WilayaSort = "orders" | "revenue" | "deliveryRate" | "returned";
 
@@ -134,7 +135,7 @@ function WilayaTable({ rows }: { rows: StatsData["wilayas"] }) {
   const [all, setAll] = useState(false);
   const sorted = [...rows].sort((a, b) => (sort === "deliveryRate" ? (b.deliveryRate ?? -1) - (a.deliveryRate ?? -1) : (b[sort] ?? 0) - (a[sort] ?? 0)));
   const shown = all ? sorted : sorted.slice(0, 12);
-  if (!rows.length) return <p className="text-sm text-ink-soft">Pas encore de commandes sur la période.</p>;
+  if (!rows.length) return <p className="text-sm text-ink-soft">{tr("Pas encore de commandes sur la période.")}</p>;
   const th = (k: WilayaSort, label: string) => (
     <th className="px-2 py-2 text-end">
       <button type="button" onClick={() => setSort(k)} className={`font-semibold ${sort === k ? "text-plum-700 underline" : ""}`}>{label}</button>
@@ -146,10 +147,10 @@ function WilayaTable({ rows }: { rows: StatsData["wilayas"] }) {
         <table className="w-full min-w-[34rem] text-sm">
           <thead className="text-xs text-ink-soft">
             <tr className="border-b border-line">
-              <th className="px-2 py-2 text-start">Wilaya</th>
-              {th("orders", "Commandes")}
-              <th className="px-2 py-2 text-end">Livrées</th>
-              <th className="px-2 py-2 text-end">Annulées</th>
+              <th className="px-2 py-2 text-start">{tr("Wilaya")}</th>
+              {th("orders", tr("Commandes"))}
+              <th className="px-2 py-2 text-end">{tr("Livrées")}</th>
+              <th className="px-2 py-2 text-end">{tr("Annulées")}</th>
               {th("returned", "Retours")}
               {th("deliveryRate", "Taux livr.")}
               {th("revenue", "CA")}
@@ -172,10 +173,10 @@ function WilayaTable({ rows }: { rows: StatsData["wilayas"] }) {
       </div>
       {rows.length > 12 && (
         <button type="button" onClick={() => setAll(!all)} className="mt-2 text-sm font-semibold text-plum-600">
-          {all ? "Voir moins" : `Voir les ${rows.length} wilayas`}
+          {all ? tr("Voir moins") : tr("Voir les {0} wilayas", { 0: rows.length })}
         </button>
       )}
-      <p className="mt-2 text-xs text-ink-soft">Taux de livraison = livrées ÷ (livrées + retours), sur les colis dont l'issue est connue.</p>
+      <p className="mt-2 text-xs text-ink-soft">{tr("Taux de livraison = livrées ÷ (livrées + retours), sur les colis dont l'issue est connue.")}</p>
     </div>
   );
 }
@@ -195,94 +196,94 @@ export function StatsPage() {
   return (
     <div className="space-y-4">
       <PageHeader
-        group="Analyse"
-        title="Statistiques"
-        subtitle="Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires."
-        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">Export CSV</a>}
+        group={tr("Analyse")}
+        title={tr("Statistiques")}
+        subtitle={tr("Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires.")}
+        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
       />
       <Pills value={range} onChange={setRange} options={RANGES} />
       {range === "custom" && (
         <div className="flex flex-wrap items-end gap-3">
-          <TextField label="Du" type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
-          <TextField label="Au" type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} />
+          <TextField label={tr("Du")} type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} />
+          <TextField label={tr("Au")} type="date" value={to} min={from} max={today} onChange={(e) => setTo(e.target.value)} />
         </div>
       )}
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !d ? <ListSkeleton rows={4} /> : (
         <>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <Stat label="Commandes" value={d.totals.orders} hint={`${d.totals.placed} passées · ${d.totals.customers} clientes`} />
-            <Stat label="Chiffre d'affaires" value={da(d.totals.revenue)} hint="commandé, hors annulées" />
-            <Stat label="Encaissé (livrées)" value={da(d.totals.deliveredRevenue)} tone="good" />
-            <Stat label="Panier moyen" value={da(d.totals.avgBasket)} />
-            <Stat label="Livrées" value={d.totals.delivered} tone="good" hint={`taux ${pct(d.totals.deliveryRate)}`} />
-            <Stat label="En attente" value={d.totals.pending} hint={`+ ${d.totals.inProgress} en cours`} tone={d.totals.pending ? "warn" : undefined} />
-            <Stat label="Annulées" value={d.totals.cancelled} hint={`confirmation ${pct(d.totals.confirmRate)}`} />
-            <Stat label="Retours" value={d.totals.returned} hint={`taux ${pct(d.totals.returnRate)}`} tone={(d.totals.returnRate ?? 0) > 20 ? "warn" : undefined} />
+            <Stat label={tr("Commandes")} value={d.totals.orders} hint={tr("{0} passées · {1} clientes", { 0: d.totals.placed, 1: d.totals.customers })} />
+            <Stat label={tr("Chiffre d'affaires")} value={da(d.totals.revenue)} hint={tr("commandé, hors annulées")} />
+            <Stat label={tr("Encaissé (livrées)")} value={da(d.totals.deliveredRevenue)} tone="good" />
+            <Stat label={tr("Panier moyen")} value={da(d.totals.avgBasket)} />
+            <Stat label={tr("Livrées")} value={d.totals.delivered} tone="good" hint={tr("taux {0}", { 0: pct(d.totals.deliveryRate) })} />
+            <Stat label={tr("En attente")} value={d.totals.pending} hint={tr("+ {0} en cours", { 0: d.totals.inProgress })} tone={d.totals.pending ? "warn" : undefined} />
+            <Stat label={tr("Annulées")} value={d.totals.cancelled} hint={tr("confirmation {0}", { 0: pct(d.totals.confirmRate) })} />
+            <Stat label={tr("Retours")} value={d.totals.returned} hint={tr("taux {0}", { 0: pct(d.totals.returnRate) })} tone={(d.totals.returnRate ?? 0) > 20 ? "warn" : undefined} />
           </div>
           {d.range.days > 1 && <DailyChart data={d.daily} since={d.range.since} days={d.range.days} />}
-          <Card title="Entonnoir des commandes">
+          <Card title={tr("Entonnoir des commandes")}>
             <BarList
               rows={[
-                { label: "Passées", value: d.funnel.placed, display: String(d.funnel.placed) },
-                { label: "Confirmées", value: d.funnel.confirmed, display: String(d.funnel.confirmed) },
-                { label: "Expédiées", value: d.funnel.shipped, display: String(d.funnel.shipped) },
-                { label: "Livrées", value: d.funnel.delivered, display: String(d.funnel.delivered) },
-                { label: "Retours", value: d.funnel.returned, display: String(d.funnel.returned) },
-                { label: "Annulées", value: d.funnel.cancelled, display: String(d.funnel.cancelled) },
+                { label: tr("Passées"), value: d.funnel.placed, display: String(d.funnel.placed) },
+                { label: tr("Confirmées"), value: d.funnel.confirmed, display: String(d.funnel.confirmed) },
+                { label: tr("Expédiées"), value: d.funnel.shipped, display: String(d.funnel.shipped) },
+                { label: tr("Livrées"), value: d.funnel.delivered, display: String(d.funnel.delivered) },
+                { label: tr("Retours"), value: d.funnel.returned, display: String(d.funnel.returned) },
+                { label: tr("Annulées"), value: d.funnel.cancelled, display: String(d.funnel.cancelled) },
               ]}
             />
           </Card>
-          <Card title="Wilayas">
+          <Card title={tr("Wilayas")}>
             <WilayaTable rows={d.wilayas} />
           </Card>
           <div className="grid gap-4 md:grid-cols-2">
-            <Card title="Pourquoi les retours ?">
+            <Card title={tr("Pourquoi les retours ?")}>
               <BarList rows={returnReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
             </Card>
-            <Card title="Pourquoi les annulations ?">
+            <Card title={tr("Pourquoi les annulations ?")}>
               <BarList rows={cancelReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
             </Card>
           </div>
-          <Card title="Livraison">
+          <Card title={tr("Livraison")}>
             {dl && (
               <>
                 <div className="grid grid-cols-2 gap-3">
                   <Stat
-                    label="Préparation (confirmée → expédiée)"
+                    label={tr("Préparation (confirmée → expédiée)")}
                     value={dl.prepHoursMedian == null ? "—" : `${dl.prepHoursMedian} h`}
-                    hint={dl.prepHoursMedian == null ? `pas assez de données (${dl.prepSample}/${dl.minSample})` : `médiane sur ${dl.prepSample} colis`}
+                    hint={dl.prepHoursMedian == null ? tr("pas assez de données ({0}/{1})", { 0: dl.prepSample, 1: dl.minSample }) : tr("médiane sur {0} colis", { 0: dl.prepSample })}
                   />
                   <Stat
-                    label="Transport (expédiée → livrée)"
+                    label={tr("Transport (expédiée → livrée)")}
                     value={dl.shipDaysMedian == null ? "—" : `${dl.shipDaysMedian} j`}
-                    hint={dl.shipDaysMedian == null ? `pas assez de données (${dl.shipSample}/${dl.minSample})` : `médiane sur ${dl.shipSample} colis`}
+                    hint={dl.shipDaysMedian == null ? tr("pas assez de données ({0}/{1})", { 0: dl.shipSample, 1: dl.minSample }) : tr("médiane sur {0} colis", { 0: dl.shipSample })}
                   />
                 </div>
                 <ul className="mt-4 divide-y divide-line text-sm">
                   {dl.byType.map((t) => (
                     <li key={t.type} className="flex flex-wrap items-center justify-between gap-2 py-2">
-                      <span className="font-medium">{t.type === "bureau" ? "🏢 Bureau (stop-desk)" : "🏠 Domicile"}</span>
+                      <span className="font-medium">{t.type === "bureau" ? tr("🏢 Bureau (stop-desk)") : tr("🏠 Domicile")}</span>
                       <span className="text-ink-soft">
-                        {t.shipped} expédiée(s) · {t.delivered} livrée(s) · {t.returned} retour(s) · taux <b className="text-ink">{pct(t.deliveryRate)}</b>
-                        {t.avg_days != null ? ` · ${t.avg_days} j en moyenne` : ""}
+                        {t.shipped} {tr("expédiée(s) ·")} {t.delivered} {tr("livrée(s) ·")} {t.returned} {tr("retour(s) · taux")} <b className="text-ink">{pct(t.deliveryRate)}</b>
+                        {t.avg_days != null ? tr(" · {0} j en moyenne", { 0: t.avg_days }) : ""}
                       </span>
                     </li>
                   ))}
                 </ul>
                 <p className="mt-2 text-xs text-ink-soft">
-                  Durées calculées à partir des changements de statut (Expédiée, Livrée) ; elles ne s'affichent qu'à partir de {dl.minSample} colis pour rester fiables.
+                  {tr("Durées calculées à partir des changements de statut (Expédiée, Livrée) ; elles ne s'affichent qu'à partir de")} {dl.minSample} {tr("colis pour rester fiables.")}
                 </p>
               </>
             )}
           </Card>
           <div className="grid gap-4 md:grid-cols-2">
-            <Card title="Produits les plus vendus">
+            <Card title={tr("Produits les plus vendus")}>
               <BarList rows={d.topProducts.map((p) => ({ label: p.name_fr, value: p.units, display: `${p.units} pcs`, sub: da(p.revenue) }))} />
             </Card>
-            <Card title="Canaux">
-              <BarList rows={d.channels.map((c) => ({ label: CHANNEL_LABEL[c.channel] ?? c.channel, value: c.revenue, display: da(c.revenue), sub: `${c.orders} cmd` }))} />
+            <Card title={tr("Canaux")}>
+              <BarList rows={d.channels.map((c) => ({ label: tr(CHANNEL_LABEL[c.channel]) ?? c.channel, value: c.revenue, display: da(c.revenue), sub: `${c.orders} cmd` }))} />
             </Card>
-            <Card title="Heures des commandes (Algérie)">
+            <Card title={tr("Heures des commandes (Algérie)")}>
               <HoursChart hours={d.hours} />
             </Card>
           </div>

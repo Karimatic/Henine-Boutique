@@ -8,6 +8,7 @@ import { useCan } from "../Shell";
 import { Badge, Button, ErrorState, inputCls, ListSkeleton, PageHeader, useToast } from "../ui";
 import { ContactSettingsCard, StoreTextsEditor, type ContactSettings, type Overrides } from "./Marketing";
 import { IntegrationsSection, MyAccount } from "./System";
+import { tr } from "../i18n";
 
 /**
  * Every store setting in one place, one topic per tab (like the template's settings page):
@@ -27,12 +28,12 @@ interface HomeSettings {
 type TabKey = "boutique" | "commandes" | "textes" | "contact" | "compte" | "connexions";
 
 const TABS: { key: TabKey; label: string; icon: LucideIcon; perm: Parameters<ReturnType<typeof useCan>>[0] }[] = [
-  { key: "boutique", label: "Boutique", icon: Store, perm: "marketing.edit" },
-  { key: "commandes", label: "Commandes & livraison", icon: ShoppingBag, perm: "marketing.edit" },
-  { key: "textes", label: "Textes", icon: Type, perm: "marketing.edit" },
-  { key: "contact", label: "Contact & réseaux", icon: Phone, perm: "marketing.edit" },
-  { key: "compte", label: "Mon compte", icon: KeyRound, perm: "dashboard.view" },
-  { key: "connexions", label: "Connexions", icon: Plug, perm: "integrations.manage" },
+  { key: "boutique", label: tr("Boutique"), icon: Store, perm: "marketing.edit" },
+  { key: "commandes", label: tr("Commandes & livraison"), icon: ShoppingBag, perm: "marketing.edit" },
+  { key: "textes", label: tr("Textes"), icon: Type, perm: "marketing.edit" },
+  { key: "contact", label: tr("Contact & réseaux"), icon: Phone, perm: "marketing.edit" },
+  { key: "compte", label: tr("Mon compte"), icon: KeyRound, perm: "dashboard.view" },
+  { key: "connexions", label: tr("Connexions"), icon: Plug, perm: "integrations.manage" },
 ];
 
 export function SettingsPage() {
@@ -45,8 +46,8 @@ export function SettingsPage() {
 
   return (
     <div>
-      <PageHeader group="Système" title="Paramètres" subtitle="Tous les réglages de la boutique au même endroit. Les changements s'appliquent tout de suite sur la boutique." />
-      <div className="-mx-4 mb-6 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0" role="tablist" aria-label="Rubriques des paramètres">
+      <PageHeader group={tr("Système")} title={tr("Paramètres")} subtitle={tr("Tous les réglages de la boutique au même endroit. Les changements s'appliquent tout de suite sur la boutique.")} />
+      <div className="-mx-4 mb-6 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0" role="tablist" aria-label={tr("Rubriques des paramètres")}>
         <div className="flex w-max gap-1">
           {tabs.map((t) => (
             <button
@@ -128,7 +129,7 @@ function SaveBox({ value, saved, onChange, onSave, busy, suffix, type = "text", 
         {suffix && <span className="pointer-events-none absolute inset-y-0 end-3 grid place-items-center text-sm text-ink-soft">{suffix}</span>}
       </div>
       <Button variant="primary" disabled={value === saved} loading={busy} onClick={onSave}>
-        Enregistrer
+        {tr("Enregistrer")}
       </Button>
     </div>
   );
@@ -153,7 +154,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
 
   const done = (ok: string) => ({
     onSuccess: () => {
-      toast(ok);
+      toast(tr(ok));
       void qc.invalidateQueries({ queryKey: ["home"] });
       void qc.invalidateQueries({ queryKey: ["coupons"] });
     },
@@ -184,23 +185,23 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
   if (tab === "boutique")
     return (
       <Panel>
-        <Row title="Nom de la boutique" help="Affiché dans l'onglet du navigateur, les messages et les partages sur les réseaux.">
+        <Row title={tr("Nom de la boutique")} help={tr("Affiché dans l'onglet du navigateur, les messages et les partages sur les réseaux.")}>
           {can("content.edit") ? (
             <SaveBox value={name} saved={h.store.name} onChange={setName} busy={saveName.isPending} onSave={() => saveName.mutate(name.trim())} />
           ) : (
             <p className="font-medium">{h.store.name}</p>
           )}
         </Row>
-        <Row title="Bandeau d'annonces" help="La petite bande rose tout en haut de la boutique (livraison 69 wilayas, paiement à la livraison…).">
-          <Switch checked={h.announcement.active} onChange={(v) => apply({ announcement: { active: v } })} on="Affiché sur la boutique" off="Masqué" />
+        <Row title={tr("Bandeau d'annonces")} help={tr("La petite bande rose tout en haut de la boutique (livraison 69 wilayas, paiement à la livraison…).")}>
+          <Switch checked={h.announcement.active} onChange={(v) => apply({ announcement: { active: v } })} on={tr("Affiché sur la boutique")} off={tr("Masqué")} />
           {textsLink("Modifier les messages du bandeau")}
         </Row>
         <Row
-          title="Mettre les commandes en pause"
-          help="Pour les vacances ou un inventaire : la boutique reste visible, mais les clientes ne peuvent plus commander et voient un message poli."
+          title={tr("Mettre les commandes en pause")}
+          help={tr("Pour les vacances ou un inventaire : la boutique reste visible, mais les clientes ne peuvent plus commander et voient un message poli.")}
         >
-          <Switch checked={h.maintenance.active} onChange={(v) => apply({ maintenance: { active: v } })} on="Commandes en pause" off="Commandes ouvertes ✓" warn />
-          {h.maintenance.active && <p className="mt-2 text-sm text-amber-800">⚠️ Aucune nouvelle commande n'est possible tant que c'est activé.</p>}
+          <Switch checked={h.maintenance.active} onChange={(v) => apply({ maintenance: { active: v } })} on={tr("Commandes en pause")} off={tr("Commandes ouvertes ✓")} warn />
+          {h.maintenance.active && <p className="mt-2 text-sm text-amber-800">{tr("⚠️ Aucune nouvelle commande n'est possible tant que c'est activé.")}</p>}
           {textsLink("Modifier le message de pause")}
         </Row>
       </Panel>
@@ -211,26 +212,26 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
     const max = Math.max(1, Math.min(20, Math.round(Number(maxOrders) || 3)));
     return (
       <Panel>
-        <Row title="Commande rapide sur la fiche produit" help="La cliente remplit son nom, son téléphone et sa wilaya directement sur la page du produit, sans passer par le panier. Recommandé : plus de commandes.">
-          <Switch checked={h.checkout.express_on_product} onChange={(v) => apply({ checkout: { express_on_product: v } })} on="Activée" off="Désactivée (passage par le panier)" />
+        <Row title={tr("Commande rapide sur la fiche produit")} help={tr("La cliente remplit son nom, son téléphone et sa wilaya directement sur la page du produit, sans passer par le panier. Recommandé : plus de commandes.")}>
+          <Switch checked={h.checkout.express_on_product} onChange={(v) => apply({ checkout: { express_on_product: v } })} on={tr("Activée")} off={tr("Désactivée (passage par le panier)")} />
         </Row>
-        <Row title="Livraison au bureau (stop-desk)" help="Proposer le retrait au bureau ZR Express, moins cher que la livraison à domicile.">
-          <Switch checked={h.checkout.desk_enabled} onChange={(v) => apply({ checkout: { desk_enabled: v } })} on="Proposée aux clientes" off="Non proposée (domicile seulement)" />
+        <Row title={tr("Livraison au bureau (stop-desk)")} help={tr("Proposer le retrait au bureau ZR Express, moins cher que la livraison à domicile.")}>
+          <Switch checked={h.checkout.desk_enabled} onChange={(v) => apply({ checkout: { desk_enabled: v } })} on={tr("Proposée aux clientes")} off={tr("Non proposée (domicile seulement)")} />
         </Row>
         <Row
-          title="Livraison offerte"
+          title={tr("Livraison offerte")}
           help={
             <>
-              La livraison devient gratuite à partir de ce montant de panier. Laissez vide pour ne jamais l'offrir.
-              {h.checkout.free_shipping_over != null && <Badge tone="ms-1 bg-emerald-100 text-emerald-800">actuellement dès {da(h.checkout.free_shipping_over)}</Badge>}
+              {tr("La livraison devient gratuite à partir de ce montant de panier. Laissez vide pour ne jamais l'offrir.")}
+              {h.checkout.free_shipping_over != null && <Badge tone="ms-1 bg-emerald-100 text-emerald-800">{tr("actuellement dès")} {da(h.checkout.free_shipping_over)}</Badge>}
             </>
           }
         >
           <SaveBox
             type="number"
-            suffix="DA"
+            suffix={tr("DA")}
             width="w-48"
-            placeholder="ex : 10000"
+            placeholder={tr("ex : 10000")}
             value={freeOver}
             saved={h.checkout.free_shipping_over == null ? "" : String(h.checkout.free_shipping_over)}
             onChange={setFreeOver}
@@ -238,7 +239,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
             onSave={() => apply({ checkout: { free_shipping_over: free } })}
           />
         </Row>
-        <Row title="Protection contre les fausses commandes" help="Nombre maximum de commandes qu'un même numéro de téléphone peut passer en une heure (entre 1 et 20).">
+        <Row title={tr("Protection contre les fausses commandes")} help={tr("Nombre maximum de commandes qu'un même numéro de téléphone peut passer en une heure (entre 1 et 20).")}>
           <SaveBox
             type="number"
             suffix="/ h"
@@ -254,7 +255,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
           />
         </Row>
         <p className="py-4 text-sm text-ink-soft">
-          Prix de livraison par wilaya : <Link to="/contenu" className="font-semibold text-plum-600">Contenu → Livraison</Link> · Codes promo : <Link to="/promos" className="font-semibold text-plum-600">Promos</Link>
+          {tr("Prix de livraison par wilaya :")} <Link to="/contenu" className="font-semibold text-plum-600">{tr("Contenu → Livraison")}</Link> {tr("· Codes promo :")} <Link to="/promos" className="font-semibold text-plum-600">{tr("Promos")}</Link>
         </p>
       </Panel>
     );
@@ -264,7 +265,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
 
   return (
     <div className="space-y-3">
-      <p className="text-sm text-ink-soft">Ces coordonnées apparaissent sur la page Contact et en bas de la boutique. Laissez une case vide pour la cacher.</p>
+      <p className="text-sm text-ink-soft">{tr("Ces coordonnées apparaissent sur la page Contact et en bas de la boutique. Laissez une case vide pour la cacher.")}</p>
       <ContactSettingsCard key={JSON.stringify(h.contact)} contact={h.contact} />
     </div>
   );

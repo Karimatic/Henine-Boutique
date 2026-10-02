@@ -5,6 +5,7 @@ import { useState } from "react";
 import { api, ApiError, errorMessage } from "../api";
 import { date } from "../lib/format";
 import { Button, Empty, ErrorState, ListSkeleton, Sheet, Spinner, useToast } from "../ui";
+import { tr } from "../i18n";
 
 /**
  * "📸 Depuis Instagram": the shop's posts, carousels opened photo by photo; the ticked photos
@@ -26,7 +27,7 @@ export function InstagramButton({ onFiles, disabled, className = "" }: { onFiles
   return (
     <>
       <Button size="sm" disabled={disabled} className={className} onClick={() => setOpen(true)}>
-        📸 Depuis Instagram
+        {tr("📸 Depuis Instagram")}
       </Button>
       {open && <InstagramPicker onClose={() => setOpen(false)} onFiles={onFiles} />}
     </>
@@ -62,7 +63,7 @@ function InstagramPicker({ onClose, onFiles }: { onClose: () => void; onFiles: (
       onFiles(files, post.permalink);
       onClose();
     } catch (e) {
-      toast(e instanceof Error && e.message === "download" ? "Photo introuvable sur Instagram, réessayez." : errorMessage(e), "error");
+      toast(e instanceof Error && e.message === "download" ? tr("Photo introuvable sur Instagram, réessayez.") : errorMessage(e), "error");
     } finally {
       setBusy(false);
     }
@@ -76,13 +77,13 @@ function InstagramPicker({ onClose, onFiles }: { onClose: () => void; onFiles: (
       open
       onClose={onClose}
       wide
-      title={post ? "Choisir les photos" : `📸 Instagram${status.data?.username ? ` · @${status.data.username}` : ""}`}
+      title={post ? tr("Choisir les photos") : tr("📸 Instagram{0}", { 0: status.data?.username ? ` · @${status.data.username}` : "" })}
       footer={
         post ? (
           <div className="flex items-center justify-between gap-2">
-            <Button onClick={() => { setPost(null); setPicked([]); }}>← Publications</Button>
+            <Button onClick={() => { setPost(null); setPicked([]); }}>{tr("← Publications")}</Button>
             <Button variant="primary" disabled={!picked.length} loading={busy} onClick={importPhotos}>
-              Importer {picked.length || ""} photo{picked.length > 1 ? "s" : ""}
+              {tr("Importer")} {picked.length || ""} {tr("photo")}{picked.length > 1 ? "s" : ""}
             </Button>
           </div>
         ) : undefined
@@ -93,17 +94,17 @@ function InstagramPicker({ onClose, onFiles }: { onClose: () => void; onFiles: (
       ) : !status.data ? (
         <ListSkeleton rows={2} />
       ) : !status.data.connected || expired ? (
-        <Empty title={expired ? "La connexion Instagram a expiré" : "Instagram n'est pas encore connecté"} icon="📸">
-          Reliez le compte de la boutique une seule fois dans{" "}
-          <Link to="/parametres" search={{ tab: "connexions" }} className="font-semibold text-plum-600">Paramètres → Connexions</Link>, puis revenez ici.
+        <Empty title={expired ? tr("La connexion Instagram a expiré") : tr("Instagram n'est pas encore connecté")} icon="📸">
+          {tr("Reliez le compte de la boutique une seule fois dans")}{" "}
+          <Link to="/parametres" search={{ tab: "connexions" }} className="font-semibold text-plum-600">{tr("Paramètres → Connexions")}</Link>{tr(", puis revenez ici.")}
         </Empty>
       ) : post ? (
         <div className="space-y-3">
           {post.caption && <p className="line-clamp-3 text-sm text-ink-soft">{post.caption}</p>}
           <div className="flex items-center justify-between text-sm">
-            <span>{post.photos.length} photo(s) dans cette publication</span>
+            <span>{post.photos.length} {tr("photo(s) dans cette publication")}</span>
             <button type="button" className="font-semibold text-plum-600" onClick={() => setPicked(picked.length === post.photos.length ? [] : post.photos.map((p) => p.id))}>
-              {picked.length === post.photos.length ? "Tout décocher" : "Tout cocher"}
+              {picked.length === post.photos.length ? tr("Tout décocher") : tr("Tout cocher")}
             </button>
           </div>
           <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -132,10 +133,10 @@ function InstagramPicker({ onClose, onFiles }: { onClose: () => void; onFiles: (
       ) : !posts.data ? (
         <ListSkeleton rows={3} />
       ) : list.length === 0 ? (
-        <Empty title="Aucune publication avec des photos" icon="📸" />
+        <Empty title={tr("Aucune publication avec des photos")} icon="📸" />
       ) : (
         <>
-          <p className="mb-3 text-sm text-ink-soft">Touchez une publication pour choisir ses photos (les vidéos ne sont pas proposées).</p>
+          <p className="mb-3 text-sm text-ink-soft">{tr("Touchez une publication pour choisir ses photos (les vidéos ne sont pas proposées).")}</p>
           <ul className="grid grid-cols-3 gap-1.5 sm:grid-cols-4">
             {list.map((p) => (
               <li key={p.id}>
@@ -155,7 +156,7 @@ function InstagramPicker({ onClose, onFiles }: { onClose: () => void; onFiles: (
           {posts.hasNextPage && (
             <div className="mt-4 flex justify-center">
               <Button onClick={() => void posts.fetchNextPage()} loading={posts.isFetchingNextPage}>
-                Publications plus anciennes
+                {tr("Publications plus anciennes")}
               </Button>
             </div>
           )}

@@ -5,6 +5,7 @@ import { api, errorMessage, post } from "../api";
 import { da, dateTime } from "../lib/format";
 import { useCan } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Sheet, Stat, TextField, useToast } from "../ui";
+import { tr } from "../i18n";
 
 interface StockRow {
   id: number;
@@ -22,8 +23,8 @@ interface StockRow {
 }
 
 const REASON: Record<string, string> = {
-  reception: "📥 Réception", ajustement: "✏️ Ajustement", casse: "💔 Casse / défaut", retour: "↩️ Retour", inventaire: "📋 Inventaire",
-  reservation: "🔒 Réservé (commande)", liberation: "🔓 Libéré (annulation)", vente: "🛍 Vendu (expédié)",
+  reception: tr("📥 Réception"), ajustement: "✏️ Ajustement", casse: tr("💔 Casse / défaut"), retour: tr("↩️ Retour"), inventaire: tr("📋 Inventaire"),
+  reservation: tr("🔒 Réservé (commande)"), liberation: tr("🔓 Libéré (annulation)"), vente: tr("🛍 Vendu (expédié)"),
 };
 
 export function StockPage() {
@@ -36,23 +37,23 @@ export function StockPage() {
   const t = data.data?.totals;
   return (
     <div>
-      <PageHeader group="Catalogue" title="Stock" actions={<Button size="sm" onClick={() => setHistory(true)}>Historique des mouvements</Button>} />
+      <PageHeader group={tr("Catalogue")} title={tr("Stock")} actions={<Button size="sm" onClick={() => setHistory(true)}>{tr("Historique des mouvements")}</Button>} />
       {t && (
         <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <Stat label="Pièces en stock" value={t.units ?? 0} />
-          <Stat label="Valeur (prix de vente)" value={da(t.retail_value)} />
-          <Stat label="Valeur (prix d'achat)" value={t.cost_value == null ? "🔒" : da(t.cost_value)} />
-          <Stat label="Ruptures / stock bas" value={`${t.out_count ?? 0} / ${t.low_count ?? 0}`} tone={(t.out_count ?? 0) > 0 ? "warn" : undefined} />
+          <Stat label={tr("Pièces en stock")} value={t.units ?? 0} />
+          <Stat label={tr("Valeur (prix de vente)")} value={da(t.retail_value)} />
+          <Stat label={tr("Valeur (prix d'achat)")} value={t.cost_value == null ? "🔒" : da(t.cost_value)} />
+          <Stat label={tr("Ruptures / stock bas")} value={`${t.out_count ?? 0} / ${t.low_count ?? 0}`} tone={(t.out_count ?? 0) > 0 ? "warn" : undefined} />
         </div>
       )}
-      <Pills value={filter} onChange={setFilter} options={[{ value: "all", label: "Tout" }, { value: "low", label: "Stock bas" }, { value: "out", label: "Ruptures" }, { value: "waiting", label: "🔔 Clientes en attente" }]} />
-      <SearchBox value={q} onChange={setQ} placeholder="Produit, SKU ou code-barres…" />
+      <Pills value={filter} onChange={setFilter} options={[{ value: "all", label: tr("Tout") }, { value: "low", label: tr("Stock bas") }, { value: "out", label: tr("Ruptures") }, { value: "waiting", label: tr("🔔 Clientes en attente") }]} />
+      <SearchBox value={q} onChange={setQ} placeholder={tr("Produit, SKU ou code-barres…")} />
       {data.error ? (
         <ErrorState error={data.error} onRetry={data.refetch} />
       ) : !data.data ? (
         <ListSkeleton />
       ) : data.data.rows.length === 0 ? (
-        <Empty title="Rien à afficher" />
+        <Empty title={tr("Rien à afficher")} />
       ) : (
         <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
           {data.data.rows.map((r) => {
@@ -62,10 +63,10 @@ export function StockPage() {
                 <button type="button" onClick={() => setAdjust(r)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30">
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium">{r.name_fr} <span className="text-ink-soft">· {r.options}</span></span>
-                    <span className="text-xs text-ink-soft">{r.sku}{r.waiting ? ` · 🔔 ${r.waiting} cliente(s) attendent` : ""}</span>
+                    <span className="text-xs text-ink-soft">{r.sku}{r.waiting ? tr(" · 🔔 {0} cliente(s) attendent", { 0: r.waiting }) : ""}</span>
                   </span>
                   <span className="flex shrink-0 items-center gap-2 text-end">
-                    {r.stock_reserved > 0 && <Badge tone="bg-sky-100 text-sky-800">{r.stock_reserved} réservé(s)</Badge>}
+                    {r.stock_reserved > 0 && <Badge tone="bg-sky-100 text-sky-800">{r.stock_reserved} {tr("réservé(s)")}</Badge>}
                     <span className={`w-12 text-lg font-semibold tabular-nums ${available <= 0 ? "text-red-700" : available <= r.low_stock_threshold ? "text-amber-700" : ""}`}>{available}</span>
                   </span>
                 </button>
@@ -92,7 +93,7 @@ function AdjustSheet({ row, onClose }: { row: StockRow; onClose: () => void }) {
   const save = useMutation({
     mutationFn: () => post(`/stock/${row.id}/adjust`, { mode, qty: qty ?? 0, reason, note: note || null }),
     onSuccess: () => {
-      toast("Stock mis à jour");
+      toast(tr("Stock mis à jour"));
       void qc.invalidateQueries({ queryKey: ["stock"] });
       void qc.invalidateQueries({ queryKey: ["movements"] });
       onClose();
@@ -102,37 +103,37 @@ function AdjustSheet({ row, onClose }: { row: StockRow; onClose: () => void }) {
   return (
     <Sheet open onClose={onClose} title={`${row.name_fr} · ${row.options}`}>
       <div className="mb-4 grid grid-cols-3 gap-2 text-center">
-        <Stat label="En stock" value={row.stock_on_hand} />
-        <Stat label="Réservé" value={row.stock_reserved} />
-        <Stat label="Disponible" value={row.stock_on_hand - row.stock_reserved} />
+        <Stat label={tr("En stock")} value={row.stock_on_hand} />
+        <Stat label={tr("Réservé")} value={row.stock_reserved} />
+        <Stat label={tr("Disponible")} value={row.stock_on_hand - row.stock_reserved} />
       </div>
       {can("stock.edit") && (
-        <Card title="Mouvement de stock">
-          <Pills value={mode} onChange={setMode} options={[{ value: "add", label: "+ Ajouter" }, { value: "remove", label: "− Retirer" }, { value: "set", label: "= Compter" }]} />
+        <Card title={tr("Mouvement de stock")}>
+          <Pills value={mode} onChange={setMode} options={[{ value: "add", label: tr("+ Ajouter") }, { value: "remove", label: tr("− Retirer") }, { value: "set", label: tr("= Compter") }]} />
           <div className="grid gap-3 sm:grid-cols-2">
-            <NumberField label={mode === "set" ? "Quantité comptée" : "Quantité"} value={qty} onChange={setQty} />
-            <Select label="Raison" value={reason} onChange={(e) => setReason(e.target.value)}>
-              <option value="reception">Réception fournisseur</option>
-              <option value="ajustement">Ajustement / correction</option>
-              <option value="casse">Casse / défaut</option>
-              <option value="retour">Retour cliente</option>
-              <option value="inventaire">Inventaire</option>
+            <NumberField label={mode === "set" ? tr("Quantité comptée") : tr("Quantité")} value={qty} onChange={setQty} />
+            <Select label={tr("Raison")} value={reason} onChange={(e) => setReason(e.target.value)}>
+              <option value="reception">{tr("Réception fournisseur")}</option>
+              <option value="ajustement">{tr("Ajustement / correction")}</option>
+              <option value="casse">{tr("Casse / défaut")}</option>
+              <option value="retour">{tr("Retour cliente")}</option>
+              <option value="inventaire">{tr("Inventaire")}</option>
             </Select>
-            <TextField label="Note (facultatif)" value={note} onChange={(e) => setNote(e.target.value)} className="sm:col-span-2" />
+            <TextField label={tr("Note (facultatif)")} value={note} onChange={(e) => setNote(e.target.value)} className="sm:col-span-2" />
           </div>
           <Button variant="primary" className="mt-3 w-full" loading={save.isPending} disabled={qty == null} onClick={() => save.mutate()}>
-            Valider
+            {tr("Valider")}
           </Button>
         </Card>
       )}
-      <h3 className="mb-2 mt-5 text-sm font-semibold">Historique</h3>
+      <h3 className="mb-2 mt-5 text-sm font-semibold">{tr("Historique")}</h3>
       {!moves.data ? <ListSkeleton rows={3} /> : <MovementList rows={moves.data} />}
     </Sheet>
   );
 }
 
 function MovementList({ rows }: { rows: { id: number; delta: number; reason: string; note: string | null; actor: string; created_at: number; public_code: string | null; name_fr?: string; sku?: string }[] }) {
-  if (!rows.length) return <p className="text-sm text-ink-soft">Aucun mouvement.</p>;
+  if (!rows.length) return <p className="text-sm text-ink-soft">{tr("Aucun mouvement.")}</p>;
   return (
     <ul className="space-y-1.5 text-sm">
       {rows.map((m) => (
@@ -151,7 +152,7 @@ function MovementList({ rows }: { rows: { id: number; delta: number; reason: str
 function HistorySheet({ open, onClose }: { open: boolean; onClose: () => void }) {
   const q = useQuery({ queryKey: ["movements", "all"], queryFn: () => api<Parameters<typeof MovementList>[0]["rows"]>("/stock/movements"), enabled: open });
   return (
-    <Sheet open={open} onClose={onClose} title="Mouvements de stock récents">
+    <Sheet open={open} onClose={onClose} title={tr("Mouvements de stock récents")}>
       {!q.data ? <ListSkeleton rows={4} /> : <MovementList rows={q.data} />}
     </Sheet>
   );

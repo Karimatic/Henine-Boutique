@@ -16,6 +16,7 @@ import { ago, CHANNEL_LABEL, da, dateTime, statusLabel, telLink, waLink } from "
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useCan } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
+import { tr } from "../i18n";
 
 interface OrderRow {
   id: number;
@@ -41,31 +42,31 @@ interface OrderRow {
 
 /** Dashboard "needs attention" shortcuts (same keys as the API's attentionSql). */
 export const ATTENTION_LABEL: Record<string, string> = {
-  to_confirm: "À confirmer",
-  callbacks: "À rappeler maintenant",
-  high_risk: "Risque élevé à vérifier",
-  stale_confirmed: "Confirmées depuis plus de 24 h",
-  stale_preparing: "En préparation depuis plus de 48 h",
-  stale_shipped: "Expédiées depuis plus de 7 jours",
-  returns: "Retours à réceptionner",
+  to_confirm: tr("À confirmer"),
+  callbacks: tr("À rappeler maintenant"),
+  high_risk: tr("Risque élevé à vérifier"),
+  stale_confirmed: tr("Confirmées depuis plus de 24 h"),
+  stale_preparing: tr("En préparation depuis plus de 48 h"),
+  stale_shipped: tr("Expédiées depuis plus de 7 jours"),
+  returns: tr("Retours à réceptionner"),
 };
 
 const TABS = [
-  { value: "active", label: "En cours" },
-  { value: "a_confirmer", label: "À confirmer" },
-  { value: "confirmee", label: "Confirmées" },
-  { value: "en_preparation", label: "Préparation" },
-  { value: "en_cours", label: "Expédiées" },
-  { value: "termine", label: "Livrées" },
-  { value: "annule", label: "Annulées / retours" },
-  { value: "all", label: "Toutes" },
+  { value: "active", label: tr("En cours") },
+  { value: "a_confirmer", label: tr("À confirmer") },
+  { value: "confirmee", label: tr("Confirmées") },
+  { value: "en_preparation", label: tr("Préparation") },
+  { value: "en_cours", label: tr("Expédiées") },
+  { value: "termine", label: tr("Livrées") },
+  { value: "annule", label: tr("Annulées / retours") },
+  { value: "all", label: tr("Toutes") },
 ];
 
 export function OrdersPage() {
   const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string };
   const navigate = useNavigate();
   const [status, setStatus] = useState(search.status ?? "active");
-  const attention = search.attention && ATTENTION_LABEL[search.attention] ? search.attention : null;
+  const attention = search.attention && tr(ATTENTION_LABEL[search.attention]) ? search.attention : null;
   const clearAttention = () => void navigate({ to: "/commandes", search: (s: Record<string, unknown>) => ({ ...s, attention: undefined }) });
   const [q, setQ] = useState("");
   const [debounced, setDebounced] = useState("");
@@ -93,48 +94,48 @@ export function OrdersPage() {
   return (
     <div>
       <PageHeader
-        group="Commandes"
-        title="Commandes"
-        subtitle={toConfirm ? `${toConfirm} à confirmer` : "Tout est à jour ✓"}
+        group={tr("Commandes")}
+        title={tr("Commandes")}
+        subtitle={toConfirm ? tr("{0} à confirmer", { 0: toConfirm }) : tr("Tout est à jour ✓")}
         actions={
           <a href="/api/admin/orders.csv?days=90" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">
-            Export CSV
+            {tr("Export CSV")}
           </a>
         }
       />
       {attention ? (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-plum-600 px-4 py-3 text-sm text-ivory">
-          <span>Filtre : <b>{ATTENTION_LABEL[attention]}</b></span>
-          <button type="button" onClick={clearAttention} className="rounded-full bg-ivory/15 px-3 py-1 font-semibold">Tout afficher ✕</button>
+          <span>{tr("Filtre :")} <b>{tr(ATTENTION_LABEL[attention])}</b></span>
+          <button type="button" onClick={clearAttention} className="rounded-full bg-ivory/15 px-3 py-1 font-semibold">{tr("Tout afficher ✕")}</button>
         </div>
       ) : (
         <Pills value={status} onChange={setStatus} options={TABS.map((t) => ({ value: t.value, label: t.value === "a_confirmer" && toConfirm ? `${t.label} (${toConfirm})` : t.label }))} />
       )}
-      <SearchBox value={q} onChange={setQ} placeholder="N° de commande, nom, téléphone…" />
+      <SearchBox value={q} onChange={setQ} placeholder={tr("N° de commande, nom, téléphone…")} />
       {list.error ? (
         <ErrorState error={list.error} onRetry={list.refetch} />
       ) : !list.data ? (
         <ListSkeleton />
       ) : list.data.rows.length === 0 ? (
-        <Empty title="Aucune commande ici">Les nouvelles commandes du site arrivent automatiquement (et sur Telegram).</Empty>
+        <Empty title={tr("Aucune commande ici")}>{tr("Les nouvelles commandes du site arrivent automatiquement (et sur Telegram).")}</Empty>
       ) : (
         <>
         <label className="mb-2 flex w-fit cursor-pointer items-center gap-2 px-1 text-sm text-ink-soft">
           <input type="checkbox" className="size-4 accent-plum-600" checked={allPicked} onChange={() => setPicked(allPicked ? [] : rows.map((r) => r.id))} />
-          Tout sélectionner ({rows.length})
+          {tr("Tout sélectionner (")}{rows.length})
         </label>
         <ul className="space-y-2">
           {list.data.rows.map((o) => (
             <li key={o.id} className="flex items-stretch gap-2">
               <label className={`grid w-10 shrink-0 cursor-pointer place-items-center rounded-xl border transition ${picked.includes(o.id) ? "border-plum-600 bg-rose-100/60" : "border-line bg-white"}`}>
-                <input type="checkbox" className="size-4 accent-plum-600" checked={picked.includes(o.id)} onChange={() => toggle(o.id)} aria-label={`Sélectionner ${o.public_code}`} />
+                <input type="checkbox" className="size-4 accent-plum-600" checked={picked.includes(o.id)} onChange={() => toggle(o.id)} aria-label={tr("Sélectionner {0}", { 0: o.public_code })} />
               </label>
               <button type="button" onClick={() => setOpen(o.id)} className="min-w-0 flex-1 rounded-xl border border-line bg-white p-3.5 text-start transition hover:border-plum-600/40 active:scale-[0.995]">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate font-semibold">{o.name}</p>
                     <p className="text-sm text-ink-soft">
-                      {o.wilaya_code} · {o.wilaya} · {o.delivery_type === "bureau" ? "Bureau" : "Domicile"}
+                      {o.wilaya_code} · {o.wilaya} · {o.delivery_type === "bureau" ? tr("Bureau") : tr("Domicile")}
                     </p>
                   </div>
                   <div className="text-end">
@@ -143,12 +144,12 @@ export function OrdersPage() {
                   </div>
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-ink-soft">
-                  <span className="font-mono">{o.public_code}</span>·<span>{ago(o.created_at)}</span>·<span>{o.items} article(s)</span>·<span>{CHANNEL_LABEL[o.channel] ?? o.channel}</span>
-                  {o.returned_count ? <Badge tone="bg-orange-100 text-orange-800">⚠ {o.returned_count} retour(s)</Badge> : null}
-                  {(o.delivered_count ?? 0) >= 2 ? <Badge tone="bg-emerald-100 text-emerald-800">Fidèle</Badge> : null}
+                  <span className="font-mono">{o.public_code}</span>·<span>{ago(o.created_at)}</span>·<span>{o.items} {tr("article(s)")}</span>·<span>{tr(CHANNEL_LABEL[o.channel]) ?? o.channel}</span>
+                  {o.returned_count ? <Badge tone="bg-orange-100 text-orange-800">⚠ {o.returned_count} {tr("retour(s)")}</Badge> : null}
+                  {(o.delivered_count ?? 0) >= 2 ? <Badge tone="bg-emerald-100 text-emerald-800">{tr("Fidèle")}</Badge> : null}
                   {o.risk.level !== "low" ? <RiskBadge level={o.risk.level} /> : null}
-                  {o.status === "injoignable" ? <Badge tone="bg-amber-100 text-amber-800">📵 {o.confirm_attempts} appel(s)</Badge> : null}
-                  {o.outcome_reason ? <Badge tone="bg-stone-100 text-stone-700">{OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason] ?? o.outcome_reason}</Badge> : null}
+                  {o.status === "injoignable" ? <Badge tone="bg-amber-100 text-amber-800">📵 {o.confirm_attempts} {tr("appel(s)")}</Badge> : null}
+                  {o.outcome_reason ? <Badge tone="bg-stone-100 text-stone-700">{tr(OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason]) ?? o.outcome_reason}</Badge> : null}
                 </div>
               </button>
             </li>
@@ -163,10 +164,10 @@ export function OrdersPage() {
 }
 
 const BULK: { to: OrderStatus; label: string; from: OrderStatus[]; perm: "orders.confirm" | "orders.ship" }[] = [
-  { to: "confirmee", label: "✅ Confirmer", from: ["nouvelle", "injoignable"], perm: "orders.confirm" },
-  { to: "en_preparation", label: "📦 En préparation", from: ["confirmee"], perm: "orders.ship" },
-  { to: "en_livraison", label: "🛵 En livraison", from: ["expediee"], perm: "orders.ship" },
-  { to: "livree", label: "🎉 Livrées", from: ["expediee", "en_livraison"], perm: "orders.ship" },
+  { to: "confirmee", label: tr("✅ Confirmer"), from: ["nouvelle", "injoignable"], perm: "orders.confirm" },
+  { to: "en_preparation", label: tr("📦 En préparation"), from: ["confirmee"], perm: "orders.ship" },
+  { to: "en_livraison", label: tr("🛵 En livraison"), from: ["expediee"], perm: "orders.ship" },
+  { to: "livree", label: tr("🎉 Livrées"), from: ["expediee", "en_livraison"], perm: "orders.ship" },
 ];
 
 /** Bottom bar shown while orders are ticked: one status for all of them, or print their slips. */
@@ -178,7 +179,7 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
   const run = useMutation({
     mutationFn: (to: OrderStatus) => post<{ done: string[]; failed: { id: number; error: string }[] }>("/orders/bulk-status", { ids, to }),
     onSuccess: (r, to) => {
-      toast(`${r.done.length} commande(s) : ${statusLabel(to)}${r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : ""}`, r.failed.length ? "error" : undefined);
+      toast(tr("{0} commande(s) : {1}{2}", { 0: r.done.length, 1: statusLabel(to), 2: r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : "" }), r.failed.length ? "error" : undefined);
       void qc.invalidateQueries({ queryKey: ["orders"] });
       void qc.invalidateQueries({ queryKey: ["dashboard"] });
       onDone();
@@ -189,8 +190,8 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
     <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-white/95 p-3 shadow-[0_-4px_16px_rgb(43_22_32/0.08)] backdrop-blur md:bottom-0 md:ps-[15rem]">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-1 md:px-8">
         <p className="me-auto text-sm">
-          <b>{ids.length}</b> sélectionnée(s)
-          <button type="button" onClick={onDone} className="ms-2 text-ink-soft underline">annuler</button>
+          <b>{ids.length}</b> {tr("sélectionnée(s)")}
+          <button type="button" onClick={onDone} className="ms-2 text-ink-soft underline">{tr("annuler")}</button>
         </p>
         {BULK.filter((b) => can(b.perm)).map((b) => {
           const n = chosen.filter((r) => b.from.includes(r.status)).length;
@@ -201,15 +202,15 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
               variant={b.to === "confirmee" ? "primary" : "secondary"}
               disabled={n === 0}
               loading={run.isPending && run.variables === b.to}
-              title={n < ids.length ? `${n} sur ${ids.length} peuvent passer à ce statut` : undefined}
-              onClick={() => confirm(`${b.label} : ${n} commande(s) ?`) && run.mutate(b.to)}
+              title={n < ids.length ? tr("{0} sur {1} peuvent passer à ce statut", { 0: n, 1: ids.length }) : undefined}
+              onClick={() => confirm(tr("{0} : {1} commande(s) ?", { 0: b.label, 1: n })) && run.mutate(b.to)}
             >
               {b.label}{n && n < ids.length ? ` (${n})` : ""}
             </Button>
           );
         })}
         <Link to="/bordereaux" search={{ ids: ids.join(",") }} className="inline-flex h-8 items-center rounded-lg border border-line bg-white px-3 text-sm font-semibold">
-          🖨 Bordereaux
+          {tr("🖨 Bordereaux")}
         </Link>
       </div>
     </div>
@@ -235,18 +236,18 @@ interface OrderDetail {
 const NEEDS_REASON: OrderStatus[] = ["annulee", "fausse", "retour"];
 
 const ACTION: Partial<Record<OrderStatus, { label: string; variant: "primary" | "secondary" | "danger" }>> = {
-  confirmee: { label: "✅ Confirmer", variant: "primary" },
-  injoignable: { label: "📵 Injoignable", variant: "secondary" },
-  en_preparation: { label: "📦 En préparation", variant: "primary" },
-  expediee: { label: "🚚 Expédiée", variant: "primary" },
-  en_livraison: { label: "🛵 En livraison", variant: "secondary" },
-  livree: { label: "🎉 Livrée", variant: "primary" },
-  retour: { label: "↩️ Retour", variant: "danger" },
-  retour_recu: { label: "📥 Retour reçu (remis en stock)", variant: "primary" },
-  annulee: { label: "Annuler", variant: "danger" },
-  doublon: { label: "Doublon", variant: "danger" },
-  fausse: { label: "Fausse commande", variant: "danger" },
-  nouvelle: { label: "Rouvrir", variant: "secondary" },
+  confirmee: { label: tr("✅ Confirmer"), variant: "primary" },
+  injoignable: { label: tr("📵 Injoignable"), variant: "secondary" },
+  en_preparation: { label: tr("📦 En préparation"), variant: "primary" },
+  expediee: { label: tr("🚚 Expédiée"), variant: "primary" },
+  en_livraison: { label: tr("🛵 En livraison"), variant: "secondary" },
+  livree: { label: tr("🎉 Livrée"), variant: "primary" },
+  retour: { label: tr("↩️ Retour"), variant: "danger" },
+  retour_recu: { label: tr("📥 Retour reçu (remis en stock)"), variant: "primary" },
+  annulee: { label: tr("Annuler"), variant: "danger" },
+  doublon: { label: tr("Doublon"), variant: "danger" },
+  fausse: { label: tr("Fausse commande"), variant: "danger" },
+  nouvelle: { label: tr("Rouvrir"), variant: "secondary" },
 };
 
 function actorName(a: string) {
@@ -267,7 +268,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
   const status = useMutation({
     mutationFn: (v: { to: OrderStatus; reason?: OutcomeReason; note?: string; trackingNumber?: string }) => post(`/orders/${id}/status`, v),
     onSuccess: (_, v) => {
-      toast(`Statut : ${statusLabel(v.to)}`);
+      toast(tr("Statut : {0}", { 0: statusLabel(v.to) }));
       setAsk(null);
       refresh();
     },
@@ -295,7 +296,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
       open={id != null}
       onClose={onClose}
       wide
-      title={o ? <span className="flex items-center gap-2"><span className="font-mono">{o.public_code}</span><StatusBadge status={o.status} /></span> : "Commande"}
+      title={o ? <span className="flex items-center gap-2"><span className="font-mono">{o.public_code}</span><StatusBadge status={o.status} /></span> : tr("Commande")}
       footer={
         d && d.next.length > 0 ? (
           <div className="flex flex-wrap gap-2">
@@ -307,7 +308,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 loading={status.isPending && status.variables?.to === to}
                 onClick={() => {
                   if (NEEDS_REASON.includes(to) || to === "expediee") return setAsk(to);
-                  if (to === "doublon" && !confirm("Marquer comme doublon ? Le stock réservé sera libéré.")) return;
+                  if (to === "doublon" && !confirm(tr("Marquer comme doublon ? Le stock réservé sera libéré."))) return;
                   status.mutate({ to });
                 }}
               >
@@ -339,23 +340,23 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 <p className="text-lg font-semibold">{o.name}</p>
                 <p className="font-mono text-sm">{formatDzPhone(o.phone)}</p>
                 <p className="mt-1 text-sm text-ink-soft">
-                  {o.wilaya_code} · {o.wilaya_fr} › {o.commune_fr ?? o.commune_text ?? "?"} · {o.delivery_type === "bureau" ? "🏢 Bureau" : "🏠 Domicile"}
+                  {o.wilaya_code} · {o.wilaya_fr} › {o.commune_fr ?? o.commune_text ?? "?"} · {o.delivery_type === "bureau" ? tr("🏢 Bureau") : tr("🏠 Domicile")}
                 </p>
                 {o.address && <p className="text-sm">🏠 {o.address}</p>}
               </div>
               <div className="flex flex-col gap-2">
-                <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">📞 Appeler</a>
-                <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white">WhatsApp</a>
-                <Link to="/bordereaux" search={{ ids: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-white px-4 text-sm font-semibold">🖨 Bordereau</Link>
+                <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">{tr("📞 Appeler")}</a>
+                <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white">{tr("WhatsApp")}</a>
+                <Link to="/bordereaux" search={{ ids: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-white px-4 text-sm font-semibold">{tr("🖨 Bordereau")}</Link>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
-              <Badge tone="bg-stone-100 text-stone-700">{o.orders_count ?? 1} commande(s)</Badge>
-              <Badge tone="bg-emerald-100 text-emerald-800">{o.delivered_count ?? 0} livrée(s)</Badge>
-              {o.returned_count ? <Badge tone="bg-orange-100 text-orange-800">{o.returned_count} retour(s)</Badge> : null}
-              {o.cancelled_count ? <Badge tone="bg-stone-200 text-stone-700">{o.cancelled_count} annulée(s)</Badge> : null}
-              {o.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">⛔ Liste noire</Badge> : null}
-              <Badge tone="bg-stone-100 text-stone-700">{CHANNEL_LABEL[o.channel] ?? o.channel}</Badge>
+              <Badge tone="bg-stone-100 text-stone-700">{o.orders_count ?? 1} {tr("commande(s)")}</Badge>
+              <Badge tone="bg-emerald-100 text-emerald-800">{o.delivered_count ?? 0} {tr("livrée(s)")}</Badge>
+              {o.returned_count ? <Badge tone="bg-orange-100 text-orange-800">{o.returned_count} {tr("retour(s)")}</Badge> : null}
+              {o.cancelled_count ? <Badge tone="bg-stone-200 text-stone-700">{o.cancelled_count} {tr("annulée(s)")}</Badge> : null}
+              {o.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">{tr("⛔ Liste noire")}</Badge> : null}
+              <Badge tone="bg-stone-100 text-stone-700">{tr(CHANNEL_LABEL[o.channel]) ?? o.channel}</Badge>
               {o.ua_short && <Badge tone="bg-stone-100 text-stone-700">{o.ua_short}</Badge>}
               <SegmentBadge segment={d.segment} />
             </div>
@@ -364,12 +365,12 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
             </div>
             {o.outcome_reason && (
               <p className="mt-3 rounded-xl bg-stone-100 p-2.5 text-sm">
-                Motif : <b>{OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason] ?? o.outcome_reason}</b>
+                {tr("Motif :")} <b>{tr(OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason]) ?? o.outcome_reason}</b>
               </p>
             )}
           </Card>
 
-          <Card title={`Articles (${d.items.reduce((s, i) => s + i.qty, 0)})`}>
+          <Card title={tr("Articles ({0})", { 0: d.items.reduce((s, i) => s + i.qty, 0) })}>
             <ul className="space-y-2">
               {d.items.map((i) => (
                 <li key={i.id} className="flex items-center gap-3 text-sm">
@@ -379,16 +380,16 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                     <span className="text-ink-soft">{i.options_label} · {i.sku}</span>
                   </span>
                   <span className="text-end tabular-nums">
-                    {i.qty} × {da(i.unit_price)}
+                    {i.qty} {tr("×")} {da(i.unit_price)}
                   </span>
                 </li>
               ))}
             </ul>
             <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
-              <div className="flex justify-between"><dt className="text-ink-soft">Sous-total</dt><dd>{da(o.subtotal)}</dd></div>
-              {o.discount_total > 0 && <div className="flex justify-between text-emerald-700"><dt>Remise {o.coupon_code}</dt><dd>−{da(o.discount_total)}</dd></div>}
-              <div className="flex justify-between"><dt className="text-ink-soft">Livraison</dt><dd>{da(o.shipping_price)}</dd></div>
-              <div className="flex justify-between text-base font-semibold"><dt>Total (à encaisser)</dt><dd>{da(o.total)}</dd></div>
+              <div className="flex justify-between"><dt className="text-ink-soft">{tr("Sous-total")}</dt><dd>{da(o.subtotal)}</dd></div>
+              {o.discount_total > 0 && <div className="flex justify-between text-emerald-700"><dt>{tr("Remise")} {o.coupon_code}</dt><dd>−{da(o.discount_total)}</dd></div>}
+              <div className="flex justify-between"><dt className="text-ink-soft">{tr("Livraison")}</dt><dd>{da(o.shipping_price)}</dd></div>
+              <div className="flex justify-between text-base font-semibold"><dt>{tr("Total (à encaisser)")}</dt><dd>{da(o.total)}</dd></div>
             </dl>
             {o.customer_note && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm">📝 {o.customer_note}</p>}
           </Card>
@@ -397,22 +398,22 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
             <EditOrder order={o} onDone={() => { setEditing(false); refresh(); }} />
           ) : (
             <Card
-              title="Livraison & suivi"
-              actions={can("orders.edit") && <Button size="sm" onClick={() => setEditing(true)}>Modifier</Button>}
+              title={tr("Livraison & suivi")}
+              actions={can("orders.edit") && <Button size="sm" onClick={() => setEditing(true)}>{tr("Modifier")}</Button>}
             >
-              <p className="text-sm">N° de suivi ZR Express : <b>{o.tracking_number ?? "—"}</b></p>
+              <p className="text-sm">{tr("N° de suivi ZR Express :")} <b>{o.tracking_number ?? "—"}</b></p>
               {o.internal_note && <p className="mt-2 text-sm text-ink-soft">🔒 {o.internal_note}</p>}
             </Card>
           )}
 
-          <Card title="Historique">
+          <Card title={tr("Historique")}>
             <ol className="space-y-2 text-sm">
               {d.events.map((e) => (
                 <li key={e.id} className="flex gap-2">
                   <span className="w-24 shrink-0 text-xs text-ink-soft">{dateTime(e.created_at)}</span>
                   <span>
                     {e.kind === "status" ? (
-                      <>{e.to_status ? <StatusBadge status={e.to_status} /> : null} par <b>{actorName(e.actor)}</b>{e.source === "telegram" ? " 📱" : ""}</>
+                      <>{e.to_status ? <StatusBadge status={e.to_status} /> : null} {tr("par")} <b>{actorName(e.actor)}</b>{e.source === "telegram" ? " 📱" : ""}</>
                     ) : (
                       <>
                         {e.kind === "call" ? "📞" : e.kind === "whatsapp" ? "💬" : e.kind === "edit" ? "✏️" : "📝"} {e.note} <span className="text-ink-soft">— {actorName(e.actor)}</span>
@@ -423,8 +424,8 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
               ))}
             </ol>
             <div className="mt-3 flex gap-2">
-              <input className={inputCls} placeholder="Ajouter une note interne…" value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
-              <Button onClick={() => note.trim() && addNote.mutate("note")} loading={addNote.isPending}>Ajouter</Button>
+              <input className={inputCls} placeholder={tr("Ajouter une note interne…")} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
+              <Button onClick={() => note.trim() && addNote.mutate("note")} loading={addNote.isPending}>{tr("Ajouter")}</Button>
             </div>
           </Card>
         </div>
@@ -462,21 +463,21 @@ function StatusDialog({
   }, []);
   return (
     <div ref={ref}>
-    <Card title={shipping ? "🚚 Expédier la commande" : `${ACTION[to]?.label ?? statusLabel(to)} : pour quelle raison ?`} className="border-plum-600/40 ring-2 ring-plum-600/10">
+    <Card title={shipping ? tr("🚚 Expédier la commande") : tr("{0} : pour quelle raison ?", { 0: ACTION[to]?.label ?? statusLabel(to) })} className="border-plum-600/40 ring-2 ring-plum-600/10">
       {shipping ? (
-        <TextField label="N° de suivi ZR Express (facultatif)" value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder="ex : ZR123456789" autoFocus />
+        <TextField label={tr("N° de suivi ZR Express (facultatif)")} value={tracking} onChange={(e) => setTracking(e.target.value)} placeholder={tr("ex : ZR123456789")} autoFocus />
       ) : (
         <>
           <div className="grid gap-1.5 sm:grid-cols-2">
             {reasons.map((r) => (
               <label key={r} className={`flex cursor-pointer items-center gap-2 rounded-xl border px-3 py-2.5 text-sm ${reason === r ? "border-plum-600 bg-rose-100/60" : "border-line bg-white"}`}>
                 <input type="radio" name="reason" className="accent-plum-600" checked={reason === r} onChange={() => setReason(r)} />
-                {OUTCOME_REASON_LABEL[r]}
+                {tr(OUTCOME_REASON_LABEL[r])}
               </label>
             ))}
           </div>
-          <TextField label="Précision (facultatif)" className="mt-3" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
-          {to !== "retour" && <p className="mt-2 text-xs text-ink-soft">Le stock réservé sera libéré.</p>}
+          <TextField label={tr("Précision (facultatif)")} className="mt-3" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} />
+          {to !== "retour" && <p className="mt-2 text-xs text-ink-soft">{tr("Le stock réservé sera libéré.")}</p>}
         </>
       )}
       <div className="mt-3 flex gap-2">
@@ -486,9 +487,9 @@ function StatusDialog({
           disabled={!shipping && !reason}
           onClick={() => onConfirm(shipping ? { trackingNumber: tracking.trim() || undefined } : { reason: reason!, note: note.trim() || undefined })}
         >
-          Confirmer
+          {tr("Confirmer")}
         </Button>
-        <Button onClick={onCancel}>Annuler</Button>
+        <Button onClick={onCancel}>{tr("Annuler")}</Button>
       </div>
     </Card>
     </div>
@@ -519,32 +520,32 @@ function EditOrder({ order, onDone }: { order: OrderDetail["order"]; onDone: () 
         deliveryType: form.deliveryType,
       }),
     onSuccess: () => {
-      toast("Commande modifiée");
+      toast(tr("Commande modifiée"));
       onDone();
     },
     onError: (e) => toast(errorMessage(e), "error"),
   });
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => setForm((f) => ({ ...f, [k]: e.target.value }));
   return (
-    <Card title="Modifier la commande">
+    <Card title={tr("Modifier la commande")}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label="Nom" value={form.name} onChange={set("name")} />
-        <TextField label="Téléphone" value={form.phone} onChange={set("phone")} inputMode="tel" />
-        <TextField label="Adresse" value={form.address} onChange={set("address")} className="sm:col-span-2" />
+        <TextField label={tr("Nom")} value={form.name} onChange={set("name")} />
+        <TextField label={tr("Téléphone")} value={form.phone} onChange={set("phone")} inputMode="tel" />
+        <TextField label={tr("Adresse")} value={form.address} onChange={set("address")} className="sm:col-span-2" />
         <label className="text-sm font-medium">
-          Mode
+          {tr("Mode")}
           <select className={`${inputCls} mt-1`} value={form.deliveryType} onChange={set("deliveryType")}>
-            <option value="domicile">Domicile</option>
-            <option value="bureau">Bureau (stop-desk)</option>
+            <option value="domicile">{tr("Domicile")}</option>
+            <option value="bureau">{tr("Bureau (stop-desk)")}</option>
           </select>
         </label>
-        <TextField label="Frais de livraison (DA)" type="number" value={form.shippingPrice} onChange={(e) => setForm((f) => ({ ...f, shippingPrice: Number(e.target.value) || 0 }))} />
-        <TextField label="N° de suivi ZR Express" value={form.trackingNumber} onChange={set("trackingNumber")} className="sm:col-span-2" />
-        <TextArea label="Note interne (invisible pour la cliente)" value={form.internalNote} onChange={set("internalNote")} className="sm:col-span-2" rows={2} />
+        <TextField label={tr("Frais de livraison (DA)")} type="number" value={form.shippingPrice} onChange={(e) => setForm((f) => ({ ...f, shippingPrice: Number(e.target.value) || 0 }))} />
+        <TextField label={tr("N° de suivi ZR Express")} value={form.trackingNumber} onChange={set("trackingNumber")} className="sm:col-span-2" />
+        <TextArea label={tr("Note interne (invisible pour la cliente)")} value={form.internalNote} onChange={set("internalNote")} className="sm:col-span-2" rows={2} />
       </div>
       <div className="mt-3 flex gap-2">
-        <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>Enregistrer</Button>
-        <Button onClick={onDone}>Annuler</Button>
+        <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>{tr("Enregistrer")}</Button>
+        <Button onClick={onDone}>{tr("Annuler")}</Button>
       </div>
     </Card>
   );
