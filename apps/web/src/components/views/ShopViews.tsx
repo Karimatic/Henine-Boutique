@@ -111,7 +111,8 @@ export function CategoriesView() {
         <ErrorBox onRetry={reload} />
       ) : (
         <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {(data ?? []).map((c) => {
+          {/* empty categories stay hidden (unless every one is empty) */}
+          {(data ?? []).filter((c, _, all) => (c.productCount ?? 0) > 0 || all.every((x) => !x.productCount)).map((c) => {
             const sample = catalog.data?.find((p) => p.categorySlug === c.slug);
             return (
               <li key={c.id}>

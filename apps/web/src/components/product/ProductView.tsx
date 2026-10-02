@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { dateLocale, normalizeDzPhone, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
-import { HeartIcon } from "@/components/ui/icons";
+import { BagIcon, HeartIcon } from "@/components/ui/icons";
 import { Markdown } from "@/components/ui/Markdown";
 import { ErrorBox, inputCls, Price, ProductImage, Stars } from "@/components/ui/kit";
 import { apiPost, slugFromPath, useApi } from "@/lib/api";
@@ -145,10 +145,34 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   // computed by the API: hand-picked look → bought together → same category (no catalogue download)
   const related = p.related;
   const expressEnabled = site.data?.checkout.expressOnProduct ?? true;
+  const soldOut = !!variant && variant.available === 0;
+
+  function buyNow() {
+    if (!requireVariant()) return;
+    if (expressEnabled) {
+      setShowExpress(true);
+      setTimeout(() => document.getElementById("express")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+    } else {
+      addToCart();
+      location.href = href("/panier");
+    }
+  }
+
+  // phone gallery: swipe between photos, the dots follow
+  const swipeRef = useRef<HTMLDivElement>(null);
+  function onSwipe() {
+    const el = swipeRef.current;
+    if (!el) return;
+    const i = Math.round(Math.abs(el.scrollLeft) / el.clientWidth);
+    if (i !== active) setActive(i);
+  }
+  useEffect(() => {
+    swipeRef.current?.scrollTo({ left: 0 });
+  }, [selectedColor]);
 
   return (
-    <div className="mx-auto max-w-6xl px-4 pb-10 pt-4 md:pt-8">
-      <nav className="mb-4 text-sm text-ink-soft" aria-label="breadcrumb">
+    <div className="mx-auto max-w-6xl px-4 pb-28 pt-3 md:pb-10 md:pt-8">
+      <nav className="mb-3 hidden text-sm text-ink-soft md:block" aria-label="breadcrumb">
         <a href={href("/")} className="hover:text-plum-700">{t.nav.home}</a>
         {p.category && (
           <>
@@ -160,9 +184,32 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 
       <div className="grid gap-8 md:grid-cols-2 md:gap-12">
         {/* Gallery: swipeable on phones, thumbnails on larger screens */}
-        <div>
+        <div className="-mx-4 md:mx-0">
           <div className="relative">
-            <ProductImage image={images[active] ?? null} alt={name} category={p.categorySlug} color={colorHex} priority sizes="(min-width: 768px) 50vw, 100vw" className="aspect-[4/5] rounded-card" />
+            {/* phones: full-width swipe */}
+            <div ref={swipeRef} onScroll={onSwipe} className="swipe-row flex snap-x snap-mandatory overflow-x-auto md:hidden" aria-label={name}>
+              {(images.length ? images : [null]).map((img, i) => (
+                <ProductImage
+                  key={img?.src ?? "none"}
+                  image={img}
+                  alt={i === 0 ? name : ""}
+                  category={p.categorySlug}
+                  color={colorHex}
+                  priority={i === 0}
+                  sizes="100vw"
+                  className="aspect-[4/5] w-full shrink-0 snap-center"
+                />
+              ))}
+            </div>
+            {images.length > 1 && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-1.5 md:hidden" aria-hidden="true">
+                {images.map((img, i) => (
+                  <span key={img.src} className={`h-1.5 rounded-full transition-all ${i === active ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />
+                ))}
+              </div>
+            )}
+            {/* larger screens: one photo + thumbnails */}
+            <ProductImage image={images[active] ?? null} alt={name} category={p.categorySlug} color={colorHex} priority sizes="50vw" className="hidden aspect-[4/5] rounded-card md:block" />
             <Badges p={p} className="pointer-events-none absolute start-3 top-3" />
             <button
               type="button"
@@ -175,7 +222,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             </button>
           </div>
           {images.length > 1 && (
-            <ul className="mt-3 flex gap-2 overflow-x-auto pb-1">
+            <ul className="mt-3 hidden gap-2 overflow-x-auto pb-1 md:flex">
               {images.map((img, i) => (
                 <li key={img.src}>
                   <button type="button" onClick={() => setActive(i)} className={`block overflow-hidden rounded-lg ring-2 ${i === active ? "ring-plum-600" : "ring-transparent"}`} aria-label={`${i + 1}/${images.length}`}>
@@ -189,7 +236,14 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 
         <div>
           <div className="flex items-start justify-between gap-3">
-            <h1 className="heading-display text-3xl leading-tight md:text-4xl">{name}</h1>
+            <div className="min-w-0">
+              {p.category && (
+                <a href={href(`/c/${p.category.slug}`)} className="mb-1 inline-block text-xs font-semibold uppercase tracking-[0.14em] text-rose-700">
+                  {ar ? p.category.nameAr : p.category.nameFr}
+                </a>
+              )}
+              <h1 className="heading-display text-[1.9rem] leading-tight md:text-4xl">{name}</h1>
+            </div>
             <ShareButton slug={p.slug} name={name} price={variant?.price ?? p.price} className="shrink-0" />
           </div>
           {p.rating && (
@@ -197,7 +251,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               <Stars value={p.rating.avg} /> {p.rating.avg} ({p.rating.count})
             </a>
           )}
-          <div className="mt-3 text-xl">
+          <div className="mt-2 text-2xl font-semibold">
             <Price value={variant?.price ?? p.price} compareAt={p.compareAtPrice} />
           </div>
 
@@ -225,7 +279,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                         aria-pressed={on}
                         aria-label={ar ? v.labelAr : v.labelFr}
                         title={ar ? v.labelAr : v.labelFr}
-                        className={`relative size-11 rounded-full border-2 transition ${on ? "border-plum-600 ring-2 ring-plum-600/20" : "border-white shadow"} ${soldOut ? "opacity-40" : ""}`}
+                        className={`relative size-11 rounded-full border-[3px] transition ${on ? "border-white ring-2 ring-ink" : "border-white shadow ring-1 ring-line"} ${soldOut ? "opacity-40" : ""}`}
                         style={{ background: v.hex }}
                       />
                     ) : (
@@ -234,7 +288,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                         type="button"
                         onClick={() => setSelected((s) => ({ ...s, [o.id]: v.id }))}
                         aria-pressed={on}
-                        className={`h-11 min-w-12 rounded-xl border px-4 text-sm font-semibold transition ${on ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-white"} ${soldOut ? "text-ink-soft line-through opacity-60" : ""}`}
+                        className={`h-12 min-w-13 rounded-2xl border px-4 text-sm font-semibold transition active:scale-95 ${on ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink/40"} ${soldOut ? "text-ink-soft line-through opacity-60" : ""}`}
                       >
                         {ar ? v.labelAr : v.labelFr}
                       </button>
@@ -257,32 +311,24 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             )}
           </p>
 
-          {variant && variant.available === 0 ? (
+          {soldOut ? (
             <NotifyMe variantId={variant.id} siteKey={site.data?.turnstileSiteKey ?? ""} />
           ) : (
-            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            // larger screens; phones use the bar fixed at the bottom
+            <div className="mt-3 hidden gap-3 md:grid md:grid-cols-2">
               <button
                 type="button"
                 disabled={!variant}
                 onClick={addToCart}
-                className="h-13 rounded-full border-2 border-plum-600 px-6 font-semibold text-plum-700 transition active:scale-[0.98] disabled:opacity-40"
+                className="h-13 rounded-full border-2 border-ink px-6 font-semibold text-ink transition active:scale-[0.98] disabled:opacity-40"
               >
                 {added ? t.product.added : t.product.addToCart}
               </button>
               <button
                 type="button"
                 aria-disabled={!variant}
-                onClick={() => {
-                  if (!requireVariant()) return;
-                  if (expressEnabled) {
-                    setShowExpress(true);
-                    setTimeout(() => document.getElementById("express")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
-                  } else {
-                    addToCart();
-                    location.href = href("/panier");
-                  }
-                }}
-                className={`h-13 rounded-full bg-plum-600 px-6 font-semibold text-ivory shadow-soft transition hover:bg-plum-700 active:scale-[0.98] ${variant ? "" : "opacity-50"}`}
+                onClick={buyNow}
+                className={`lift h-13 rounded-full bg-plum-600 px-6 font-semibold text-white ${variant ? "" : "opacity-50"}`}
               >
                 {t.product.buyNow}
               </button>
@@ -321,12 +367,33 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 
       <Reviews p={p} />
 
-      {/* sticky mobile CTA */}
-      {variant && variant.available > 0 && !showExpress && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-ivory/95 p-3 backdrop-blur md:hidden">
-          <button type="button" onClick={addToCart} className="h-12 w-full rounded-full bg-plum-600 font-semibold text-ivory shadow-soft active:scale-[0.99]">
-            {added ? t.product.added : t.product.addToCart}
-          </button>
+      {/* phones: price + buy always within reach of the thumb */}
+      {!soldOut && !showExpress && (
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-white/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
+          <div className="flex items-center gap-2.5">
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="truncate text-xs text-ink-soft">{variant ? labels(ar ? "ar" : "fr") : t.product.selectVariant}</p>
+              <p className="text-lg font-bold">
+                <Price value={variant?.price ?? p.price} compareAt={p.compareAtPrice} />
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => (requireVariant() ? addToCart() : undefined)}
+              aria-label={added ? t.product.added : t.product.addToCart}
+              className={`grid size-12 shrink-0 place-items-center rounded-full border-2 transition active:scale-95 ${added ? "border-success bg-success text-white" : "border-ink text-ink"}`}
+            >
+              {added ? "✓" : <BagIcon size={20} />}
+            </button>
+            <button
+              type="button"
+              aria-disabled={!variant}
+              onClick={buyNow}
+              className={`h-12 shrink-0 rounded-full bg-plum-600 px-6 font-semibold text-white shadow-[0_8px_20px_-6px_rgb(142_16_72/0.6)] transition active:scale-[0.97] ${variant ? "" : "opacity-60"}`}
+            >
+              {t.product.buyNow}
+            </button>
+          </div>
         </div>
       )}
     </div>

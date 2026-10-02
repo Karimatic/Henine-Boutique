@@ -204,7 +204,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const invalid = (k: string) => (fieldErrors[k] ? "border-danger focus:border-danger" : "");
 
   return (
-    <form onSubmit={submit} noValidate className={compact ? "space-y-4" : "grid gap-8 lg:grid-cols-[1fr_22rem]"}>
+    <form onSubmit={submit} noValidate className={compact ? "space-y-4" : "grid gap-8 pb-20 md:pb-0 lg:grid-cols-[1fr_22rem]"}>
       <div className="space-y-4">
         <div>
           {label(L.name, "name")}
@@ -290,7 +290,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
               return (
                 <label
                   key={type}
-                  className={`flex cursor-pointer flex-col rounded-xl border p-3 transition ${deliveryType === type ? "border-plum-600 bg-rose-100/60 ring-2 ring-plum-600/15" : "border-line bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                  className={`flex cursor-pointer flex-col rounded-2xl border-2 p-3 transition ${deliveryType === type ? "border-ink bg-white" : "border-line bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                 >
                   <input type="radio" name="delivery" value={type} className="sr-only" checked={deliveryType === type} disabled={disabled} onChange={() => setDeliveryType(type)} />
                   <span className="text-sm font-semibold">{type === "domicile" ? L.home : L.desk}</span>
@@ -410,12 +410,35 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         <button
           type="submit"
           disabled={submitting || problems.length > 0 || !lines.length}
-          className="flex h-13 w-full items-center justify-center gap-2 rounded-full bg-plum-600 px-6 py-3.5 text-base font-semibold text-ivory shadow-soft transition hover:bg-plum-700 active:scale-[0.99] disabled:opacity-50"
+          className={`lift h-13 w-full items-center justify-center gap-2 rounded-full bg-plum-600 px-6 py-3.5 text-base font-semibold text-white disabled:opacity-50 ${compact ? "flex" : "hidden md:flex"}`}
         >
           {submitting && <Spinner className="size-4" />}
           {submitting ? L.submitting : L.submit}
         </button>
       </aside>
+
+      {/* phones: the total and the confirm button stay in reach while filling the form */}
+      {!compact && (
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-white/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1 leading-tight">
+              <p className="text-xs text-ink-soft">{L.total} · {L.cod}</p>
+              <p className="flex items-center gap-1.5 text-lg font-bold" dir="ltr" style={{ justifyContent: ar ? "flex-end" : "flex-start" }}>
+                {quoting && <Spinner className="size-3.5 text-ink-soft" />}
+                {quote ? formatDA(quote.total, locale) : "…"}
+              </p>
+            </div>
+            <button
+              type="submit"
+              disabled={submitting || problems.length > 0 || !lines.length}
+              className="flex h-12 shrink-0 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white shadow-[0_8px_20px_-6px_rgb(142_16_72/0.6)] transition active:scale-[0.97] disabled:opacity-50"
+            >
+              {submitting && <Spinner className="size-4" />}
+              {submitting ? L.submitting : L.submit}
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }

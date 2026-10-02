@@ -1,25 +1,25 @@
 @import "tailwindcss";
 
 /*
- * Henine design tokens: luxury pink & white, feminine, premium-but-accessible.
- * Pinky-white ground (cards stay white on top of it), deep rose ink, vivid pink accent, gold hairlines.
- * WCAG contrast on the pinky-white ground: ink 15.1:1, ink-soft 6.8:1, plum-600 5.0:1,
- * plum-700 7.0:1, rose-700 5.2:1 (all AA ✓). rose-300/500 are decorative only, never text.
+ * Henine design tokens, "bold luxury": a white ground with a blush undertone, near-black plum
+ * ink, a deep raspberry-plum accent and soft pink fills, gold hairlines.
+ * WCAG contrast on the ground: ink 18.6:1, ink-soft 8.1:1, plum-600 9.4:1, plum-700 12.6:1,
+ * rose-700 6.4:1 (all AA ✓). rose-300/500 are decorative only, never text.
  */
 @theme {
-  --color-ivory: #fdeef3;
-  --color-ivory-deep: #fbe0ea;
-  --color-ink: #2b1620;
-  --color-ink-soft: #6b4a57;
-  --color-line: #f4c6d6;
-  --color-rose-800: #ad1457;
-  --color-plum-600: #c2255f;
-  --color-plum-700: #9d174d;
-  --color-rose-100: #f9d3e0;
-  --color-rose-300: #f48fb1;
-  --color-rose-500: #ec407a;
-  --color-rose-700: #c2185b;
-  --color-gold: #b08d57;
+  --color-ivory: #fffbfc;
+  --color-ivory-deep: #f8eef2;
+  --color-ink: #170a10;
+  --color-ink-soft: #5c4852;
+  --color-line: #ecdde4;
+  --color-rose-800: #a3124f;
+  --color-plum-600: #8e1048;
+  --color-plum-700: #6a0c36;
+  --color-rose-100: #fbe4ec;
+  --color-rose-300: #f2a5bf;
+  --color-rose-500: #e0487f;
+  --color-rose-700: #b0164f;
+  --color-gold: #a8824a;
   --color-success: #2f7a55;
   --color-danger: #b3261e;
 
@@ -28,8 +28,9 @@
   --font-arabic: var(--font-arabic-sans), "Segoe UI", Tahoma, sans-serif;
   --font-arabic-display: var(--font-arabic-display-face), var(--font-arabic-sans), serif;
 
-  --radius-card: 1rem;
-  --shadow-soft: 0 1px 2px rgb(42 26 36 / 0.04), 0 8px 24px rgb(42 26 36 / 0.06);
+  --radius-card: 1.25rem;
+  --shadow-soft: 0 1px 2px rgb(23 10 16 / 0.05), 0 10px 30px rgb(23 10 16 / 0.08);
+  --shadow-lift: 0 2px 4px rgb(23 10 16 / 0.06), 0 18px 40px -12px rgb(106 12 54 / 0.35);
 
   --animate-shimmer: shimmer 1.4s ease-in-out infinite;
   --animate-bloom: bloom 2.4s ease-out 1;
@@ -208,9 +209,42 @@
   22% { background-position: 0% 0; }
   100% { background-position: 0% 0; }
 }
+/* on a photo: white letters, the light passing through in gold and pink */
+.tagline-light .tagline-word {
+  background-image: linear-gradient(100deg, #fff 0%, #fff 42%, #f3d9a4 50%, var(--color-rose-300) 56%, #fff 64%, #fff 100%);
+}
 @media (prefers-reduced-motion: reduce) {
   .tagline-word { opacity: 1; transform: none; filter: none; animation: none; color: var(--color-ink); background: none; }
+  .tagline-light .tagline-word { color: #fff; }
 }
+
+/* ── Home hero: slow zoom on the photo (or the brand art when there is no photo yet) ── */
+.hero-zoom img, .hero-zoom svg { animation: hero-zoom 16s ease-out both; }
+@keyframes hero-zoom {
+  from { transform: scale(1.12); }
+  to { transform: scale(1); }
+}
+.hero-art {
+  background:
+    radial-gradient(60% 50% at 80% 15%, rgb(242 165 191 / 0.55), transparent 70%),
+    radial-gradient(70% 60% at 10% 90%, rgb(224 72 127 / 0.45), transparent 70%),
+    linear-gradient(160deg, var(--color-plum-700), var(--color-ink) 75%);
+}
+.hero-petal { animation: petal-drift 14s ease-in-out infinite; transform-origin: center; }
+@keyframes petal-drift {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-14px) rotate(18deg); }
+}
+
+/* horizontal swipe rows (categories): no visible scrollbar, snap to items */
+.swipe-row { scrollbar-width: none; scroll-snap-type: x proximity; -webkit-overflow-scrolling: touch; }
+.swipe-row::-webkit-scrollbar { display: none; }
+.swipe-row > * { scroll-snap-align: start; }
+
+/* buttons that lift a little when pressed / hovered */
+.lift { transition: transform 0.2s cubic-bezier(0.2, 0.7, 0.2, 1), box-shadow 0.2s ease, background-color 0.2s ease; }
+.lift:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+.lift:active { transform: scale(0.98); }
 
 /* ── Announcement bar: flowing rose gradient + endless marquee ── */
 .announce {
@@ -246,37 +280,6 @@
 /* ── Scroll reveal (class toggled by <Reveal>) ── */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.7s ease, transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1); }
 .reveal.is-visible { opacity: 1; transform: none; }
-
-/* ── "Comment commander" steps ── */
-.step-num {
-  background: linear-gradient(135deg, var(--color-gold), var(--color-rose-500) 55%, var(--color-plum-600));
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.step-line {
-  background: repeating-linear-gradient(90deg, var(--color-rose-300) 0 8px, transparent 8px 16px);
-  background-size: 32px 2px;
-  animation: dash-flow 1.2s linear infinite;
-}
-[dir="rtl"] .step-line { animation-direction: reverse; }
-@keyframes dash-flow {
-  to { background-position: 32px 0; }
-}
-/* vertical variant (phones: steps are stacked) */
-.step-line-v {
-  background: repeating-linear-gradient(180deg, var(--color-rose-300) 0 8px, transparent 8px 16px);
-  background-size: 2px 32px;
-  animation: dash-flow-v 1.2s linear infinite;
-}
-@keyframes dash-flow-v {
-  to { background-position: 0 32px; }
-}
-.step-icon { animation: float 4s ease-in-out infinite; }
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-5px); }
-}
 
 /* ── Instagram card: slowly rotating gradient border + light sweep on the button ── */
 @property --ig-angle {
@@ -323,7 +326,7 @@
 .faq-item[open] .faq-plus { transform: rotate(45deg); background: var(--color-plum-600); color: var(--color-ivory); }
 
 @media (prefers-reduced-motion: reduce) {
-  .announce, .announce-track, .announce-sparkle, .step-line, .step-line-v, .step-icon, .ig-card, .ig-btn::after { animation: none; }
+  .announce, .announce-track, .announce-sparkle, .ig-card, .ig-btn::after, .hero-zoom img, .hero-zoom svg, .hero-petal { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-plum-700); background: none; }
   .menu-panel, .nudge { animation: none; }

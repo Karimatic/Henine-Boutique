@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BagIcon, ChatIcon, GiftIcon, InstagramIcon, PhoneIcon } from "@/components/ui/icons";
+import type { CategoryDTO, ProductCardDTO } from "@henine/shared";
+import { ProductImage } from "@/components/ui/kit";
+import { InstagramIcon, TRUST_ICONS } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
 
@@ -32,96 +34,110 @@ export function Reveal({ children, delay = 0, className = "" }: { children: Reac
   );
 }
 
-function SectionTitle({ eyebrow, title }: { eyebrow: string; title: string }) {
+/** Section heading: title on the start side, "see all" on the end side. */
+export function SectionHead({ title, href, link }: { title: string; href?: string; link?: string }) {
   return (
-    <div className="mb-8 text-center">
-      <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">{eyebrow}</p>
-      <h2 className="heading-display text-3xl md:text-4xl">{title}</h2>
-      <span aria-hidden="true" className="mx-auto mt-3 block h-0.5 w-14 rounded-full bg-gradient-to-r from-gold via-rose-500 to-plum-600" />
+    <div className="mb-4 flex items-end justify-between gap-3">
+      <h2 className="heading-display text-[1.65rem] leading-tight md:text-4xl">{title}</h2>
+      {href && link && (
+        <a href={href} className="group inline-flex shrink-0 items-center gap-1 text-sm font-semibold text-plum-600">
+          {link}
+          <span aria-hidden="true" className="transition group-hover:translate-x-0.5 rtl:rotate-180 rtl:group-hover:-translate-x-0.5">→</span>
+        </a>
+      )}
     </div>
   );
 }
 
-/* ───────── How to order: 3 connected steps ───────── */
+/* ───────── Categories as a swipeable row of chips ───────── */
 
-const STEP_ICONS = { bag: BagIcon, phone: PhoneIcon, gift: GiftIcon } as const;
-
-export function HowToOrder() {
-  const { t } = useLocale();
+export function CategoryChips({ categories, products }: { categories: CategoryDTO[] | undefined; products: ProductCardDTO[] }) {
+  const { t, href, ar } = useLocale();
+  // only categories that have something to show
+  const list = (categories ?? []).filter((c) => (c.productCount ?? 0) > 0);
+  if (categories && !list.length) return null;
   return (
-    <section className="relative overflow-hidden bg-gradient-to-b from-ivory via-rose-100/40 to-ivory py-14" aria-labelledby="howto-title">
-      <div className="mx-auto max-w-6xl px-4">
-        <div id="howto-title">
-          <SectionTitle eyebrow={t.howTo.eyebrow} title={t.howTo.title} />
-        </div>
-        <ol className="relative grid gap-5 md:grid-cols-3 md:gap-6">
-          {/* animated dashed connector between the steps */}
-          <span aria-hidden="true" className="step-line absolute inset-x-[16%] top-12 hidden h-0.5 md:block" />
-          <span aria-hidden="true" className="step-line-v absolute bottom-12 start-[2.6rem] top-12 w-0.5 md:hidden" />
-          {t.howTo.steps.map((s, i) => {
-            const Icon = STEP_ICONS[s.icon as keyof typeof STEP_ICONS];
-            return (
-              <li key={s.title}>
-                <Reveal delay={i * 140}>
-                  <div className="relative flex gap-4 rounded-3xl border border-line bg-ivory/90 p-5 shadow-soft backdrop-blur md:flex-col md:items-center md:p-7 md:text-center">
-                    <span className="step-icon relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-rose-100 to-ivory-deep text-plum-700 ring-1 ring-rose-300/60" style={{ animationDelay: `${i * 0.6}s` }}>
-                      <Icon size={26} />
-                    </span>
-                    <div>
-                      <p className="step-num font-sans text-4xl font-extrabold leading-none tabular-nums md:mt-4" dir="ltr" aria-hidden="true">
-                        {String(i + 1).padStart(2, "0")}
-                      </p>
-                      <h3 className="mt-1 text-lg font-semibold">{s.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-ink-soft">{s.text}</p>
-                    </div>
-                  </div>
-                </Reveal>
-              </li>
-            );
-          })}
-        </ol>
-      </div>
-    </section>
+    <nav aria-label={t.categories.title} className="mx-auto max-w-6xl">
+      <ul className="swipe-row flex gap-2.5 overflow-x-auto px-4 py-1">
+        {!categories
+          ? [0, 1, 2, 3].map((i) => <li key={i} className="skeleton h-12 w-32 shrink-0 rounded-full" />)
+          : list.map((c) => {
+              const sample = products.find((p) => p.categorySlug === c.slug);
+              return (
+                <li key={c.id} className="shrink-0">
+                  <a
+                    href={href(`/c/${c.slug}`)}
+                    className="lift flex h-12 items-center gap-2.5 rounded-full border border-line bg-white pe-4 ps-1.5 text-sm font-semibold shadow-[0_1px_2px_rgb(23_10_16/0.04)]"
+                  >
+                    <ProductImage image={sample?.image ?? null} alt="" category={c.slug} color={sample?.colors[0]} sizes="40px" className="size-9 shrink-0 rounded-full" />
+                    {ar ? c.nameAr : c.nameFr}
+                  </a>
+                </li>
+              );
+            })}
+        <li className="shrink-0">
+          <a href={href("/categories")} className="flex h-12 items-center rounded-full bg-ink px-5 text-sm font-semibold text-white">
+            {t.home.seeAll}
+          </a>
+        </li>
+      </ul>
+    </nav>
   );
 }
 
-/* ───────── Instagram card ───────── */
+/* ───────── Trust: the three promises, one compact line ───────── */
+
+export function TrustStrip() {
+  const { t } = useLocale();
+  return (
+    <ul className="mx-auto grid max-w-6xl grid-cols-3 gap-2 px-4">
+      {t.trust.slice(0, 3).map((item) => {
+        const Icon = TRUST_ICONS[item.icon as keyof typeof TRUST_ICONS];
+        return (
+          <li key={item.title} className="flex flex-col items-center gap-1.5 rounded-2xl bg-ivory-deep px-2 py-3 text-center md:flex-row md:gap-3 md:px-4 md:text-start">
+            <span className="grid size-9 shrink-0 place-items-center rounded-full bg-white text-plum-600 shadow-sm">
+              <Icon size={18} />
+            </span>
+            <span className="min-w-0">
+              <span className="block text-[12px] font-semibold leading-tight md:text-sm">{item.title}</span>
+              <span className="hidden text-xs text-ink-soft md:block">{item.text}</span>
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/* ───────── Instagram ───────── */
 
 export function InstagramCard() {
   const { t } = useLocale();
   const href = "https://www.instagram.com/henine.boutique/";
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10">
+    <section className="mx-auto max-w-6xl px-4 py-8">
       <Reveal>
-        <div className="ig-card relative overflow-hidden rounded-[2rem] p-6 md:p-8">
-          <div aria-hidden="true" className="pointer-events-none absolute -end-16 -top-16 size-56 rounded-full bg-rose-100 blur-3xl" />
-          <div className="relative flex flex-col items-center gap-5 text-center md:flex-row md:text-start">
-            <a href={href} target="_blank" rel="noopener noreferrer" className="ig-logo grid size-20 shrink-0 place-items-center rounded-[1.6rem] text-white shadow-lg transition hover:scale-105" aria-label="Instagram">
-              <InstagramIcon size={40} strokeWidth={1.8} />
-            </a>
-            <div className="flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-700">{t.instagram.label}</p>
-              <h2 className="heading-display mt-1 text-2xl md:text-3xl">{t.instagram.heading}</h2>
-              <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">{t.instagram.text}</p>
-              <ul className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
-                {t.instagram.stats.map(([value, label]) => (
-                  <li key={label} className="rounded-full border border-line bg-ivory-deep/70 px-3 py-1.5 text-xs">
-                    <b className="font-semibold text-plum-700" dir="ltr">{value}</b> <span className="text-ink-soft">{label}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ig-btn inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-rose-700 via-plum-600 to-rose-700 px-6 font-semibold text-ivory shadow-soft transition hover:scale-[1.03]"
-            >
-              <InstagramIcon size={18} />
-              <span dir="ltr">{t.instagram.cta}</span>
-            </a>
-          </div>
-        </div>
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="lift group relative flex items-center gap-4 overflow-hidden rounded-[1.75rem] bg-ink p-5 text-white md:p-8"
+        >
+          <span aria-hidden="true" className="pointer-events-none absolute -end-10 -top-16 size-56 rounded-full bg-rose-500/40 blur-3xl" />
+          <span aria-hidden="true" className="pointer-events-none absolute -bottom-20 start-10 size-48 rounded-full bg-plum-600/50 blur-3xl" />
+          <span className="ig-logo relative grid size-14 shrink-0 place-items-center rounded-2xl text-white shadow-lg transition group-hover:scale-105 md:size-16">
+            <InstagramIcon size={30} strokeWidth={1.8} />
+          </span>
+          <span className="relative min-w-0 flex-1">
+            <span className="block heading-display text-xl leading-snug md:text-3xl">{t.instagram.heading}</span>
+            <span className="mt-1 block text-sm text-white/70">
+              <b className="font-semibold text-white" dir="ltr">{t.instagram.stats[0]?.[0]}</b> {t.instagram.stats[0]?.[1]} · <span dir="ltr">@henine.boutique</span>
+            </span>
+          </span>
+          <span aria-hidden="true" className="relative grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink transition group-hover:translate-x-0.5 rtl:rotate-180">
+            →
+          </span>
+        </a>
       </Reveal>
     </section>
   );
@@ -129,45 +145,34 @@ export function InstagramCard() {
 
 /* ───────── FAQ ───────── */
 
-/** Questions in the page's language: built in, or edited in Admin → Page d'accueil → Textes. */
+/** Questions in the page's language: built in, or edited in Admin → Paramètres → Textes. */
 export function Faq() {
   const { t, href } = useLocale();
   const list = useStoreTexts().faq;
   return (
-    <section className="mx-auto max-w-6xl px-4 py-14" aria-labelledby="faq-title">
-      <div id="faq-title">
-        <SectionTitle eyebrow={t.faq.eyebrow} title={t.faq.title} />
+    <section className="mx-auto max-w-3xl px-4 py-10" aria-labelledby="faq-title">
+      <h2 id="faq-title" className="heading-display mb-5 text-center text-[1.65rem] md:text-4xl">
+        {t.faq.title}
+      </h2>
+      <div className="divide-y divide-line overflow-hidden rounded-[1.5rem] border border-line bg-white">
+        {list.map((f) => (
+          <details key={f.q} className="faq-item group">
+            <summary className="flex cursor-pointer items-center gap-4 px-5 py-4">
+              <span className="flex-1 font-semibold">{f.q}</span>
+              <span className="faq-plus grid size-8 shrink-0 place-items-center rounded-full bg-ivory-deep text-lg leading-none text-ink" aria-hidden="true">
+                +
+              </span>
+            </summary>
+            <p className="px-5 pb-5 text-sm leading-relaxed text-ink-soft">{f.a}</p>
+          </details>
+        ))}
       </div>
-      <div className="grid gap-6 md:grid-cols-[1fr_18rem] md:items-start">
-        <div className="space-y-3">
-          {list.map((f, i) => (
-            <Reveal key={f.q} delay={Math.min(i, 5) * 70}>
-              <details className="faq-item group rounded-2xl border border-line bg-ivory shadow-[0_1px_2px_rgb(42_26_36/0.04)] transition open:border-rose-300 open:shadow-soft" open={i === 0}>
-                <summary className="flex cursor-pointer items-center gap-4 p-4 md:p-5">
-                  <span className="step-num shrink-0 font-sans text-2xl font-extrabold leading-none tabular-nums" dir="ltr" aria-hidden="true">
-                    {String(i + 1).padStart(2, "0")}
-                  </span>
-                  <span className="flex-1 font-semibold">{f.q}</span>
-                  <span className="faq-plus grid size-8 shrink-0 place-items-center rounded-full bg-rose-100 text-lg leading-none text-plum-700" aria-hidden="true">
-                    +
-                  </span>
-                </summary>
-                <p className="px-4 pb-5 ps-[3.75rem] text-sm leading-relaxed text-ink-soft md:px-5 md:ps-[4.25rem]">{f.a}</p>
-              </details>
-            </Reveal>
-          ))}
-        </div>
-        <Reveal delay={150}>
-          <aside className="rounded-3xl bg-gradient-to-br from-plum-700 via-plum-600 to-rose-700 p-6 text-ivory shadow-soft">
-            <ChatIcon size={32} className="text-rose-300" />
-            <p className="heading-display mt-3 text-2xl">{t.faq.helpTitle}</p>
-            <p className="mt-1 text-sm text-ivory/80">{t.faq.helpText}</p>
-            <a href={href("/contact")} className="mt-5 inline-flex h-11 items-center rounded-full bg-ivory px-5 text-sm font-semibold text-plum-700 transition hover:scale-[1.03]">
-              {t.faq.helpCta}
-            </a>
-          </aside>
-        </Reveal>
-      </div>
+      <p className="mt-4 text-center text-sm text-ink-soft">
+        {t.faq.helpTitle}{" "}
+        <a href={href("/contact")} className="font-semibold text-plum-600 underline-offset-4 hover:underline">
+          {t.faq.helpCta}
+        </a>
+      </p>
     </section>
   );
 }

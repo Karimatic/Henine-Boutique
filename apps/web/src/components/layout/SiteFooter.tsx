@@ -12,49 +12,54 @@ export function SiteFooter() {
     ["confidentialite", ar ? "الخصوصية" : "Confidentialité"],
     ["a-propos", ar ? "من نحن" : "À propos"],
   ];
+  const links: [string, string][] = [
+    [href("/suivi"), t.track.cta],
+    [href("/categories"), t.categories.all],
+    ...pages.map(([slug, label]) => [href(`/p/${slug}`), label] as [string, string]),
+    [href("/contact"), t.footer.contact],
+    [href("/liens"), t.footer.links],
+  ];
   return (
-    <footer className="border-t border-line bg-ivory-deep">
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 md:grid-cols-[1.4fr_1fr_1fr]">
-        <div className="flex items-start gap-3">
-          <Blossom size={32} />
-          <div>
-            <p className="heading-display text-2xl text-plum-700" dir="ltr">
-              Henine Boutique
-            </p>
-            <p className="text-sm text-ink-soft">{t.brand.tagline}</p>
-            <a
-              href="https://www.instagram.com/henine.boutique/"
-              rel="noopener noreferrer"
-              target="_blank"
-              className="mt-4 inline-flex items-center gap-2 rounded-full border border-line px-4 py-2 text-sm font-medium hover:border-plum-600"
-            >
-              <InstagramIcon size={18} />
-              <span dir="ltr">@henine.boutique</span>
-            </a>
+    <footer className="mt-8 bg-ink text-white">
+      <div className="mx-auto max-w-6xl px-4 pb-8 pt-10">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-2.5">
+            <Blossom size={30} />
+            <div>
+              <p className="heading-display text-2xl italic" dir="ltr">
+                Henine Boutique
+              </p>
+              <p className="text-xs text-white/60">{t.brand.tagline}</p>
+            </div>
           </div>
+          <a
+            href="https://www.instagram.com/henine.boutique/"
+            rel="noopener noreferrer"
+            target="_blank"
+            className="inline-flex h-10 items-center gap-2 rounded-full bg-white/10 px-4 text-sm font-medium transition hover:bg-white/20"
+          >
+            <InstagramIcon size={17} />
+            <span dir="ltr">@henine.boutique</span>
+          </a>
         </div>
-        <nav aria-label={t.footer.help}>
-          <p className="mb-2 text-sm font-semibold">{t.footer.help}</p>
-          <ul className="space-y-2 text-sm text-ink-soft">
-            <li><a href={href("/suivi")} className="hover:text-plum-700">{t.track.cta}</a></li>
-            {pages.map(([slug, label]) => (
-              <li key={slug}><a href={href(`/p/${slug}`)} className="hover:text-plum-700">{label}</a></li>
+        <nav aria-label={t.footer.help} className="mt-8">
+          <ul className="grid grid-cols-2 gap-x-4 gap-y-2.5 text-sm text-white/70 md:grid-cols-4">
+            {links.map(([to, label]) => (
+              <li key={to}>
+                <a href={to} className="transition hover:text-white">
+                  {label}
+                </a>
+              </li>
             ))}
           </ul>
         </nav>
-        <nav aria-label={t.footer.shop}>
-          <p className="mb-2 text-sm font-semibold">{t.footer.shop}</p>
-          <ul className="space-y-2 text-sm text-ink-soft">
-            <li><a href={href("/categories")} className="hover:text-plum-700">{t.categories.all}</a></li>
-            <li><a href={href("/contact")} className="hover:text-plum-700">{t.footer.contact}</a></li>
-            <li><a href={href("/liens")} className="hover:text-plum-700">{t.footer.links}</a></li>
-            <li className="pt-2"><LanguageSwitch className="inline-flex" /></li>
-          </ul>
-        </nav>
+        <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/10 pt-5">
+          <p className="text-xs text-white/50">
+            © {new Date().getFullYear()} Henine Boutique · {t.footer.rights}
+          </p>
+          <LanguageSwitch className="inline-flex" />
+        </div>
       </div>
-      <p className="pb-6 text-center text-xs text-ink-soft">
-        © {new Date().getFullYear()} Henine Boutique · {t.footer.rights}
-      </p>
     </footer>
   );
 }
