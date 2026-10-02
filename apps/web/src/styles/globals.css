@@ -2,20 +2,20 @@
 
 /*
  * Henine design tokens: luxury pink & white, feminine, premium-but-accessible.
- * Blush-white ground (warm, never pure #fff), deep rose ink, vivid pink accent, gold hairlines.
- * WCAG contrast on blush-white: ink 16.1:1, ink-soft 7.3:1, plum-600 5.4:1, plum-700 7.5:1,
- * rose-700 5.6:1 (all AA ✓). rose-300/500 are decorative only, never text on blush-white.
+ * Pinky-white ground (cards stay white on top of it), deep rose ink, vivid pink accent, gold hairlines.
+ * WCAG contrast on the pinky-white ground: ink 15.1:1, ink-soft 6.8:1, plum-600 5.0:1,
+ * plum-700 7.0:1, rose-700 5.2:1 (all AA ✓). rose-300/500 are decorative only, never text.
  */
 @theme {
-  --color-ivory: #fff7fa;
-  --color-ivory-deep: #ffeef5;
+  --color-ivory: #fdeef3;
+  --color-ivory-deep: #fbe0ea;
   --color-ink: #2b1620;
   --color-ink-soft: #6b4a57;
-  --color-line: #f6d2e0;
+  --color-line: #f4c6d6;
   --color-rose-800: #ad1457;
   --color-plum-600: #c2255f;
   --color-plum-700: #9d174d;
-  --color-rose-100: #fde3ec;
+  --color-rose-100: #f9d3e0;
   --color-rose-300: #f48fb1;
   --color-rose-500: #ec407a;
   --color-rose-700: #c2185b;
@@ -25,7 +25,8 @@
 
   --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
-  --font-arabic: var(--font-plex-arabic), "Segoe UI", Tahoma, sans-serif;
+  --font-arabic: var(--font-arabic-sans), "Segoe UI", Tahoma, sans-serif;
+  --font-arabic-display: var(--font-arabic-display-face), var(--font-arabic-sans), serif;
 
   --radius-card: 1rem;
   --shadow-soft: 0 1px 2px rgb(42 26 36 / 0.04), 0 8px 24px rgb(42 26 36 / 0.06);
@@ -170,7 +171,7 @@
   }
   /* Latin brand text (dir="ltr") keeps the display serif on Arabic pages */
   html[lang="ar"] .heading-display:not([dir="ltr"]) {
-    font-family: var(--font-arabic);
+    font-family: var(--font-arabic-display);
     font-weight: 600;
     letter-spacing: 0;
   }
