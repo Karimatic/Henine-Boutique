@@ -153,6 +153,19 @@ export const stockAlertInput = z.object({
   turnstileToken: z.string().min(1).max(4096),
 });
 
+/** "Prévenez-moi" by notification: the browser's push subscription for one variant. */
+export const pushSubscribeInput = z.object({
+  variantId: z.number().int().positive(),
+  locale: z.enum(["fr", "ar"]).default("ar"),
+  subscription: z.object({
+    endpoint: z.string().url().max(800),
+    keys: z.object({
+      p256dh: z.string().regex(/^[A-Za-z0-9_-]{80,100}$/),
+      auth: z.string().regex(/^[A-Za-z0-9_-]{16,30}$/),
+    }),
+  }),
+});
+
 export const clientErrorInput = z.object({
   message: z.string().max(500),
   stack: z.string().max(4000).optional(),

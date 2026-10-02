@@ -100,6 +100,10 @@ const fr = {
     selectVariant: "Choisissez une taille et une couleur",
     chooseSize: "Choisissez d’abord votre taille",
     sizeGuide: "Guide des tailles",
+    pushCta: "Me prévenir sur ce téléphone",
+    pushDone: "C'est noté ! Vous recevrez une notification dès son retour.",
+    pushDenied: "Les notifications sont bloquées : laissez plutôt votre numéro ci-dessous.",
+    pushOr: "ou par téléphone (nous vous écrivons sur WhatsApp)",
     share: "Partager",
   },
   cart: {
@@ -408,6 +412,10 @@ const ar: Dictionary = {
     selectVariant: "اختاري المقاس واللون",
     chooseSize: "اختاري المقاس أولا",
     sizeGuide: "دليل المقاسات",
+    pushCta: "نبّهيني على هذا الهاتف",
+    pushDone: "تم! ستصلك إشعار فور عودته إلى المخزون.",
+    pushDenied: "الإشعارات محظورة: اتركي رقمك في الأسفل بدلًا من ذلك.",
+    pushOr: "أو عبر الهاتف (نراسلك على واتساب)",
     share: "مشاركة",
   },
   cart: {

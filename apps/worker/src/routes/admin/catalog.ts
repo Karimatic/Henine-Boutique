@@ -11,6 +11,7 @@ import { randomToken } from "../../lib/crypto";
 import { body, HttpError, intParam } from "../../lib/http";
 import { bumpCatalogStmt } from "../../lib/settings";
 import { notifyRestocked } from "../../lib/telegram";
+import { sendRestockPushes } from "../../lib/webpush";
 import { actorOf, requirePermission } from "../../middleware/access";
 
 export const catalogRoutes = new Hono<AppEnv>();
@@ -338,7 +339,10 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
     if (msg.includes("UNIQUE") || msg.includes("PRIMARY KEY")) throw new HttpError(409, "conflict_retry");
     throw err;
   }
-  if (restocked.length) c.executionCtx.waitUntil(notifyRestocked(env, restocked).catch(() => undefined));
+  if (restocked.length) {
+    c.executionCtx.waitUntil(notifyRestocked(env, restocked).catch(() => undefined));
+    c.executionCtx.waitUntil(sendRestockPushes(env, restocked).catch(() => undefined));
+  }
   return productId;
 }
 
@@ -711,9 +715,8 @@ catalogRoutes.post("/stock/:variantId/adjust", requirePermission("stock.edit"), 
   if (target < v.stock_reserved) throw new HttpError(409, "stock_below_reserved", { reserved: v.stock_reserved });
   const delta = target - v.stock_on_hand;
   if (delta === 0) return c.json({ stockOnHand: target });
-  if (v.stock_on_hand - v.stock_reserved <= 0 && target - v.stock_reserved > 0) {
-    c.executionCtx.waitUntil(notifyRestocked(c.env, [variantId]).catch(() => undefined));
-  }
+  const backInStock = v.stock_on_hand - v.stock_reserved <= 0 && target - v.stock_reserved > 0;
+  if (backInStock) c.executionCtx.waitUntil(notifyRestocked(c.env, [variantId]).catch(() => undefined));
 
   const actor = actorOf(c.get("member"));
   await c.env.DB.batch([
@@ -723,6 +726,8 @@ catalogRoutes.post("/stock/:variantId/adjust", requirePermission("stock.edit"), 
     ),
     bumpCatalogStmt(c.env),
   ]);
+  // after the update: the push only goes out once the stock is really there
+  if (backInStock) c.executionCtx.waitUntil(sendRestockPushes(c.env, [variantId]).catch(() => undefined));
   return c.json({ stockOnHand: target });
 });
 

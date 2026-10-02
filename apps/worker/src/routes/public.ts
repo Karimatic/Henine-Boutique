@@ -7,6 +7,7 @@ import {
   contactInput,
   createOrderInput,
   maskDzPhone,
+  pushSubscribeInput,
   quoteInput,
   reviewInput,
   sha256Hex,
@@ -28,6 +29,7 @@ import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, verifyTurnstile 
 import { applyStatusChange, createOrder, quote } from "../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings } from "../lib/settings";
 import { notifyNewOrder, sendTelegramText, syncOrderMessage } from "../lib/telegram";
+import { isPushEndpoint, sendRestockPushes, vapidKeys } from "../lib/webpush";
 import { z } from "zod";
 
 export const publicRoutes = new Hono<AppEnv>();
@@ -432,6 +434,34 @@ publicRoutes.post("/stock-alert", async (c) => {
   )
     .bind(input.variantId, input.phone, Date.now(), input.variantId, input.phone)
     .run();
+  return c.json({ ok: true }, 201);
+});
+
+/* ───────── Back-in-stock notifications (Web Push) ───────── */
+
+publicRoutes.get("/push/key", async (c) => c.json({ publicKey: (await vapidKeys(c.env)).publicKey }, 200, { "Cache-Control": "public, max-age=86400" }));
+
+publicRoutes.post("/push/subscribe", async (c) => {
+  await rateLimit(c.env.RL_WRITE, `push:${clientIp(c)}`);
+  const input = await body(c, pushSubscribeInput);
+  if (!isPushEndpoint(input.subscription.endpoint)) throw new HttpError(422, "push_endpoint");
+  const variant = await c.env.DB.prepare("SELECT id FROM variants WHERE id = ? AND is_active = 1").bind(input.variantId).first();
+  if (!variant) throw new HttpError(404, "not_found");
+  const now = Date.now();
+  const { endpoint, keys } = input.subscription;
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, tags, created_at) VALUES (?, ?, ?, ?, '["restock"]', ?)
+       ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale`,
+    ).bind(endpoint, keys.p256dh, keys.auth, input.locale, now),
+    c.env.DB.prepare(
+      `INSERT INTO stock_alerts (variant_id, push_subscription_id, created_at)
+       SELECT ?, s.id, ? FROM push_subscriptions s WHERE s.endpoint = ?
+         AND NOT EXISTS (SELECT 1 FROM stock_alerts a WHERE a.variant_id = ? AND a.push_subscription_id = s.id AND a.notified_at IS NULL)`,
+    ).bind(input.variantId, now, endpoint, input.variantId),
+  ]);
+  // already back (stock changed while the page was open): tell her right away
+  c.executionCtx.waitUntil(sendRestockPushes(c.env, [input.variantId], 5).catch(() => undefined));
   return c.json({ ok: true }, 201);
 });
 

@@ -8,6 +8,7 @@ import { Markdown } from "@/components/ui/Markdown";
 import { ErrorBox, inputCls, Price, ProductImage, Stars } from "@/components/ui/kit";
 import { apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { pushSupported, subscribeRestock } from "@/lib/push";
 import { cart, toggleFavorite, useFavorites } from "@/lib/stores";
 import { Turnstile } from "@/lib/turnstile";
 import { Badges } from "./Badges";
@@ -337,11 +338,37 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
   const [phone, setPhone] = useState("");
   const [token, setToken] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
+  // a notification on this phone: one tap, nothing to type
+  const [canPush, setCanPush] = useState(false);
+  const [push, setPush] = useState<"idle" | "asking" | "done" | "denied" | "error">("idle");
+  useEffect(() => setCanPush(pushSupported() && Notification.permission !== "denied"), []);
+  useEffect(() => setPush("idle"), [variantId]);
+  if (push === "done") return <p className="mt-3 rounded-xl bg-rose-100 p-4 text-sm font-medium text-plum-700">🔔 {t.product.pushDone}</p>;
   return state === "done" ? (
     <p className="mt-3 rounded-xl bg-rose-100 p-4 text-sm font-medium text-plum-700">{t.product.notifyDone}</p>
   ) : (
+    <div className="mt-3 space-y-3">
+      {canPush && (
+        <div>
+          <button
+            type="button"
+            disabled={push === "asking"}
+            onClick={async () => {
+              setPush("asking");
+              const r = await subscribeRestock(variantId, locale);
+              setPush(r === "ok" ? "done" : r);
+            }}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-plum-600 px-5 font-semibold text-ivory disabled:opacity-60"
+          >
+            🔔 {t.product.pushCta}
+          </button>
+          {push === "denied" && <p className="mt-1.5 text-sm text-ink-soft">{t.product.pushDenied}</p>}
+          {push === "error" && <p className="mt-1.5 text-sm text-danger">{t.common.error}</p>}
+          <p className="mt-3 text-center text-xs text-ink-soft">{t.product.pushOr}</p>
+        </div>
+      )}
     <form
-      className="mt-3 space-y-2"
+      className="space-y-2"
       onSubmit={async (e) => {
         e.preventDefault();
         const p = normalizeDzPhone(phone);
@@ -365,6 +392,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
       {state === "error" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
       <Turnstile siteKey={siteKey} onToken={setToken} locale={locale} />
     </form>
+    </div>
   );
 }
 

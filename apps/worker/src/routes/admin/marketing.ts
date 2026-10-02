@@ -238,7 +238,8 @@ marketingRoutes.get("/notifier", requirePermission("marketing.edit"), async (c) 
   const { notifications } = await getSettings(c.env, ["notifications"]);
   const { results } = await c.env.DB.prepare(
     `SELECT a.variant_id, v.sku, p.name_fr, p.id AS product_id, v.stock_on_hand - v.stock_reserved AS available,
-            COUNT(*) AS waiting, GROUP_CONCAT(a.phone, ', ') AS phones, MAX(a.created_at) AS last_at
+            COUNT(*) AS waiting, SUM(CASE WHEN a.push_subscription_id IS NOT NULL THEN 1 ELSE 0 END) AS push_waiting,
+            GROUP_CONCAT(a.phone, ', ') AS phones, MAX(a.created_at) AS last_at
        FROM stock_alerts a JOIN variants v ON v.id = a.variant_id JOIN products p ON p.id = v.product_id
       WHERE a.notified_at IS NULL GROUP BY a.variant_id ORDER BY waiting DESC LIMIT 100`,
   ).all<{ variant_id: number } & Record<string, unknown>>();

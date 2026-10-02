@@ -547,7 +547,7 @@ interface Notifications {
 export function NotifierPage() {
   const q = useQuery({
     queryKey: ["notifier"],
-    queryFn: () => api<{ notifications: Notifications; waitlists: { variant_id: number; name_fr: string; options: string; sku: string; available: number; waiting: number; phones: string; last_at: number }[] }>("/notifier"),
+    queryFn: () => api<{ notifications: Notifications; waitlists: { variant_id: number; name_fr: string; options: string; sku: string; available: number; waiting: number; push_waiting: number | null; phones: string | null; last_at: number }[] }>("/notifier"),
   });
   const [n, setN] = useState<Notifications | null>(null);
   useEffect(() => {
@@ -591,9 +591,12 @@ export function NotifierPage() {
                   <span className="text-sm font-semibold">{w.name_fr} · {w.options}</span>
                   <Badge tone={w.available > 0 ? "bg-emerald-100 text-emerald-800" : "bg-stone-200 text-stone-700"}>{w.available > 0 ? `De retour (${w.available})` : "Toujours épuisé"}</Badge>
                 </div>
-                <p className="mt-1 text-xs text-ink-soft">{w.waiting} cliente(s) · dernière demande {ago(w.last_at)}</p>
+                <p className="mt-1 text-xs text-ink-soft">
+                  {w.waiting} cliente(s) · dernière demande {ago(w.last_at)}
+                  {w.push_waiting ? ` · dont ${w.push_waiting} par notification (envoyée automatiquement au retour du stock)` : ""}
+                </p>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {w.phones.split(", ").map((p) => (
+                  {(w.phones ?? "").split(", ").filter(Boolean).map((p) => (
                     <a key={p} href={waLink(p, `Bonjour 🌸 Bonne nouvelle : « ${w.name_fr} (${w.options}) » est de retour chez Henine Boutique ! ${location.origin}`)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1 text-xs font-semibold text-white">
                       {formatDzPhone(p)}
                     </a>
@@ -606,7 +609,11 @@ export function NotifierPage() {
         )}
       </Card>
       <Card title="📲 Notifications sur le téléphone des clientes">
-        <p className="text-sm text-ink-soft">Les notifications « push » nécessitent l'adresse https définitive de la boutique (après le déploiement). Prévues dans une prochaine étape.</p>
+        <p className="text-sm text-ink-soft">
+          Sur une taille épuisée, la cliente peut toucher « 🔔 Me prévenir sur ce téléphone » : dès que vous remettez du stock (fiche produit ou page Stock),
+          elle reçoit une notification avec la photo, qui ouvre le produit. Rien à faire de votre côté. Fonctionne sur Android et ordinateur ; sur iPhone,
+          seulement si la boutique est ajoutée à l'écran d'accueil.
+        </p>
       </Card>
     </div>
   );

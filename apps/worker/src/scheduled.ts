@@ -3,6 +3,7 @@ import type { Env } from "./env";
 import { recordError } from "./lib/audit";
 import { algiersDate, algiersDayStart, periodStats } from "./lib/orders";
 import { processOutbox, sendTelegramText } from "./lib/telegram";
+import { sendRestockPushes } from "./lib/webpush";
 
 /**
  * Cron dispatcher (3 triggers on the free plan, see wrangler.jsonc).
@@ -14,6 +15,8 @@ export async function scheduled(controller: ScheduledController, env: Env, ctx: 
   switch (controller.cron) {
     case "*/5 * * * *":
       run("outbox", processOutbox(env, 10));
+      // back-in-stock pushes not sent at restock time (more than one batch, or a network error)
+      run("restock_push", sendRestockPushes(env, undefined, 30));
       break;
     case "*/30 * * * *":
       run("callbacks", callbackReminder(env));
