@@ -135,6 +135,7 @@ interface ProductForm {
   seoDescription: string | null;
   instagramUrl: string | null;
   relatedIds: number[];
+  sizeGuideId: number | null;
   options: Option[];
   variants: Variant[];
   images?: (ImageRef & { id: number })[];
@@ -155,7 +156,7 @@ const newRef = () => `n:${Date.now().toString(36)}${refCounter++}`;
 function emptyForm(): ProductForm {
   return {
     slug: "", nameFr: "", nameAr: "", descriptionFr: "", descriptionAr: "", status: "draft", categoryId: null, tags: [],
-    price: null, compareAtPrice: null, costPrice: null, seoTitle: null, seoDescription: null, instagramUrl: null, relatedIds: [],
+    price: null, compareAtPrice: null, costPrice: null, seoTitle: null, seoDescription: null, instagramUrl: null, relatedIds: [], sizeGuideId: null,
     options: [
       { kind: "taille", nameFr: "Taille", nameAr: "المقاس", values: [] },
       { kind: "couleur", nameFr: "Couleur", nameAr: "اللون", values: [] },
@@ -184,6 +185,7 @@ export function ProductEditor() {
   const toast = useToast();
   const can = useCan();
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<{ id: number; name_fr: string }[]>("/categories") });
+  const sizeGuides = useQuery({ queryKey: ["size-guides"], queryFn: () => api<{ id: number; name: string }[]>("/size-guides") });
   const loaded = useQuery({ queryKey: ["product", params.id], queryFn: () => api<ProductForm>(`/products/${params.id}`), enabled: !isNew });
   const [form, setForm] = useState<ProductForm | null>(isNew ? emptyForm() : null);
   useEffect(() => {
@@ -197,6 +199,7 @@ export function ProductEditor() {
         nameFr: f.nameFr, nameAr: f.nameAr, slug: f.slug || undefined, descriptionFr: f.descriptionFr, descriptionAr: f.descriptionAr,
         status: f.status, categoryId: f.categoryId, tags: f.tags, price: f.price ?? 0, compareAtPrice: f.compareAtPrice, costPrice: f.costPrice,
         seoTitle: f.seoTitle || null, seoDescription: f.seoDescription || null, instagramUrl: f.instagramUrl || null, relatedIds: f.relatedIds ?? [],
+        sizeGuideId: f.sizeGuideId ?? null,
         options: f.options.filter((o) => o.values.length).map((o) => ({ id: o.id, kind: o.kind, nameFr: o.nameFr, nameAr: o.nameAr, values: o.values })),
         variants: f.variants.map((v) => ({ id: v.id, refs: v.refs, sku: v.sku || undefined, priceOverride: v.priceOverride, stockOnHand: v.stockOnHand, lowStockThreshold: v.lowStockThreshold, isActive: v.isActive })),
       };
@@ -314,6 +317,13 @@ export function ProductEditor() {
               <option value="">—</option>
               {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
             </Select>
+            <Select label="📏 Guide des tailles" className="mt-3" value={form.sizeGuideId ?? ""} onChange={(e) => set("sizeGuideId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
+              <option value="">Aucun</option>
+              {sizeGuides.data?.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </Select>
+            <p className="mt-1 text-xs text-ink-soft">
+              Affiché à côté des tailles sur la fiche produit. <Link to="/contenu" search={{ tab: "tailles" }} className="font-semibold text-plum-600">Créer / modifier les guides</Link>
+            </p>
             <div className="mt-3 space-y-1.5">
               <p className="text-sm font-medium">Étiquettes</p>
               {[["nouveaute", "Nouveauté"], ["best-seller", "Coup de cœur"], ["promo", "Promo"]].map(([tag, label]) => (

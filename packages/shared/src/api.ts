@@ -95,6 +95,30 @@ export interface ReviewDTO {
   createdAt: number;
 }
 
+/** Size chart: same columns in both languages, cells are sizes / measurements. */
+export interface SizeGuideDTO {
+  headersFr: string[];
+  headersAr: string[];
+  rows: string[][];
+  tipsFr: string | null;
+  tipsAr: string | null;
+}
+
+/** Starting point offered in the admin (usual Algerian / EU women's sizes, to adjust). */
+export const SIZE_GUIDE_TEMPLATE: Omit<SizeGuideDTO, "tipsFr" | "tipsAr"> & { tipsFr: string; tipsAr: string } = {
+  headersFr: ["Taille", "Tour de poitrine (cm)", "Tour de taille (cm)", "Tour de hanches (cm)"],
+  headersAr: ["المقاس", "محيط الصدر (سم)", "محيط الخصر (سم)", "محيط الورك (سم)"],
+  rows: [
+    ["S", "84-88", "64-68", "90-94"],
+    ["M", "88-92", "68-72", "94-98"],
+    ["L", "92-98", "72-78", "98-104"],
+    ["XL", "98-104", "78-84", "104-110"],
+    ["XXL", "104-110", "84-90", "110-116"],
+  ],
+  tipsFr: "Mesurez-vous en sous-vêtements, ruban bien à plat. Entre deux tailles ? Prenez la plus grande, ou écrivez-nous sur WhatsApp.",
+  tipsAr: "خذي قياساتك بالملابس الداخلية مع شريط مستقيم. بين مقاسين؟ اختاري الأكبر، أو راسلينا على واتساب.",
+};
+
 export interface ProductDetailDTO extends ProductCardDTO {
   descriptionFr: string | null;
   descriptionAr: string | null;
@@ -108,6 +132,8 @@ export interface ProductDetailDTO extends ProductCardDTO {
   /** "look": hand-picked or bought together; "similar": same category */
   related: ProductCardDTO[];
   relatedKind: "look" | "similar";
+  /** size chart chosen for this product in the admin */
+  sizeGuide: SizeGuideDTO | null;
 }
 
 /* ───────────── Collections / drops ───────────── */

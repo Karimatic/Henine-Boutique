@@ -3,6 +3,9 @@ import { formatDA, imageUrl, type ImageRef } from "@henine/shared";
 import type { AppEnv } from "./env";
 import { recordError } from "./lib/audit";
 import { getCollection, getProductDetail } from "./lib/catalog";
+import { cached } from "./lib/edge-cache";
+import { metaFeedCsv, productJsonLd, robotsTxt, sitemapXml } from "./lib/seo";
+import { getSettings } from "./lib/settings";
 import { HttpError } from "./lib/http";
 import { handleUpdate, verifyWebhookSecret } from "./lib/telegram";
 import { adminDocumentHeaders, apiHeaders, sameOriginWrites } from "./middleware/security";
@@ -58,6 +61,21 @@ app.get("/media/*", async (c) => {
   });
   c.executionCtx.waitUntil(cache.put(c.req.raw, res.clone()));
   return res;
+});
+
+/* ─── Search engines & ad catalogues (edge cached, refreshed on every catalogue change) ─── */
+async function catalogCached(c: Context<AppEnv>, ttl: number, type: string, produce: () => Promise<string>) {
+  const { catalog_version: v } = await getSettings(c.env, ["catalog_version"]);
+  const url = new URL(c.req.url);
+  url.searchParams.set("__v", String(v));
+  return cached(new Request(url), c.executionCtx, ttl, async () => new Response(await produce(), { headers: { "Content-Type": type } }));
+}
+app.get("/robots.txt", (c) => c.text(robotsTxt(c.env), 200, { "Cache-Control": "public, max-age=3600" }));
+app.get("/sitemap.xml", (c) => catalogCached(c, 3600, "application/xml; charset=utf-8", () => sitemapXml(c.env)));
+/** Meta (Facebook/Instagram) catalogue, also fine for Google Merchant Center. ?lang=fr for French. */
+app.get("/feeds/meta.csv", (c) => {
+  const lang = c.req.query("lang") === "fr" ? "fr" : "ar";
+  return catalogCached(c, 3600, "text/csv; charset=utf-8", () => metaFeedCsv(c.env, lang));
 });
 
 /* ─── Short links: /l/<slug> ─── */
@@ -128,9 +146,11 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
 
   const ar = prefix === ""; // Arabic is served at the root, French under /fr
   let meta: PreviewMeta | null = null;
+  let structured = "";
   if (section === "produit") {
     const product = await getProductDetail(c.env, slug).catch(() => null);
     if (product) {
+      structured = productJsonLd(c.env, product, ar, url.pathname);
       const name = ar ? product.nameAr : product.nameFr;
       const text = (product.seoDescription ?? (ar ? product.descriptionAr : product.descriptionFr) ?? "").replace(/[*#\n]+/g, " ").trim();
       const price = formatDA(product.price);
@@ -157,7 +177,7 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
     }
   }
   if (!meta) return new Response(res.body, { status: 404, headers: res.headers });
-  const head = previewHead(c, url.pathname, ar, meta);
+  const head = previewHead(c, url.pathname, ar, meta) + structured;
   const title = section === "produit" ? `${meta.imageAlt} · Henine Boutique` : meta.title;
   return new HTMLRewriter()
     .on("title", { element: (el) => void el.setInnerContent(title) })

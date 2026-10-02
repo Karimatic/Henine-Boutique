@@ -14,6 +14,7 @@ import { Badges } from "./Badges";
 import { ProductGrid } from "./ProductCard";
 import { ReviewForm } from "./ReviewForm";
 import { ShareButton } from "./ShareButton";
+import { SizeGuideButton } from "./SizeGuide";
 
 export function ProductView() {
   const [slug, setSlug] = useState<string | null>(null);
@@ -202,10 +203,13 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
           <div id="variant-options" className="mt-6 space-y-5 scroll-mt-28">
             {p.options.map((o) => (
               <fieldset key={o.id} className={nudge && selected[o.id] == null ? "nudge [&>legend]:text-danger" : undefined}>
-                <legend className="mb-2 text-sm font-medium">
+                <legend className="mb-2 flex w-full items-center text-sm font-medium">
                   {o.kind === "taille" ? t.product.size : o.kind === "couleur" ? t.product.color : ar ? o.nameAr : o.nameFr}
                   {selected[o.id] != null && (
                     <span className="ms-2 text-ink-soft">{(() => { const v = o.values.find((x) => x.id === selected[o.id]); return ar ? v?.labelAr : v?.labelFr; })()}</span>
+                  )}
+                  {o.kind === "taille" && p.sizeGuide && (
+                    <SizeGuideButton guide={p.sizeGuide} selectedSize={o.values.find((x) => x.id === selected[o.id])?.labelFr} />
                   )}
                 </legend>
                 <div className="flex flex-wrap gap-2">

@@ -82,6 +82,7 @@ async function loadProduct(c: { env: AppEnv["Bindings"] }, id: number) {
     seoDescription: p.seo_description,
     instagramUrl: p.instagram_url,
     relatedIds: JSON.parse((p.related_ids as string) || "[]") as number[],
+    sizeGuideId: (p.size_guide_id as number | null) ?? null,
     publishedAt: p.published_at as number | null,
     options: (options!.results as { id: number; kind: string; name_fr: string; name_ar: string }[]).map((o) => ({
       id: o.id,
@@ -129,6 +130,8 @@ const productInput = z.object({
   instagramUrl: optText(300),
   /** hand-picked "Complétez le look" products */
   relatedIds: z.array(z.number().int().positive()).max(12).default([]),
+  /** size chart shown on the product page */
+  sizeGuideId: z.number().int().positive().nullable().default(null),
   options: z
     .array(
       z.object({
@@ -194,12 +197,12 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
     stmts.push(
       env.DB.prepare(
         `UPDATE products SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, status = ?, category_id = ?, tags = ?,
-           price = ?, compare_at_price = ?, cost_price = ?, seo_title = ?, seo_description = ?, instagram_url = ?, related_ids = ?,
+           price = ?, compare_at_price = ?, cost_price = ?, seo_title = ?, seo_description = ?, instagram_url = ?, related_ids = ?, size_guide_id = ?,
            published_at = COALESCE(published_at, CASE WHEN ? = 'published' THEN ? END), updated_at = ? WHERE id = ?`,
       ).bind(
         slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr, input.descriptionAr, input.status, input.categoryId,
         JSON.stringify(input.tags), input.price, input.compareAtPrice ?? null, input.costPrice ?? null, input.seoTitle ?? null,
-        input.seoDescription ?? null, input.instagramUrl ?? null, JSON.stringify(input.relatedIds.filter((x) => x !== productId)),
+        input.seoDescription ?? null, input.instagramUrl ?? null, JSON.stringify(input.relatedIds.filter((x) => x !== productId)), input.sizeGuideId,
         input.status, now, now, productId,
       ),
     );
@@ -207,12 +210,12 @@ async function saveProduct(c: Parameters<typeof body>[0], existingId: number | n
     stmts.push(
       env.DB.prepare(
         `INSERT INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price,
-           cost_price, seo_title, seo_description, instagram_url, related_ids, published_at, created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           cost_price, seo_title, seo_description, instagram_url, related_ids, size_guide_id, published_at, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         productId, slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr, input.descriptionAr, input.status, input.categoryId,
         JSON.stringify(input.tags), input.price, input.compareAtPrice ?? null, input.costPrice ?? null, input.seoTitle ?? null,
-        input.seoDescription ?? null, input.instagramUrl ?? null, JSON.stringify(input.relatedIds), input.status === "published" ? now : null,
+        input.seoDescription ?? null, input.instagramUrl ?? null, JSON.stringify(input.relatedIds), input.sizeGuideId, input.status === "published" ? now : null,
         c.get("member").id, now, now,
       ),
     );
@@ -368,6 +371,7 @@ catalogRoutes.post("/products/:id/duplicate", requirePermission("products.edit")
     seoDescription: null,
     instagramUrl: null,
     relatedIds: src.relatedIds,
+    sizeGuideId: src.sizeGuideId,
     options: src.options.map((o) => ({ kind: o.kind as "taille" | "couleur" | "autre", nameFr: o.nameFr, nameAr: o.nameAr, values: o.values.map((v) => ({ ref: `n:${v.id}`, labelFr: v.labelFr, labelAr: v.labelAr, hex: v.hex })) })),
     variants: src.variants.map((v) => ({ refs: v.refs.map((r) => r.replace("v:", "n:")), priceOverride: v.priceOverride, stockOnHand: 0, lowStockThreshold: v.lowStockThreshold, isActive: v.isActive })),
   };
@@ -513,6 +517,74 @@ catalogRoutes.delete("/images/:id", requirePermission("products.edit"), async (c
   ]);
   const keys = await unusedImageKeys(c.env, [img]);
   if (keys.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(keys));
+  return c.json({ ok: true });
+});
+
+/* ───────────── Categories ───────────── */
+
+/* ───────────── Size guides ───────────── */
+
+interface SizeGuideRow {
+  id: number;
+  name: string;
+  table: string;
+  tips_fr: string | null;
+  tips_ar: string | null;
+}
+
+const sizeGuideOut = (r: SizeGuideRow & { product_count?: number }) => {
+  const t = JSON.parse(r.table) as { headers: string[]; headersAr?: string[]; rows: string[][] };
+  return { id: r.id, name: r.name, headersFr: t.headers, headersAr: t.headersAr ?? t.headers, rows: t.rows, tipsFr: r.tips_fr, tipsAr: r.tips_ar, productCount: r.product_count ?? 0 };
+};
+
+catalogRoutes.get("/size-guides", requirePermission("products.view"), async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT g.*, (SELECT COUNT(*) FROM products p WHERE p.size_guide_id = g.id) AS product_count FROM size_guides g ORDER BY g.name",
+  ).all<SizeGuideRow & { product_count: number }>();
+  return c.json(results.map(sizeGuideOut));
+});
+
+const cell = z.string().trim().max(40);
+const sizeGuideInput = z
+  .object({
+    name: text(60).min(2),
+    headersFr: z.array(cell.min(1)).min(2).max(8),
+    headersAr: z.array(cell).max(8),
+    rows: z.array(z.array(cell)).min(1).max(30),
+    tipsFr: optText(600),
+    tipsAr: optText(600),
+  })
+  .refine((g) => g.rows.every((r) => r.length === g.headersFr.length) && g.headersAr.length === g.headersFr.length, "columns_mismatch");
+
+function sizeGuideStmt(env: AppEnv["Bindings"], id: number | null, g: z.infer<typeof sizeGuideInput>) {
+  const table = JSON.stringify({ headers: g.headersFr, headersAr: g.headersAr.map((h, i) => h || g.headersFr[i]!), rows: g.rows });
+  return id
+    ? env.DB.prepare("UPDATE size_guides SET name = ?, \"table\" = ?, tips_fr = ?, tips_ar = ? WHERE id = ?").bind(g.name, table, g.tipsFr ?? null, g.tipsAr ?? null, id)
+    : env.DB.prepare("INSERT INTO size_guides (name, \"table\", tips_fr, tips_ar) VALUES (?, ?, ?, ?) RETURNING id").bind(g.name, table, g.tipsFr ?? null, g.tipsAr ?? null);
+}
+
+catalogRoutes.post("/size-guides", requirePermission("products.edit"), async (c) => {
+  const input = await body(c, sizeGuideInput);
+  const row = await sizeGuideStmt(c.env, null, input).first<{ id: number }>();
+  await auditStmt(c.env, actorOf(c.get("member")), "create", "size_guide", row!.id).run();
+  return c.json({ id: row!.id }, 201);
+});
+
+catalogRoutes.put("/size-guides/:id", requirePermission("products.edit"), async (c) => {
+  const id = intParam(c, "id");
+  const input = await body(c, sizeGuideInput);
+  await c.env.DB.batch([sizeGuideStmt(c.env, id, input), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "size_guide", id)]);
+  return c.json({ ok: true });
+});
+
+catalogRoutes.delete("/size-guides/:id", requirePermission("products.edit"), async (c) => {
+  const id = intParam(c, "id");
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE products SET size_guide_id = NULL WHERE size_guide_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM size_guides WHERE id = ?").bind(id),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), "delete", "size_guide", id),
+  ]);
   return c.json({ ok: true });
 });
 

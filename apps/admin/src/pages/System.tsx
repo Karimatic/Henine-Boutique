@@ -1,5 +1,6 @@
-import { ROLE_PRESETS } from "@henine/shared";
+import { ROLE_PRESETS, SIZE_GUIDE_TEMPLATE } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, dateTime } from "../lib/format";
@@ -318,9 +319,15 @@ export function IntegrationsSection() {
 
 /* ───────────── Contenu ───────────── */
 
+type ContentTab = "livraison" | "pages" | "categories" | "tailles" | "boutique";
+
 export function ContentPage() {
-  const [tab, setTab] = useState<"livraison" | "pages" | "categories" | "boutique">("livraison");
   const can = useCan();
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as { tab?: string };
+  const tabs: ContentTab[] = ["livraison", "pages", "categories", "tailles", "boutique"];
+  const tab: ContentTab = tabs.includes(search.tab as ContentTab) ? (search.tab as ContentTab) : can("delivery.edit") ? "livraison" : "pages";
+  const setTab = (t: ContentTab) => void navigate({ to: "/contenu", search: { tab: t } });
   return (
     <div>
       <PageHeader group="Système" title="Contenu" subtitle="Tarifs de livraison, pages d'information, catégories et identité de la boutique." />
@@ -331,12 +338,14 @@ export function ContentPage() {
           ...(can("delivery.edit") ? [{ value: "livraison" as const, label: "🚚 Livraison" }] : []),
           { value: "pages", label: "📄 Pages" },
           { value: "categories", label: "🗂 Catégories" },
+          ...(can("products.edit") ? [{ value: "tailles" as const, label: "📏 Guides des tailles" }] : []),
           { value: "boutique", label: "🌸 Boutique" },
         ]}
       />
       {tab === "livraison" && <DeliveryPrices />}
       {tab === "pages" && <PagesEditor />}
       {tab === "categories" && <CategoriesEditor />}
+      {tab === "tailles" && <SizeGuidesEditor />}
       {tab === "boutique" && <StoreIdentity />}
     </div>
   );
@@ -548,6 +557,166 @@ function CategorySheet({ cat, onClose }: { cat: Partial<CategoryRow>; onClose: (
         <TextField label="Adresse" hint="/c/…" value={f.slug ?? ""} onChange={(e) => setF({ ...f, slug: e.target.value })} />
         <NumberField label="Ordre d'affichage" value={f.sort ?? 0} onChange={(v) => setF({ ...f, sort: v ?? 0 })} />
         <Toggle label="Visible" checked={!!f.is_active} onChange={(v) => setF({ ...f, is_active: v ? 1 : 0 })} />
+      </div>
+    </Sheet>
+  );
+}
+
+/* ── Guides des tailles ── */
+
+interface SizeGuide {
+  id?: number;
+  name: string;
+  headersFr: string[];
+  headersAr: string[];
+  rows: string[][];
+  tipsFr: string | null;
+  tipsAr: string | null;
+  productCount?: number;
+}
+
+function SizeGuidesEditor() {
+  const q = useQuery({ queryKey: ["size-guides"], queryFn: () => api<SizeGuide[]>("/size-guides") });
+  const [edit, setEdit] = useState<SizeGuide | null>(null);
+  const fresh = (): SizeGuide => ({ name: "Lingerie & pyjamas", ...SIZE_GUIDE_TEMPLATE, rows: SIZE_GUIDE_TEMPLATE.rows.map((r) => [...r]) });
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm text-ink-soft">Un tableau des mesures par taille, affiché sur la fiche produit (« 📏 Guide des tailles »). Choisissez le guide de chaque produit dans sa fiche.</p>
+        <Button variant="primary" onClick={() => setEdit(fresh())}>+ Nouveau guide</Button>
+      </div>
+      {q.error ? (
+        <ErrorState error={q.error} onRetry={q.refetch} />
+      ) : !q.data ? (
+        <ListSkeleton rows={2} />
+      ) : q.data.length === 0 ? (
+        <Empty title="Aucun guide des tailles" icon="📏">
+          Créez-en un : il est déjà prérempli avec les tailles S à XXL, il suffit d’ajuster les mesures.
+        </Empty>
+      ) : (
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+          {q.data.map((g) => (
+            <li key={g.id}>
+              <button type="button" onClick={() => setEdit(g)} className="flex w-full items-center justify-between px-4 py-3 text-start hover:bg-rose-100/30">
+                <span>
+                  <span className="block font-medium">{g.name}</span>
+                  <span className="text-xs text-ink-soft">{g.rows.map((r) => r[0]).join(" · ")}</span>
+                </span>
+                <Badge>{g.productCount} produit(s)</Badge>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {edit && <SizeGuideSheet guide={edit} onClose={() => setEdit(null)} />}
+    </div>
+  );
+}
+
+function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => void }) {
+  const [g, setG] = useState(guide);
+  const payload = () => ({
+    name: g.name, headersFr: g.headersFr, headersAr: g.headersAr, rows: g.rows.filter((r) => r.some((x) => x.trim())), tipsFr: g.tipsFr || null, tipsAr: g.tipsAr || null,
+  });
+  const save = useSave(() => (guide.id ? put(`/size-guides/${guide.id}`, payload()) : post("/size-guides", payload())), ["size-guides"], "Guide des tailles enregistré ✓");
+  const remove = useSave(() => del(`/size-guides/${guide.id}`), ["size-guides"], "Guide supprimé");
+  const cols = g.headersFr.length;
+  const setHeader = (lang: "headersFr" | "headersAr", i: number, v: string) => setG({ ...g, [lang]: g[lang].map((h, k) => (k === i ? v : h)) });
+  const setCell = (r: number, col: number, v: string) => setG({ ...g, rows: g.rows.map((row, k) => (k === r ? row.map((x, j) => (j === col ? v : x)) : row)) });
+  const addCol = () => setG({ ...g, headersFr: [...g.headersFr, ""], headersAr: [...g.headersAr, ""], rows: g.rows.map((r) => [...r, ""]) });
+  const removeCol = (i: number) =>
+    setG({ ...g, headersFr: g.headersFr.filter((_, k) => k !== i), headersAr: g.headersAr.filter((_, k) => k !== i), rows: g.rows.map((r) => r.filter((_, k) => k !== i)) });
+  const cellCls = `${inputCls} h-9 min-w-20 px-2 text-center text-sm`;
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      wide
+      title={guide.id ? g.name : "Nouveau guide des tailles"}
+      footer={
+        <div className="flex justify-between gap-2">
+          {guide.id ? (
+            <Button variant="danger" onClick={() => confirm("Supprimer ce guide ? Les produits qui l’utilisent n’auront plus de guide.") && remove.mutate(undefined, { onSuccess: onClose })}>
+              Supprimer
+            </Button>
+          ) : (
+            <span />
+          )}
+          <Button variant="primary" loading={save.isPending} disabled={g.name.trim().length < 2 || g.headersFr.some((h) => !h.trim())} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>
+            Enregistrer
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <TextField label="Nom du guide (pour vous)" placeholder="ex : Lingerie, Robes, Chaussures" value={g.name} onChange={(e) => setG({ ...g, name: e.target.value })} />
+        <div>
+          <p className="mb-2 text-sm font-medium">Tableau des mesures</p>
+          <div className="overflow-x-auto rounded-xl border border-line">
+            <table className="text-sm">
+              <thead className="bg-ivory-deep/60">
+                <tr>
+                  {g.headersFr.map((h, i) => (
+                    <th key={i} className="p-1.5 align-top font-normal">
+                      <input className={`${cellCls} font-semibold`} placeholder="Colonne (FR)" value={h} onChange={(e) => setHeader("headersFr", i, e.target.value)} aria-label={`Colonne ${i + 1} en français`} />
+                      <input className={`${cellCls} mt-1`} dir="rtl" placeholder="العمود" value={g.headersAr[i] ?? ""} onChange={(e) => setHeader("headersAr", i, e.target.value)} aria-label={`Colonne ${i + 1} en arabe`} />
+                      {i > 0 && cols > 2 && (
+                        <button type="button" onClick={() => removeCol(i)} className="mt-1 text-xs text-red-700 hover:underline">
+                          retirer
+                        </button>
+                      )}
+                    </th>
+                  ))}
+                  <th className="p-1.5 align-top">
+                    {cols < 8 && (
+                      <Button size="sm" onClick={addCol}>
+                        + colonne
+                      </Button>
+                    )}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {g.rows.map((row, r) => (
+                  <tr key={r} className="border-t border-line/70">
+                    {row.map((cell, col) => (
+                      <td key={col} className="p-1.5">
+                        <input
+                          className={`${cellCls} ${col === 0 ? "font-semibold" : ""}`}
+                          value={cell}
+                          placeholder={col === 0 ? "Taille" : "cm"}
+                          onChange={(e) => setCell(r, col, e.target.value)}
+                          aria-label={`Ligne ${r + 1}, ${g.headersFr[col] || `colonne ${col + 1}`}`}
+                        />
+                      </td>
+                    ))}
+                    <td className="p-1.5">
+                      <button
+                        type="button"
+                        aria-label="Supprimer la ligne"
+                        disabled={g.rows.length <= 1}
+                        onClick={() => setG({ ...g, rows: g.rows.filter((_, k) => k !== r) })}
+                        className="grid size-9 place-items-center rounded-lg text-red-700 hover:bg-red-50 disabled:opacity-30"
+                      >
+                        ×
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {g.rows.length < 30 && (
+            <Button size="sm" className="mt-2" onClick={() => setG({ ...g, rows: [...g.rows, Array.from({ length: cols }, () => "")] })}>
+              + Ajouter une taille
+            </Button>
+          )}
+          <p className="mt-2 text-xs text-ink-soft">La 1re colonne contient la taille écrite comme sur le produit (S, M, L…) : la taille choisie par la cliente est mise en avant.</p>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <TextArea label="Conseil (FR)" rows={3} value={g.tipsFr ?? ""} onChange={(e) => setG({ ...g, tipsFr: e.target.value })} maxLength={600} />
+          <TextArea label="Conseil (AR)" dir="rtl" rows={3} value={g.tipsAr ?? ""} onChange={(e) => setG({ ...g, tipsAr: e.target.value })} maxLength={600} />
+        </div>
       </div>
     </Sheet>
   );

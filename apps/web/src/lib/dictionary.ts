@@ -99,6 +99,7 @@ const fr = {
     favoriteRemove: "Retirer des favoris",
     selectVariant: "Choisissez une taille et une couleur",
     chooseSize: "Choisissez d’abord votre taille",
+    sizeGuide: "Guide des tailles",
     share: "Partager",
   },
   cart: {
@@ -388,6 +389,7 @@ const ar: Dictionary = {
     favoriteRemove: "إزالة من المفضلة",
     selectVariant: "اختاري المقاس واللون",
     chooseSize: "اختاري المقاس أولا",
+    sizeGuide: "دليل المقاسات",
     share: "مشاركة",
   },
   cart: {

@@ -9,6 +9,7 @@ import {
   type ProductCardDTO,
   type ProductDetailDTO,
   type ReviewDTO,
+  type SizeGuideDTO,
   type VariantDTO,
 } from "@henine/shared";
 import type { Env } from "../env";
@@ -30,6 +31,7 @@ interface ProductRow {
   seo_description: string | null;
   created_at: number;
   related_ids: string;
+  size_guide_id: number | null;
 }
 
 export interface ImageRow {
@@ -65,7 +67,7 @@ export function imageRef(env: Env, r: ImageRow): ImageRef {
 
 const PRODUCT_COLS = `p.id, p.slug, p.name_fr, p.name_ar, p.description_fr, p.description_ar, p.status, p.category_id,
   c.slug AS category_slug, p.tags, p.price, p.compare_at_price, p.seo_title, p.seo_description,
-  COALESCE(p.published_at, p.created_at) AS created_at, p.related_ids`;
+  COALESCE(p.published_at, p.created_at) AS created_at, p.related_ids, p.size_guide_id`;
 
 const CANCELLED = "('annulee','doublon','fausse')";
 
@@ -79,7 +81,7 @@ export function lockedSql(alias: string, now: number): string {
 }
 
 /** Visible on the storefront right now. */
-function visibleSql(alias: string, now: number): string {
+export function visibleSql(alias: string, now: number): string {
   return `(${alias}.status = 'published' OR (${alias}.status = 'scheduled' AND ${alias}.publish_at <= ${Math.floor(now)})) AND NOT ${lockedSql(alias, now)}`;
 }
 
@@ -233,8 +235,9 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
     ).bind(p.id),
     env.DB.prepare("SELECT id, slug, name_fr, name_ar, image FROM categories WHERE id = ?").bind(p.category_id ?? 0),
     salesStmt(env, Date.now()),
+    env.DB.prepare('SELECT "table", tips_fr, tips_ar FROM size_guides WHERE id = ?').bind(p.size_guide_id ?? 0),
   ]);
-  const [[images, options, values, variants, reviews, category, sales], related] = await Promise.all([detail, relatedProducts(env, p)]);
+  const [[images, options, values, variants, reviews, category, sales, guide], related] = await Promise.all([detail, relatedProducts(env, p)]);
 
   const imageRows = images!.results as unknown as ImageRow[];
   const valueRows = values!.results as { id: number; option_id: number; label_fr: string; label_ar: string; hex: string | null }[];
@@ -277,7 +280,14 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
     seoDescription: p.seo_description,
     related: related.cards,
     relatedKind: related.kind,
+    sizeGuide: sizeGuideDto((guide!.results as { table: string; tips_fr: string | null; tips_ar: string | null }[])[0]),
   };
+}
+
+function sizeGuideDto(r: { table: string; tips_fr: string | null; tips_ar: string | null } | undefined): SizeGuideDTO | null {
+  if (!r) return null;
+  const t = JSON.parse(r.table) as { headers: string[]; headersAr?: string[]; rows: string[][] };
+  return { headersFr: t.headers, headersAr: t.headersAr ?? t.headers, rows: t.rows, tipsFr: r.tips_fr, tipsAr: r.tips_ar };
 }
 
 /* ───────────── Collections / drops ───────────── */

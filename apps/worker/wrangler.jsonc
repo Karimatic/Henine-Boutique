@@ -13,7 +13,7 @@
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/api/*", "/admin", "/admin/*", "/media/*", "/l/*", "/produit/*", "/c/*", "/p/*", "/collection/*", "/fr/produit/*", "/fr/c/*", "/fr/p/*", "/fr/collection/*"]
+    "run_worker_first": ["/robots.txt", "/sitemap.xml", "/feeds/*", "/api/*", "/admin", "/admin/*", "/media/*", "/l/*", "/produit/*", "/c/*", "/p/*", "/collection/*", "/fr/produit/*", "/fr/c/*", "/fr/p/*", "/fr/collection/*"]
   },
 
   // Free *.workers.dev URL until a domain is bought. Then: routes + custom_domain, workers_dev: false.
