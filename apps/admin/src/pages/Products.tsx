@@ -27,6 +27,9 @@ interface ProductRow {
   available: number;
   sold: number;
   updated_at: number;
+  category_id: number | null;
+  category_sort: number | null;
+  sold_out: string[];
 }
 
 const STATUS_BADGE: Record<string, [string, string]> = {
@@ -39,8 +42,27 @@ const STATUS_BADGE: Record<string, [string, string]> = {
 export function ProductsPage() {
   const can = useCan();
   const [status, setStatus] = useState("all");
+  const [stock, setStock] = useState("");
+  const [sort, setSort] = useState<"recent" | "name" | "stock" | "sold">("recent");
   const [q, setQ] = useState("");
-  const list = useQuery({ queryKey: ["products", status, q], queryFn: () => api<ProductRow[]>(`/products?status=${status}&q=${encodeURIComponent(q)}`) });
+  const list = useQuery({
+    queryKey: ["products", status, q, stock],
+    queryFn: () => api<ProductRow[]>(`/products?status=${status}&q=${encodeURIComponent(q)}${stock ? `&stock=${stock}` : ""}`),
+  });
+  // grouped by category (shop order), sorted inside each group
+  const groups = useMemo(() => {
+    const sorted = [...(list.data ?? [])].sort((a, b) =>
+      sort === "name" ? a.name_fr.localeCompare(b.name_fr) : sort === "stock" ? a.available - b.available : sort === "sold" ? b.sold - a.sold : b.updated_at - a.updated_at,
+    );
+    const map = new Map<string, { name: string; order: number; rows: ProductRow[] }>();
+    for (const p of sorted) {
+      const key = String(p.category_id ?? "none");
+      const g = map.get(key) ?? { name: p.category ?? tr("Sans catégorie"), order: p.category_sort ?? 999, rows: [] };
+      g.rows.push(p);
+      map.set(key, g);
+    }
+    return [...map.values()].sort((a, b) => a.order - b.order);
+  }, [list.data, sort]);
   return (
     <div>
       <PageHeader
@@ -59,7 +81,20 @@ export function ProductsPage() {
           { value: "archived", label: tr("Archivés") },
         ]}
       />
-      <SearchBox value={q} onChange={setQ} placeholder={tr("Nom, SKU…")} />
+      <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
+        <SearchBox value={q} onChange={setQ} placeholder={tr("Nom, SKU…")} />
+        <select className={`${inputCls} h-11 sm:w-44`} value={stock} onChange={(e) => setStock(e.target.value)} aria-label={tr("Stock")}>
+          <option value="">{tr("Tout le stock")}</option>
+          <option value="low">{tr("Stock bas")}</option>
+          <option value="out">{tr("Épuisés")}</option>
+        </select>
+        <select className={`${inputCls} h-11 sm:w-44`} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={tr("Trier")}>
+          <option value="recent">{tr("Plus récents")}</option>
+          <option value="name">{tr("Nom (A → Z)")}</option>
+          <option value="stock">{tr("Stock (le plus bas)")}</option>
+          <option value="sold">{tr("Les plus vendus")}</option>
+        </select>
+      </div>
       {list.error ? (
         <ErrorState error={list.error} onRetry={list.refetch} />
       ) : !list.data ? (
@@ -67,29 +102,43 @@ export function ProductsPage() {
       ) : list.data.length === 0 ? (
         <Empty title={tr("Aucun produit")}>{tr("Créez votre premier produit avec « Nouveau produit ».")}</Empty>
       ) : (
-        <ul className="grid gap-2 md:grid-cols-2">
-          {list.data.map((p) => (
-            <li key={p.id}>
-              <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-xl border border-line bg-white p-3 transition hover:border-plum-600/40">
-                {p.image ? <img src={p.image} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-rose-100 text-2xl">👗</span>}
-                <div className="min-w-0 flex-1">
-                  <p className="truncate font-semibold">{p.name_fr}</p>
-                  <p className="text-sm tabular-nums">
-                    {da(p.price)} {p.compare_at_price ? <s className="text-ink-soft">{da(p.compare_at_price)}</s> : null}
-                  </p>
-                  <div className="mt-1 flex flex-wrap gap-1.5 text-xs">
-                    <Badge tone={STATUS_BADGE[p.status]?.[1]}>{tr(STATUS_BADGE[p.status]?.[0] ?? "") ?? p.status}</Badge>
-                    <Badge tone={p.available <= 0 ? "bg-red-100 text-red-800" : p.available <= 5 ? "bg-amber-100 text-amber-800" : "bg-stone-100 text-stone-700"}>
-                      {tr("Stock")} {p.available}
-                    </Badge>
-                    <Badge tone="bg-stone-100 text-stone-700">{p.variant_count} {tr("variante(s)")}</Badge>
-                    {p.sold > 0 && <Badge tone="bg-stone-100 text-stone-700">{p.sold} {tr("vendu(s)")}</Badge>}
-                  </div>
-                </div>
-              </Link>
-            </li>
+        <div className="space-y-6">
+          {groups.map((g) => (
+            <section key={g.name}>
+              <h2 className="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">
+                {g.name} <span className="rounded-full bg-ivory-deep px-2 py-0.5 text-xs normal-case tracking-normal">{g.rows.length}</span>
+              </h2>
+              <ul className="grid gap-2 md:grid-cols-2">
+                {g.rows.map((p) => (
+                  <li key={p.id}>
+                    <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-xl border border-line bg-white p-3 transition hover:border-plum-600/40">
+                      {p.image ? <img src={p.image} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-rose-100 text-2xl">👗</span>}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="truncate font-semibold">{p.name_fr}</p>
+                          <Badge tone={STATUS_BADGE[p.status]?.[1]}>{tr(STATUS_BADGE[p.status]?.[0] ?? "") ?? p.status}</Badge>
+                        </div>
+                        <p className="text-sm tabular-nums">
+                          {da(p.price)} {p.compare_at_price ? <s className="text-ink-soft">{da(p.compare_at_price)}</s> : null}
+                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
+                          <span className={`font-semibold tabular-nums ${p.available <= 0 ? "text-red-700" : p.available <= 5 ? "text-amber-700" : "text-ink"}`}>
+                            {tr("{0} pièce(s)", { 0: p.available })}
+                          </span>
+                          {p.sold > 0 && <span className="text-ink-soft">· {p.sold} {tr("vendu(s)")}</span>}
+                        </div>
+                        {p.sold_out.length > 0 && p.available > 0 && (
+                          <p className="mt-1 truncate text-xs text-red-700">⛔ {tr("Épuisé :")} {p.sold_out.slice(0, 4).join(", ")}{p.sold_out.length > 4 ? "…" : ""}</p>
+                        )}
+                        {p.available <= 0 && <p className="mt-1 text-xs font-semibold text-red-700">⛔ {tr("Tout est épuisé")}</p>}
+                      </div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );
@@ -705,6 +754,21 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
 }
 
 
+/** Resize + compress on the phone (several widths, WebP, no GPS), then upload. */
+export async function uploadPhoto(productId: number, file: File, onUploading?: () => void): Promise<ImageRef & { id: number }> {
+  const img = await processImage(file);
+  const form = new FormData();
+  for (const [w, blob] of Object.entries(img.files)) form.append(`w${w}`, blob, `${w}.${img.format}`);
+  form.append("width", String(img.width));
+  form.append("height", String(img.height));
+  form.append("lqip", img.lqip);
+  onUploading?.();
+  return upload<ImageRef & { id: number }>(`/products/${productId}/images`, form);
+}
+
+export const SIZE_CHOICES = SIZE_PRESETS;
+export const COLOR_CHOICES = COLOR_PRESETS;
+
 function ImagesEditor({
   productId, images, options, onChange, onInstagramPost,
 }: {
@@ -732,14 +796,7 @@ function ImagesEditor({
     for (const [n, file] of [...list].entries()) {
       setBusy(`Photo ${n + 1}/${list.length} : optimisation…`);
       try {
-        const img = await processImage(file);
-        const form = new FormData();
-        for (const [w, blob] of Object.entries(img.files)) form.append(`w${w}`, blob, `${w}.${img.format}`);
-        form.append("width", String(img.width));
-        form.append("height", String(img.height));
-        form.append("lqip", img.lqip);
-        setBusy(`Photo ${n + 1}/${list.length} : envoi…`);
-        const saved = await upload<ImageRef & { id: number }>(`/products/${productId}/images`, form);
+        const saved = await uploadPhoto(productId, file, () => setBusy(`Photo ${n + 1}/${list.length} : envoi…`));
         current = [...current, saved];
         onChange(current);
       } catch (e) {
