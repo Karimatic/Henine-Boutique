@@ -324,8 +324,9 @@ orderRoutes.post("/sales/manual", requirePermission("sales.create"), async (c) =
     c,
     z.object({
       channel: z.enum(["boutique", "instagram", "whatsapp", "telephone"]),
-      name: cleanText(80).pipe(z.string().min(2)),
-      phone: dzPhone,
+      name: cleanText(80).pipe(z.string().min(2)).optional(),
+      /** optional for a boutique sale (walk-in customer) */
+      phone: dzPhone.optional(),
       lines: z.array(orderLine).min(1).max(30),
       status: z.enum(["livree", "confirmee", "nouvelle"]),
       wilaya: z.number().int().min(1).max(69).default(35),
@@ -337,10 +338,11 @@ orderRoutes.post("/sales/manual", requirePermission("sales.create"), async (c) =
       note: cleanText(500).optional(),
     }),
   );
+  if (input.channel !== "boutique" && (!input.phone || !input.name)) throw new HttpError(422, "validation_failed", { phone: "required" });
   const order = await createOrder(c.env, {
     idempotencyKey: crypto.randomUUID(),
-    name: input.name,
-    phone: input.phone,
+    name: input.name ?? "Cliente en boutique",
+    phone: input.phone ?? "",
     wilaya: input.wilaya,
     communeId: input.communeId,
     communeText: input.channel === "boutique" ? "Boutique" : undefined,

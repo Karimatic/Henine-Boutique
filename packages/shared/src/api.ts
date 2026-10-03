@@ -2,6 +2,7 @@
  * JSON contracts between the Worker API and the two front-ends.
  * Money is integer DA. Times are epoch milliseconds.
  */
+import type { BoutiqueDTO } from "./boutique";
 import type { DesignDTO } from "./design";
 import type { ProductBadge } from "./insights";
 import type { OrderStatus } from "./order-status";
@@ -225,7 +226,25 @@ export interface SiteConfigDTO {
   flash: FlashSaleDTO | null;
   /** logo, colours, fonts, banners, home sections (Admin → Page d'accueil) */
   design: DesignDTO;
+  /** the shop in Boumerdès: address, map, opening hours */
+  boutique: BoutiqueDTO;
+  /** A/B tests running now (each visitor sees version a or b) */
+  experiments: ExperimentDTO[];
 }
+
+/** buy_label: the buy button's words · grid: product grid, 2 columns (a) or large cards (b) */
+export type ExperimentKind = "buy_label" | "grid";
+
+export interface ExperimentDTO {
+  id: number;
+  kind: ExperimentKind;
+  /** buy_label: { a: {fr, ar}, b: {fr, ar} } */
+  config: { a?: { fr?: string; ar?: string }; b?: { fr?: string; ar?: string } };
+}
+
+/** Steps counted for each version, in funnel order. */
+export const EXPERIMENT_EVENTS = ["seen", "product", "checkout", "order"] as const;
+export type ExperimentEvent = (typeof EXPERIMENT_EVENTS)[number];
 
 /** Shopping assistant answer: real products only, with why each one fits. */
 export interface AssistantReplyDTO {

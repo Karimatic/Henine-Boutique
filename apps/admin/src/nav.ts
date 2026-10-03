@@ -2,6 +2,7 @@ import type { Permission } from "@henine/shared";
 import {
   BellRing,
   Boxes,
+  Banknote,
   ChartColumn,
   FileText,
   Gift,
@@ -9,8 +10,10 @@ import {
   KeyRound,
   LayoutDashboard,
   Link,
+  FlaskConical,
   Menu,
   MessageSquare,
+  PackageCheck,
   Receipt,
   Settings,
   Shirt,
@@ -48,6 +51,7 @@ export const NAV: NavGroup[] = [
       { path: "/produits", label: tr("Produits"), permission: "products.view", icon: Shirt },
       { path: "/stock", label: tr("Stock"), permission: "stock.view", icon: Boxes },
       { path: "/ventes", label: tr("Ventes"), permission: "sales.view", icon: Receipt },
+      { path: "/caisse", label: tr("Caisse"), permission: "sales.create", icon: Banknote },
     ],
   },
   {
@@ -58,6 +62,7 @@ export const NAV: NavGroup[] = [
       { path: "/paniers", label: tr("Paniers"), permission: "carts.view", icon: ShoppingCart },
       { path: "/promos", label: tr("Promos"), permission: "promos.edit", icon: TicketPercent },
       { path: "/fidelite", label: tr("Fidélité"), permission: "loyalty.edit", icon: Gift },
+      { path: "/preparation", label: tr("Préparation"), permission: "orders.ship", icon: PackageCheck },
     ],
   },
   {
@@ -73,7 +78,10 @@ export const NAV: NavGroup[] = [
   },
   {
     label: tr("Analyse"),
-    items: [{ path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn }],
+    items: [
+      { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn },
+      { path: "/tests-ab", label: tr("Tests A/B"), permission: "stats.view", icon: FlaskConical },
+    ],
   },
   {
     label: tr("Système"),

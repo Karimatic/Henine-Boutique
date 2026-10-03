@@ -15,6 +15,13 @@
       "when": 1790886080478,
       "tag": "0001_growth",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1791043697170,
+      "tag": "0002_insights",
+      "breakpoints": true
     }
   ]
 }

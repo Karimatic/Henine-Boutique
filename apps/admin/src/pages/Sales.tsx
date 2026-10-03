@@ -132,8 +132,8 @@ function ManualSale({ onClose }: { onClose: () => void }) {
     mutationFn: () =>
       post("/sales/manual", {
         channel,
-        name: name.trim(),
-        phone,
+        name: name.trim() || undefined,
+        phone: phone.trim() ? phone : undefined,
         lines,
         status: boutique ? "livree" : "confirmee",
         wilaya: boutique ? 35 : wilaya,
@@ -150,7 +150,9 @@ function ManualSale({ onClose }: { onClose: () => void }) {
     onError: (e) => toast(errorMessage(e), "error"),
   });
 
-  const valid = name.trim().length >= 2 && normalizeDzPhone(phone) && lines.length > 0 && (boutique || deliveryType === "bureau" || address.trim().length >= 4);
+  // in the shop, a walk-in customer needs no name or number
+  const contactOk = boutique ? !phone.trim() || !!normalizeDzPhone(phone) : name.trim().length >= 2 && !!normalizeDzPhone(phone);
+  const valid = contactOk && lines.length > 0 && (boutique || deliveryType === "bureau" || address.trim().length >= 4);
 
   return (
     <Sheet

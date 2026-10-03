@@ -33,7 +33,8 @@ export function FloatingHelp() {
   }, []);
   if (!path || path.startsWith("/commande")) return null;
   const wa = whatsappLink(site.data?.contact.whatsapp, t.plus.whatsapp.hello);
-  const onProduct = path.startsWith("/produit/");
+  // pages with a bar fixed at the bottom (buy bar, outfit total): sit above it
+  const onProduct = path.startsWith("/produit/") || path.startsWith("/tenue");
   return (
     <>
       <div

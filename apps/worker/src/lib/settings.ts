@@ -2,7 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import { DEFAULT_DESIGN, type DesignDTO, type StoreTextOverrides } from "@henine/shared";
+import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -41,6 +41,8 @@ export interface Settings {
   texts: { ar: StoreTextOverrides; fr: StoreTextOverrides };
   /** logo, colours, fonts, banners, home sections (Admin → Page d'accueil → Apparence) */
   design: DesignDTO;
+  /** the shop in Boumerdès: address, map, opening hours (the /boutique page) */
+  boutique: BoutiqueDTO;
 }
 
 export const DEFAULTS: Settings = {
@@ -90,6 +92,7 @@ export const DEFAULTS: Settings = {
   reviews: { auto_approve_verified: true },
   texts: { ar: {}, fr: {} },
   design: DEFAULT_DESIGN,
+  boutique: DEFAULT_BOUTIQUE,
 };
 
 export type SettingKey = keyof Settings;

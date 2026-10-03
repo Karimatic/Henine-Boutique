@@ -4,6 +4,9 @@ import {
   cartSaveInput,
   cleanText,
   CUSTOMER_CANCEL_REASONS,
+  DEFAULT_BOUTIQUE,
+  experimentEventInput,
+  type ExperimentDTO,
   clientErrorInput,
   contactInput,
   createOrderInput,
@@ -60,10 +63,11 @@ publicRoutes.get("/health", async (c) => {
 
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
-    const [s, drop, flash] = await Promise.all([
-      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design"]),
+    const [s, drop, flash, experiments] = await Promise.all([
+      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design", "boutique"]),
       featuredDrop(c.env),
       activeFlash(c.env),
+      runningExperiments(c),
     ]);
     const dto: SiteConfigDTO = {
       store: { name: s.store.name },
@@ -79,10 +83,40 @@ publicRoutes.get("/site", (c) =>
       drop,
       flash: flash.sales[0] ?? null,
       design: designOut(c.env, s.design),
+      boutique: { ...DEFAULT_BOUTIQUE, ...s.boutique },
+      experiments,
     };
     return c.json(dto);
   }),
 );
+
+/** A/B tests running now (none if the table isn't there yet: older database). */
+async function runningExperiments(c: Context<AppEnv>): Promise<ExperimentDTO[]> {
+  try {
+    const { results } = await c.env.DB.prepare("SELECT id, kind, config FROM experiments WHERE status = 'running' ORDER BY id").all<{ id: number; kind: ExperimentDTO["kind"]; config: string }>();
+    return results.map((r) => ({ id: r.id, kind: r.kind, config: JSON.parse(r.config) as ExperimentDTO["config"] }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * A/B test step (seen → product → checkout → order), sent once per visitor and day by the
+ * page. One small counter row per test, version, step and day.
+ */
+publicRoutes.post("/ab", async (c) => {
+  await rateLimit(c.env.RL_LOOKUP, `ab:${clientIp(c)}`);
+  const input = await body(c, experimentEventInput);
+  const day = new Date(Date.now() + 3600_000).toISOString().slice(0, 10);
+  await c.env.DB.prepare(
+    `INSERT INTO experiment_stats (experiment_id, variant, event, day, n)
+     SELECT ?1, ?2, ?3, ?4, 1 WHERE EXISTS (SELECT 1 FROM experiments WHERE id = ?1 AND status = 'running')
+     ON CONFLICT(experiment_id, variant, event, day) DO UPDATE SET n = n + 1`,
+  )
+    .bind(input.id, input.variant, input.event, day)
+    .run();
+  return c.json({ ok: true });
+});
 
 /* ───────── Catalogue ───────── */
 

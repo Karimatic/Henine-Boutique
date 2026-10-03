@@ -137,6 +137,8 @@ export function SiteMenu() {
               <nav aria-label={t.nav.help}>
                 <a href={href("/suivi")} className={row}><PackageIcon size={20} className="text-plum-600" />{t.track.cta}</a>
                 <a href={href("/contact")} className={row}><ChatIcon size={20} className="text-plum-600" />{t.contact.title}</a>
+                <a href={href("/boutique")} className={row}><span className="w-5 text-center text-lg" aria-hidden="true">📍</span>{t.plus.boutique.title}</a>
+                <a href={href("/tenue")} className={row}><span className="w-5 text-center text-lg" aria-hidden="true">👗</span>{t.plus.outfit.title}</a>
               </nav>
               <div className="mt-4 px-3">
                 <p className="pb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">{t.plus.mode.label}</p>

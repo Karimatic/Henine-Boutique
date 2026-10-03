@@ -489,7 +489,11 @@ function StatusDialog({
   const [note, setNote] = useState("");
   const [tracking, setTracking] = useState(trackingNumber ?? "");
   const shipping = to === "expediee";
-  const reasons = OUTCOME_REASONS.filter((r) => r !== "duplicate" && (to === "retour" ? r !== "changed_mind" : true));
+  // returns: why the parcel came back (sizes, defects… feed Statistiques → Retours); cancellations: why it never left
+  const RETURN_ONLY: OutcomeReason[] = ["too_small", "too_large", "defect"];
+  const reasons = OUTCOME_REASONS.filter(
+    (r) => r !== "duplicate" && (to === "retour" ? r !== "size_issue" && r !== "product_issue" : !RETURN_ONLY.includes(r)),
+  );
   const ref = useRef<HTMLDivElement>(null);
   // the buttons live in the sheet footer: bring the question into view
   useEffect(() => {

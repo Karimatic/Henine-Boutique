@@ -7,6 +7,7 @@ import { da } from "../lib/format";
 import { useCan } from "../Shell";
 import { Badge, Button, ErrorState, inputCls, ListSkeleton, PageHeader, useToast } from "../ui";
 import { ContactSettingsCard, StoreTextsEditor, type ContactSettings, type Overrides } from "./Marketing";
+import { BoutiqueSettingsCard } from "./BoutiqueSettings";
 import { DesignEditor } from "./Design";
 import { IntegrationsSection, MyAccount } from "./System";
 import { tr } from "../i18n";
@@ -268,6 +269,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
     <div className="space-y-3">
       <p className="text-sm text-ink-soft">{tr("Ces coordonnées apparaissent sur la page Contact et en bas de la boutique. Laissez une case vide pour la cacher.")}</p>
       <ContactSettingsCard key={JSON.stringify(h.contact)} contact={h.contact} />
+      <BoutiqueSettingsCard />
     </div>
   );
 }

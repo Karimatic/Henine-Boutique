@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import type { ProductCardDTO } from "@henine/shared";
+import { abSeen, useExperiment } from "@/lib/ab";
 import { HeartIcon } from "@/components/ui/icons";
 import { Price, ProductImage, Stars } from "@/components/ui/kit";
 import { useLocale } from "@/lib/locale";
@@ -83,8 +85,14 @@ export function ProductGridSkeleton({ count = 4 }: { count?: number }) {
 }
 
 export function ProductGrid({ products }: { products: ProductCardDTO[] }) {
+  // A/B test of the grid (Admin → Tests A/B): version b = larger cards, one per row on phones
+  const test = useExperiment("grid");
+  useEffect(() => {
+    if (test && products.length) abSeen(test.exp);
+  }, [test?.exp.id, products.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  const large = test?.variant === "b";
   return (
-    <ul className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
+    <ul className={large ? "grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 lg:grid-cols-3" : "grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 lg:grid-cols-4"}>
       {products.map((p, i) => (
         <li key={p.id}>
           <ProductCard p={p} priority={i < 2} />

@@ -12,3 +12,6 @@ export * from "./insights";
 export * from "./risk";
 export * from "./store-texts";
 export * from "./design";
+export * from "./size-advice";
+export * from "./boutique";
+export * from "./abtest";

@@ -5,6 +5,7 @@ import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import { CHANNEL_LABEL, da } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
 import { tr } from "../i18n";
+import { ProfitSection, ReturnsSection } from "./Insights";
 import { ColumnChart, shortDA, StackBar, TrendChart } from "../lib/charts";
 
 interface StatsData {
@@ -283,6 +284,8 @@ export function StatsPage() {
               ]}
             />
           </Card>
+          <ProfitSection query={query} />
+          <ReturnsSection query={query} />
           <div className="grid gap-4 md:grid-cols-2">
             {d.range.days > 1 && <CumulativeChart data={d.daily} since={d.range.since} days={d.range.days} />}
             <WeekdayChart rows={d.weekdays ?? []} />

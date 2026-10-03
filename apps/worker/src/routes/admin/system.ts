@@ -177,7 +177,7 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
 /* ───────────── Statistiques ───────────── */
 
 /** "today" | "7" | "30" | "90" | "365" | custom from/to (YYYY-MM-DD, Africa/Algiers days). */
-function statsRange(q: (k: string) => string | undefined): { since: number; until: number; label: string; days: number } {
+export function statsRange(q: (k: string) => string | undefined): { since: number; until: number; label: string; days: number } {
   const now = Date.now();
   const today = algiersDayStart(now);
   const from = q("from");

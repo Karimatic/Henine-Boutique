@@ -24,7 +24,7 @@ import {
 import type { Env } from "../env";
 import { activeFlash, flashPrice, imageRef, lockedSql, variantLabels, type ImageRow } from "./catalog";
 import { HttpError } from "./http";
-import { getSetting, getSettings } from "./settings";
+import { bumpCatalogStmt, getSetting, getSettings } from "./settings";
 
 /* ───────────── Quote ───────────── */
 
@@ -331,13 +331,15 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
   for (let attempt = 0; attempt < 2; attempt++) {
     const code = newOrderCode();
     const orderRef = `(SELECT id FROM orders WHERE public_code = '${code}')`; // code is [0-9A-Z-] only
+    // a walk-in boutique sale without a phone number belongs to no customer
+    const walkIn = input.phone === "";
     const stmts: D1PreparedStatement[] = [
       env.DB.prepare(
         `INSERT INTO customers (phone, name, wilaya_code, commune_id, address, orders_count, first_order_at, last_order_at, created_at)
-         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+         SELECT ?, ?, ?, ?, ?, 1, ?, ?, ? WHERE ?9 = 0
          ON CONFLICT(phone) DO UPDATE SET name = excluded.name, wilaya_code = excluded.wilaya_code, commune_id = excluded.commune_id,
            address = COALESCE(excluded.address, customers.address), orders_count = customers.orders_count + 1, last_order_at = excluded.last_order_at`,
-      ).bind(input.phone, input.name, input.wilaya, input.communeId, input.address ?? null, now, now, now),
+      ).bind(input.phone, input.name, input.wilaya, input.communeId, input.address ?? null, now, now, now, walkIn ? 1 : 0),
       env.DB.prepare(
         `INSERT INTO orders (public_code, track_token_hash, idempotency_key, status, channel, locale, customer_id, name, phone, wilaya_code,
             commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code, points_used,
@@ -419,6 +421,8 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
     );
 
     try {
+      // the website shows the new stock right away (shop and site share one stock)
+      stmts.push(bumpCatalogStmt(env));
       await env.DB.batch(stmts);
       const row = await env.DB.prepare("SELECT id FROM orders WHERE public_code = ?").bind(code).first<{ id: number }>();
       return { id: row!.id, code, token, total, status };
@@ -596,6 +600,7 @@ export async function applyStatusChange(
     }
   }
 
+  if (effect) stmts.push(bumpCatalogStmt(env)); // stock changed: the website follows at once
   stmts.push(
     env.DB.prepare(
       `INSERT INTO order_events (order_id, from_status, to_status, kind, actor, source, note, created_at) SELECT ?, ?, ?, 'status', ?, ?, ?, ? WHERE ${guard}`,

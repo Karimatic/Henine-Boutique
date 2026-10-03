@@ -324,6 +324,10 @@ export const orders = sqliteTable(
     riskFlags: text("risk_flags", { mode: "json" }).$type<string[]>(),
     /** why it was cancelled / returned (OUTCOME_REASONS) */
     outcomeReason: text("outcome_reason"),
+    /** packing mode: items checked against the order, parcel photo (R2 key) */
+    verifiedAt: integer("verified_at"),
+    packedAt: integer("packed_at"),
+    packPhoto: text("pack_photo"),
     telegramMessageId: integer("telegram_message_id"),
     /** random value written by each status change; follow-up statements in the same batch check it (optimistic concurrency) */
     opNonce: text("op_nonce"),
@@ -725,3 +729,32 @@ export const rateHits = sqliteTable("rate_hits", {
   expiresAt: integer("expires_at").notNull(),
 });
 
+/* ───────────────────────────── A/B tests ───────────────────────────── */
+
+/** One storefront test: two versions shown 50/50, from first visit to order. */
+export const experiments = sqliteTable("experiments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull(),
+  /** what changes: the buy button's words, or the product grid */
+  kind: text("kind", { enum: ["buy_label", "grid"] }).notNull(),
+  /** { a: {...}, b: {...} } settings of each version */
+  config: text("config", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+  status: text("status", { enum: ["draft", "running", "stopped"] }).notNull().default("draft"),
+  winner: text("winner"),
+  startedAt: integer("started_at"),
+  endedAt: integer("ended_at"),
+  createdAt: createdAt(),
+});
+
+/** Daily counts per version and step (seen → product → checkout → order). */
+export const experimentStats = sqliteTable(
+  "experiment_stats",
+  {
+    experimentId: integer("experiment_id").notNull().references(() => experiments.id, { onDelete: "cascade" }),
+    variant: text("variant").notNull(),
+    event: text("event").notNull(),
+    day: text("day").notNull(),
+    n: integer("n").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.experimentId, t.variant, t.event, t.day] })],
+);

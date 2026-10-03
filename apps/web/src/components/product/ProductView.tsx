@@ -15,6 +15,10 @@ import { Turnstile } from "@/lib/turnstile";
 import { Badges } from "./Badges";
 import { AskWhatsApp, DeliveryEstimate } from "./DeliveryEstimate";
 import { Lightbox } from "./Lightbox";
+import { FindSimilarButton } from "./FindSimilar";
+import { SizeAdvisorButton } from "./SizeAdvisor";
+import { BoutiqueOpenBadge } from "@/components/views/BoutiqueView";
+import { abSeen, abStep, useExperiment, useExperiments } from "@/lib/ab";
 import { ProductGrid } from "./ProductCard";
 import { ReviewForm } from "./ReviewForm";
 import { ShareButton } from "./ShareButton";
@@ -148,6 +152,15 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   const fav = favorites.includes(p.slug);
   // computed by the API: hand-picked look → bought together → same category (no catalogue download)
   const related = p.related;
+  // A/B test of the buy button's words (Admin → Tests A/B); otherwise the usual words
+  const buyTest = useExperiment("buy_label");
+  const experiments = useExperiments();
+  const buyLabel = buyTest ? (buyTest.exp.config[buyTest.variant]?.[ar ? "ar" : "fr"] ?? t.product.buyNow) : t.product.buyNow;
+  useEffect(() => {
+    if (buyTest) abSeen(buyTest.exp);
+    abStep(experiments, "product");
+  }, [buyTest?.exp.id, experiments]); // eslint-disable-line react-hooks/exhaustive-deps
+  const boutique = site.data?.boutique;
   const [lightbox, setLightbox] = useState<number | null>(null);
   const G = t.plus.gallery;
   const slides = images.length + (p.video ? 1 : 0);
@@ -251,6 +264,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               </button>
             )}
             <Badges p={p} className="pointer-events-none absolute start-3 top-3" />
+            <FindSimilarButton product={p} className="absolute bottom-3 end-3 md:bottom-4 md:end-4" />
             <button
               type="button"
               onClick={() => toggleFavorite(p.slug)}
@@ -349,6 +363,14 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                     );
                   })}
                 </div>
+                {o.kind === "taille" && o.values.length > 1 && (
+                  <SizeAdvisorButton
+                    sizes={o.values.map((v) => ({ label: v.labelFr, id: v.id }))}
+                    guide={p.sizeGuide}
+                    available={(id) => availableWith(o.id, id)}
+                    onChoose={(id) => setSelected((s) => ({ ...s, [o.id]: id }))}
+                  />
+                )}
               </fieldset>
             ))}
           </div>
@@ -384,13 +406,28 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                 onClick={buyNow}
                 className={`lift h-13 rounded-full bg-plum-600 px-6 font-semibold text-white ${variant ? "" : "opacity-50"}`}
               >
-                {t.product.buyNow}
+                {buyLabel}
               </button>
             </div>
           )}
 
           <div className="mt-3">
             <AskWhatsApp name={name} />
+            <a href={href(`/tenue?p=${encodeURIComponent(p.slug)}`)} className="mt-2 flex h-12 items-center justify-center rounded-full border border-line bg-surface text-sm font-semibold">
+              {t.plus.outfit.open}
+            </a>
+            {boutique?.enabled && boutique.showOnProducts && p.inStock && (
+              <a href={href("/boutique")} className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
+                <span className="grid size-10 shrink-0 place-items-center rounded-full bg-rose-100 text-lg" aria-hidden="true">🏪</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-semibold">{t.plus.boutique.available}</span>
+                  <span className="block text-xs text-ink-soft">{t.plus.boutique.availableText}</span>
+                </span>
+                <span className="hidden shrink-0 sm:block">
+                  <BoutiqueOpenBadge boutique={boutique} className="text-xs" />
+                </span>
+              </a>
+            )}
           </div>
 
           {showExpress && variant && variant.available > 0 && (
@@ -460,7 +497,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               onClick={buyNow}
               className={`h-12 shrink-0 rounded-full bg-plum-600 px-6 font-semibold text-white shadow-[0_8px_20px_-6px_rgb(142_16_72/0.6)] transition active:scale-[0.97] ${variant ? "" : "opacity-60"}`}
             >
-              {t.product.buyNow}
+              {buyLabel}
             </button>
           </div>
         </div>

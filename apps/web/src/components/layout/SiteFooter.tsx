@@ -36,6 +36,8 @@ export function SiteFooter() {
     [href("/categories"), t.categories.all],
     ...pages.map(([slug, label]) => [href(`/p/${slug}`), label] as [string, string]),
     [href("/contact"), t.footer.contact],
+    [href("/boutique"), t.plus.boutique.link],
+    [href("/tenue"), t.plus.outfit.link],
     [href("/liens"), t.footer.links],
   ];
   return (
