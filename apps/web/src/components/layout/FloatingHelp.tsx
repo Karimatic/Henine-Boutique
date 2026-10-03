@@ -6,6 +6,7 @@ import { ProductImage, Spinner } from "@/components/ui/kit";
 import { apiPost } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useSite, whatsappLink } from "@/lib/site";
+import { cartStore, favoritesStore, ordersStore, recentStore } from "@/lib/stores";
 
 export function WhatsAppIcon({ size = 26 }: { size?: number }) {
   return (
@@ -116,6 +117,7 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
   const [q, setQ] = useState("");
   const [turns, setTurns] = useState<Turn[]>([]);
   const [busy, setBusy] = useState(false);
+  const lastSearch = useRef<string | null>(null);
   const end = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -139,7 +141,16 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
     setBusy(true);
     setTurns((list) => [...list, { q: wish }]);
     try {
-      const reply = await apiPost<AssistantReplyDTO>("/assistant", { q: wish, locale });
+      // what this phone knows, so she can ask "my last product", "my order", "my cart"…
+      const context = {
+        recent: recentStore.get().slice(0, 12),
+        favorites: favoritesStore.get().slice(0, 50),
+        cart: cartStore.get().slice(0, 30).map((i) => ({ slug: i.slug, qty: i.qty, price: i.price })),
+        orders: ordersStore.get().slice(0, 3).map((o) => ({ code: o.code, token: o.token })),
+        previous: lastSearch.current ?? undefined,
+      };
+      const reply = await apiPost<AssistantReplyDTO>("/assistant", { q: wish, locale, context });
+      if (reply.intent === "search") lastSearch.current = wish;
       setTurns((list) => list.map((x, i) => (i === list.length - 1 ? { ...x, reply } : x)));
     } catch {
       setTurns((list) => list.map((x, i) => (i === list.length - 1 ? { ...x, error: true } : x)));
@@ -187,9 +198,15 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
                       ))}
                     </p>
                   )}
-                  <p className="text-sm font-semibold">
-                    {turn.reply.products.length === 0 ? A.none : turn.reply.relaxed ? A.relaxed : A.found(turn.reply.products.length)}
-                  </p>
+                  {turn.reply.reply ? (
+                    <p className="w-fit max-w-[92%] whitespace-pre-line rounded-2xl rounded-ss-sm bg-surface px-3.5 py-2.5 text-sm leading-relaxed shadow-sm ring-1 ring-line">
+                      {turn.reply.reply}
+                    </p>
+                  ) : (
+                    <p className="text-sm font-semibold">
+                      {turn.reply.products.length === 0 ? A.none : turn.reply.relaxed ? A.relaxed : A.found(turn.reply.products.length)}
+                    </p>
+                  )}
                   <ul className="space-y-2">
                     {turn.reply.products.map((p) => (
                       <li key={p.id}>
@@ -211,7 +228,24 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
                       </li>
                     ))}
                   </ul>
-                  {turn.reply.products.length === 0 && wa && (
+                  {(turn.reply.actions ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {turn.reply.actions!.map((a) => {
+                        const external = /^https?:/.test(a.href);
+                        return (
+                          <a
+                            key={a.href}
+                            href={external ? a.href : href(a.href)}
+                            {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                            className="inline-flex h-10 items-center rounded-full bg-plum-600 px-4 text-sm font-semibold text-white"
+                          >
+                            {a.label}
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {turn.reply.products.length === 0 && !turn.reply.reply && wa && (
                     <a href={wa} target="_blank" rel="noopener noreferrer" className="inline-flex h-10 items-center gap-2 rounded-full bg-[#25D366] px-4 text-sm font-semibold text-white">
                       <WhatsAppIcon size={18} /> WhatsApp
                     </a>

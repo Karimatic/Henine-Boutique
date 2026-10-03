@@ -29,7 +29,7 @@ import {
 } from "@henine/shared";
 import type { AppEnv } from "../env";
 import { recordError } from "../lib/audit";
-import { recommend } from "../lib/assistant";
+import { answer } from "../lib/assistant-intents";
 import { activeFlash, featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, reviewPhotos, variantLabels, type ImageRow } from "../lib/catalog";
 import { cached } from "../lib/edge-cache";
 import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, validate, verifyTurnstile } from "../lib/http";
@@ -267,7 +267,7 @@ publicRoutes.get("/carts/:id", async (c) => {
 publicRoutes.post("/assistant", async (c) => {
   await rateLimit(c.env.RL_LOOKUP, `assistant:${clientIp(c)}`);
   const input = await body(c, assistantInput);
-  return c.json(await recommend(c.env, input.q, input.locale));
+  return c.json(await answer(c.env, input));
 });
 
 /* ───────── Tracking ───────── */

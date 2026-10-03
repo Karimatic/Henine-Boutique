@@ -184,6 +184,16 @@ export const experimentEventInput = z.object({
 
 /** Shopping assistant: a free-text wish ("robe noire pour un mariage, moins de 8000 DA"). */
 export const assistantInput = z.object({
-  q: z.string().trim().min(2).max(300),
+  q: z.string().trim().min(1).max(300),
   locale: z.enum(["fr", "ar"]).default("ar"),
+  /** what the phone knows (never stored): last products seen, favourites, cart, her orders, the previous search */
+  context: z
+    .object({
+      recent: z.array(z.string().max(90)).max(12).default([]),
+      favorites: z.array(z.string().max(90)).max(50).default([]),
+      cart: z.array(z.object({ slug: z.string().max(90), qty: z.number().int().min(1).max(20), price: z.number().int().min(0) })).max(30).default([]),
+      orders: z.array(z.object({ code: z.string().max(20), token: z.string().max(200) })).max(3).default([]),
+      previous: z.string().max(300).optional(),
+    })
+    .default({ recent: [], favorites: [], cart: [], orders: [] }),
 });

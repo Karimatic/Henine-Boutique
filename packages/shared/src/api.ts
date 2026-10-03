@@ -248,6 +248,12 @@ export type ExperimentEvent = (typeof EXPERIMENT_EVENTS)[number];
 
 /** Shopping assistant answer: real products only, with why each one fits. */
 export interface AssistantReplyDTO {
+  /** the answer in words (questions about delivery, the shop, her order…) */
+  reply?: string;
+  /** buttons under the answer: a page of the store */
+  actions?: { label: string; href: string }[];
+  /** what kind of question it was (product search, delivery, order…) */
+  intent?: string;
   /** what was understood, in the visitor's language */
   understood: string[];
   products: (ProductCardDTO & { why: string[] })[];

@@ -1447,4 +1447,8 @@ export const AR: Record<string, string> = {
   "Nouveau mot de passe enregistré ✓": "تم حفظ كلمة السر الجديدة ✓",
   "Supprimer ce panier de la liste ?": "حذف هذه السلة من القائمة؟",
   "Instagram (photos + abonnement)": "إنستغرام (صور + متابعة)",
+  "✨ Une nouvelle version de l'administration est disponible.": "✨ نسخة جديدة من لوحة الإدارة متوفرة.",
+  "Cette page n'a pas pu s'afficher": "تعذّر عرض هذه الصفحة",
+  "Recharger": "إعادة التحميل",
+  "Rechargez la page. Si le problème revient, envoyez une capture de ce message.": "أعيدي تحميل الصفحة. إذا تكررت المشكلة، أرسلي صورة لهذه الرسالة.",
 };

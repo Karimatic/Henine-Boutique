@@ -143,7 +143,7 @@ INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (1, 'bio', NULL, '🛍️ Voir la boutique', '🛍️ تصفحي المتجر', '/', 'shop', 0, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (2, 'bio', NULL, '📦 Suivre ma commande', '📦 تتبع طلبي', '/suivi', 'package', 1, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (3, 'bio', NULL, '📸 Instagram', '📸 إنستغرام', 'https://www.instagram.com/henine.boutique/', 'instagram', 2, 1);
-INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (4, 'bio', NULL, '📍 Nous contacter', '📍 اتصلي بنا', '/contact', 'pin', 3, 1);
+INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (4, 'bio', NULL, '📍 Nous contacter', '📍 تواصلي معنا', '/contact', 'pin', 3, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (5, 'short', 'insta', 'Instagram bio', 'Instagram bio', '/?utm_source=instagram&utm_medium=bio', NULL, 4, 1);
 INSERT OR IGNORE INTO coupons (code, type, value, min_subtotal, is_active) VALUES ('BIENVENUE10', 'percent', 10, 3000, 1);
 INSERT OR REPLACE INTO settings (key, value) VALUES ('catalog_version', '1790797903693');

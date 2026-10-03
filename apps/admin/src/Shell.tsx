@@ -8,6 +8,7 @@ import { api, ApiError, auth, post, type Me } from "./api";
 import { Wordmark } from "./brand";
 import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
 import { useColorMode } from "./lib/colorMode";
+import { UpdateBar } from "./lib/update";
 import { tr } from "./i18n";
 
 export function useMe() {
@@ -296,6 +297,7 @@ export function Shell() {
         </header>
         <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6">
           <Outlet />
+          <UpdateBar />
         </main>
         <footer className="mx-auto hidden w-full max-w-[90rem] items-center justify-between px-6 pb-6 text-xs text-ink-soft md:flex">
           <span>© {new Date().getFullYear()} {tr("Henine Boutique · Administration")}</span>

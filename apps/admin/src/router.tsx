@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, lazyRouteComponent, Outlet } from "@tanstack/react-router";
 import { ForgotPage, InvitationPage, LoginPage } from "./pages/auth/AuthPages";
 import { Dashboard } from "./pages/Dashboard";
+import { RouteError } from "./lib/update";
 import { MoreMenu, Shell } from "./Shell";
 
 // Each screen is its own chunk: the phone only downloads the screens it opens.
@@ -12,7 +13,8 @@ const Marketing: Loader = () => import("./pages/Marketing");
 const System: Loader = () => import("./pages/System");
 const Settings: Loader = () => import("./pages/Settings");
 
-const rootRoute = createRootRoute({ component: Outlet });
+// a page that fails to load (e.g. an old open tab after an update) reloads instead of a blank error
+const rootRoute = createRootRoute({ component: Outlet, errorComponent: RouteError });
 
 // Public (no session): login, invitation, password reset
 const publicRoutes = [
@@ -66,6 +68,7 @@ const appRoutes = [
 export const router = createRouter({
   routeTree: rootRoute.addChildren([...publicRoutes, ...printRoutes, shellRoute.addChildren(appRoutes)]),
   basepath: "/admin",
+  defaultErrorComponent: RouteError,
   defaultPreload: "intent",
   // ?o=12 style params: parse numbers so links like search={{ o: id }} round-trip
   parseSearch: (s) => Object.fromEntries([...new URLSearchParams(s)].map(([k, v]) => [k, /^\d+$/.test(v) ? Number(v) : v])),
