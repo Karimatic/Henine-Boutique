@@ -2,9 +2,9 @@ import { STORE_TEXTS, type Locale } from "@henine/shared";
 
 const fr = {
   meta: {
-    title: "Henine Boutique · Robes, lingerie & pyjamas",
+    title: "Henine Boutique · Robes, djebbas & pyjamas",
     description:
-      "L’élégance & la qualité au meilleur prix. Robes, lingerie et pyjamas pour femmes. Livraison 69 wilayas, paiement à la livraison. Boutique à Boumerdès, ouverte 7j/7.",
+      "L’élégance & la qualité au meilleur prix. Robes, djebbas et pyjamas pour femmes. Livraison 69 wilayas, paiement à la livraison. Boutique à Boumerdès, ouverte 7j/7.",
   },
   brand: { tagline: "L’élégance & la qualité au meilleur prix" },
   announcement: STORE_TEXTS.fr.announcement,
@@ -195,7 +195,7 @@ const fr = {
     back: "Retour à la boutique",
   },
   favorites: { title: "Mes favoris", empty: "Aucun favori pour l'instant. Touchez ♡ sur un article pour l'ajouter." },
-  search: { title: "Recherche", placeholder: "Robe, pyjama, lingerie…", results: (n: number) => `${n} résultat(s)`, none: "Aucun résultat." },
+  search: { title: "Recherche", placeholder: "Robe, djebba, pyjama…", results: (n: number) => `${n} résultat(s)`, none: "Aucun résultat." },
   contact: {
     title: "Contact",
     text: "Une question sur une taille, une commande ? Écrivez-nous, nous répondons vite.",
@@ -479,9 +479,9 @@ type Dictionary = typeof fr;
 
 const ar: Dictionary = {
   meta: {
-    title: "Henine Boutique · فساتين، ملابس داخلية وبيجامات",
+    title: "Henine Boutique · فساتين، جبات وبيجامات",
     description:
-      "الأناقة والجودة بأفضل سعر. فساتين، ملابس داخلية وبيجامات نسائية. التوصيل إلى 69 ولاية والدفع عند الاستلام. المحل في بومرداس، مفتوح 7/7.",
+      "الأناقة والجودة بأفضل سعر. فساتين، جبات وبيجامات نسائية. التوصيل إلى 69 ولاية والدفع عند الاستلام. المحل في بومرداس، مفتوح 7/7.",
   },
   brand: { tagline: "الأناقة والجودة بأفضل سعر" },
   announcement: STORE_TEXTS.ar.announcement,

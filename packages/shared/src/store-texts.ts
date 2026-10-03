@@ -26,14 +26,14 @@ export const STORE_TEXTS: Record<Locale, StoreTexts> = {
   fr: {
     eyebrow: "Nouvelle collection",
     title: "L’élégance & la qualité au meilleur prix",
-    subtitle: "Robes, lingerie et pyjamas choisis avec soin, livrés partout en Algérie.",
+    subtitle: "Robes, djebbas et pyjamas choisis avec soin, livrés partout en Algérie.",
     announcement: ["🚚 Livraison dans les 69 wilayas", "💵 Paiement à la livraison", "🔄 Échange possible", "🌸 Boutique à Boumerdès · 7j/7"],
     faq: [
       { q: "Où livrez-vous ?", a: "Dans les 69 wilayas avec ZR Express, à domicile ou au bureau le plus proche." },
       { q: "Comment payer ?", a: "En espèces à la réception du colis, sans carte bancaire." },
       { q: "Quand arrive ma commande ?", a: "1 à 3 jours dans le Nord, jusqu’à 7 jours dans le Sud." },
       { q: "Puis-je échanger la taille ?", a: "Oui, contactez-nous dans les 48 h suivant la réception." },
-      { q: "L’emballage est-il discret ?", a: "Oui, toutes les commandes (surtout la lingerie) partent dans un emballage totalement discret." },
+      { q: "L’emballage est-il discret ?", a: "Oui, toutes les commandes partent dans un emballage totalement discret." },
       { q: "Comment suivre ma commande ?", a: "Avec votre numéro de téléphone sur la page « Suivi », sans compte." },
     ],
     pause: "La boutique est momentanément en pause.",
@@ -41,14 +41,14 @@ export const STORE_TEXTS: Record<Locale, StoreTexts> = {
   ar: {
     eyebrow: "تشكيلة جديدة",
     title: "الأناقة والجودة بأفضل سعر",
-    subtitle: "فساتين، ملابس داخلية وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
+    subtitle: "فساتين، جبات وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
     announcement: ["🚚 التوصيل إلى 69 ولاية", "💵 الدفع عند الاستلام", "🔄 إمكانية التبديل", "🌸 محلنا في بومرداس · 7/7"],
     faq: [
       { q: "أين توصلون؟", a: "نوصل إلى كل الولايات الـ69 مع ZR Express، إلى المنزل أو إلى أقرب مكتب." },
       { q: "كيف أدفع؟", a: "تدفعين نقدًا عند استلام الطلب، لا حاجة لبطاقة بنكية." },
       { q: "متى يصل طلبي؟", a: "من 1 إلى 3 أيام في ولايات الشمال، وحتى 7 أيام في ولايات الجنوب." },
       { q: "هل يمكنني تبديل المقاس؟", a: "نعم، تواصلي معنا خلال 48 ساعة من الاستلام وسنجد الحل معًا." },
-      { q: "هل التغليف سري؟", a: "نعم، كل الطلبات وخاصة الملابس الداخلية تُرسل في تغليف سري تمامًا." },
+      { q: "هل التغليف سري؟", a: "نعم، كل الطلبات تُرسل في تغليف سري تمامًا." },
       { q: "كيف أتتبع طلبي؟", a: "برقم هاتفك فقط من صفحة «تتبع الطلب»، بدون حساب أو كلمة سر." },
     ],
     pause: "المتجر متوقف مؤقتا.",

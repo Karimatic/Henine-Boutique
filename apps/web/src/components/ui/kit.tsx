@@ -44,6 +44,8 @@ const SILHOUETTES: Record<string, string> = {
   robes: "M44 14c4 5 8 7 16 7s12-2 16-7l10 6-8 16 6 8c-2 22 4 44 14 62H22c10-18 16-40 14-62l6-8-8-16 10-6Z",
   // pyjama set (shirt + trousers)
   pyjamas: "M40 12h40l16 10-8 14-8-4v30H40V32l-8 4-8-14 16-10Zm0 64h40l4 42H66l-6-30-6 30H36l4-42Z",
+  // djebba: long dress with wide sleeves
+  djebba: "M50 12h20l4 8 18 10-6 18-8-4c2 24 8 46 16 70H26c8-24 14-46 16-70l-8 4-6-18 18-10 4-8Z",
   // nightie / lingerie
   lingerie: "M46 14v16c-6 8-10 16-10 26 0 16 6 34 0 58h48c-6-24 0-42 0-58 0-10-4-18-10-26V14h-4v14c-4 3-8 4-10 4s-6-1-10-4V14h-4Z",
 };

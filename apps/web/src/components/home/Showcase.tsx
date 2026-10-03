@@ -20,6 +20,7 @@ const STORY_GRADIENT: Record<string, string> = {
   new: "from-[#f3d9a4] via-rose-500 to-plum-600",
   robes: "from-rose-300 via-rose-500 to-plum-700",
   lingerie: "from-[#f6b9cf] via-rose-500 to-[#7b1747]",
+  djebba: "from-[#f3d9a4] via-rose-500 to-[#7b1747]",
   pyjamas: "from-[#fbd3e1] via-rose-300 to-plum-600",
   promo: "from-plum-600 via-plum-700 to-noir",
 };
@@ -40,6 +41,13 @@ const STORY_LINES: Record<string, React.ReactNode> = {
     <>
       <path d="M26 12v9m12-9v9M24 21c3 3 13 3 16 0 1 5 2 8 4 11-1 7 1 13 4 20H16c3-7 5-13 4-20 2-3 3-6 4-11Z" />
       <path d="M16 52c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0 4-2 6 0" />
+    </>
+  ),
+  // djebba: long traditional dress, wide sleeves, embroidered neckline and hem
+  djebba: (
+    <>
+      <path d="M27 10h10l2 5 9 5-3 10-4-2c1 8 3 16 6 24H17c3-8 5-16 6-24l-4 2-3-10 9-5 2-5Z" />
+      <path d="M27 10c1 4 9 4 10 0M29 15l3 4 3-4M20 48h24M22 44l2 2 2-2 2 2 2-2 2 2 2-2 2 2 2-2 2 2 2-2" />
     </>
   ),
   // pyjama shirt + trousers

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { CategoryDTO } from "@henine/shared";
 import { BagIcon, Blossom, HeartIcon, PackageIcon, SearchIcon } from "@/components/ui/icons";
-import { useApi } from "@/lib/api";
 import { useActiveOrder } from "@/lib/activeOrder";
 import { useLocale } from "@/lib/locale";
 import { useDesign } from "@/lib/site";
@@ -25,11 +23,10 @@ function OrderPill() {
 }
 
 export function SiteHeader() {
-  const { t, href, ar } = useLocale();
+  const { t, href } = useLocale();
   const items = useCart();
   const favs = useFavorites();
   const count = cartCount(items);
-  const { data: categories } = useApi<CategoryDTO[]>("/categories");
   const logo = useDesign().logo;
 
   return (
@@ -51,13 +48,8 @@ export function SiteHeader() {
           </a>
         </div>
 
-        <nav aria-label={t.nav.categories} className="hidden items-center gap-7 text-sm font-medium md:flex">
-          {(categories ?? []).map((c) => (
-            <a key={c.id} href={href(`/c/${c.slug}`)} className="text-ink-soft transition hover:text-plum-700">
-              {ar ? c.nameAr : c.nameFr}
-            </a>
-          ))}
-        </nav>
+        {/* computers: the menu sits in the header itself */}
+        <TopNav inline />
 
         <div className="flex shrink-0 items-center gap-0.5">
           <OrderPill />
@@ -82,13 +74,14 @@ export function SiteHeader() {
           <SiteMenu />
         </div>
       </div>
+      {/* phones: the same menu, as a row under the header */}
       <TopNav />
     </header>
   );
 }
 
 /** The text menu under the header: shop, new arrivals, order tracking, the shop in Dellys. */
-function TopNav() {
+function TopNav({ inline = false }: { inline?: boolean }) {
   const { t, href } = useLocale();
   const N = t.plus.topNav;
   const [path, setPath] = useState("");
@@ -100,8 +93,8 @@ function TopNav() {
     ["/boutique", N.store, (p) => p.startsWith("/boutique")],
   ];
   return (
-    <nav aria-label={t.nav.shop} className="border-t border-line/60">
-      <ul className="swipe-row mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 text-[13.5px] font-medium md:gap-8">
+    <nav aria-label={t.nav.shop} className={inline ? "hidden md:block" : "border-t border-line/60 md:hidden"}>
+      <ul className={inline ? "flex items-center gap-7 text-sm font-medium" : "swipe-row mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 text-[13.5px] font-medium"}>
         {items.map(([to, label, active]) => {
           const on = path !== "" && active(path);
           return (
@@ -109,7 +102,7 @@ function TopNav() {
               <a
                 href={href(to)}
                 aria-current={on ? "page" : undefined}
-                className={`relative block py-2.5 transition ${on ? "text-plum-700" : "text-ink-soft hover:text-ink"}`}
+                className={`relative block py-2.5 transition ${on ? "font-semibold text-plum-700" : "text-ink-soft hover:text-ink"}`}
               >
                 {label}
                 {on && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-plum-600" aria-hidden="true" />}

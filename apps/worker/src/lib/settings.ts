@@ -62,8 +62,8 @@ export const DEFAULTS: Settings = {
   hero: {
     eyebrow_fr: "Nouvelle collection", eyebrow_ar: "تشكيلة جديدة",
     title_fr: "L’élégance & la qualité au meilleur prix", title_ar: "الأناقة والجودة بأفضل سعر",
-    subtitle_fr: "Robes, lingerie et pyjamas choisis avec soin, livrés partout en Algérie.",
-    subtitle_ar: "فساتين، ملابس داخلية وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
+    subtitle_fr: "Robes, djebbas et pyjamas choisis avec soin, livrés partout en Algérie.",
+    subtitle_ar: "فساتين، جبات وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
   },
   checkout: {
     cod: true, express_on_product: true, require_turnstile: true, max_orders_per_phone_per_hour: 3,
@@ -83,7 +83,7 @@ export const DEFAULTS: Settings = {
     { q_ar: "كيف أدفع؟", a_ar: "تدفعين نقدًا عند استلام الطلب، لا حاجة لبطاقة بنكية.", q_fr: "Comment payer ?", a_fr: "En espèces à la réception du colis, sans carte bancaire." },
     { q_ar: "متى يصل طلبي؟", a_ar: "من 1 إلى 3 أيام في ولايات الشمال، وحتى 7 أيام في ولايات الجنوب.", q_fr: "Quand arrive ma commande ?", a_fr: "1 à 3 jours dans le Nord, jusqu’à 7 jours dans le Sud." },
     { q_ar: "هل يمكنني تبديل المقاس؟", a_ar: "نعم، تواصلي معنا خلال 48 ساعة من الاستلام وسنجد الحل معًا.", q_fr: "Puis-je échanger la taille ?", a_fr: "Oui, contactez-nous dans les 48 h suivant la réception." },
-    { q_ar: "هل التغليف سري؟", a_ar: "نعم، كل الطلبات وخاصة الملابس الداخلية تُرسل في تغليف سري تمامًا.", q_fr: "L’emballage est-il discret ?", a_fr: "Oui, toutes les commandes (surtout la lingerie) partent dans un emballage totalement discret." },
+    { q_ar: "هل التغليف سري؟", a_ar: "نعم، كل الطلبات تُرسل في تغليف سري تمامًا.", q_fr: "L’emballage est-il discret ?", a_fr: "Oui, toutes les commandes partent dans un emballage totalement discret." },
     { q_ar: "كيف أتتبع طلبي؟", a_ar: "برقم هاتفك فقط من صفحة «تتبع الطلب»، بدون حساب أو كلمة سر.", q_fr: "Comment suivre ma commande ?", a_fr: "Avec votre numéro de téléphone sur la page « Suivi », sans compte." },
   ],
   "shipping.prices_verified": false,

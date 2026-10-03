@@ -29,17 +29,17 @@ const OCCASIONS: { fr: string; ar: string; words: string[]; categories: string[]
   {
     fr: "mariage / soirée", ar: "عرس / سهرة",
     words: ["mariage", "soiree", "fete", "ceremonie", "gala", "عرس", "زفاف", "عروس", "سهرة", "حفلة", "حفل", "مناسبة", "fiancailles", "خطوبة", "تصديرة"],
-    categories: ["robes"], hints: ["soiree", "satin", "paillettes", "dentelle", "longue", "سهرة", "ساتان"],
+    categories: ["robes", "djebba"], hints: ["soiree", "satin", "paillettes", "dentelle", "longue", "سهرة", "ساتان", "جبة"],
   },
   {
     fr: "maison / nuit", ar: "الدار / النوم",
     words: ["maison", "nuit", "dormir", "sommeil", "detente", "الدار", "البيت", "نوم", "النوم", "راحة"],
-    categories: ["pyjamas", "lingerie"], hints: ["pyjama", "nuisette", "coton", "بيجامة"],
+    categories: ["pyjamas", "djebba"], hints: ["pyjama", "nuisette", "coton", "بيجامة", "جبة"],
   },
   {
     fr: "mariée / lune de miel", ar: "عروس / شهر العسل",
     words: ["lune de miel", "trousseau", "شهر العسل", "جهاز", "الجهاز"],
-    categories: ["lingerie"], hints: ["nuisette", "soie", "dentelle", "satin"],
+    categories: [], hints: ["nuisette", "soie", "dentelle", "satin"],
   },
   {
     fr: "tous les jours", ar: "كل يوم",
@@ -50,9 +50,9 @@ const OCCASIONS: { fr: string; ar: string; words: string[]; categories: string[]
 
 /** Category words (besides the category names themselves). */
 const CATEGORY_WORDS: Record<string, string[]> = {
-  robes: ["robe", "robes", "فستان", "فساتين", "قفطان", "كفتان", "جبة", "dress", "rob"],
+  robes: ["robe", "robes", "فستان", "فساتين", "قفطان", "كفتان", "dress", "rob"],
   pyjamas: ["pyjama", "pyjamas", "بيجامة", "بيجامات", "pijama", "pyj"],
-  lingerie: ["lingerie", "nuisette", "ملابس داخلية", "لانجري", "نويزات", "soutien", "culotte"],
+  djebba: ["djebba", "djebbas", "jebba", "jebbas", "جبة", "جبات", "جبه", "قندورة", "gandoura", "djellaba", "جلابة"],
 };
 
 const SIZES = ["xxs", "xs", "s", "m", "l", "xl", "xxl", "xxxl", "3xl", "4xl"];
@@ -222,7 +222,7 @@ export async function recommend(env: Env, q: string, locale: "fr" | "ar"): Promi
   picked.sort((a, b) => b.score - a.score || a.p.price - b.p.price);
 
   const understood: string[] = [];
-  if (wish.categories.length) understood.push(ar ? `النوع: ${wish.categories.map((c) => ({ robes: "فساتين", pyjamas: "بيجامات", lingerie: "ملابس داخلية" })[c] ?? c).join("، ")}` : `Type : ${wish.categories.join(", ")}`);
+  if (wish.categories.length) understood.push(ar ? `النوع: ${wish.categories.map((c) => ({ robes: "فساتين", pyjamas: "بيجامات", djebba: "جبة" })[c] ?? c).join("، ")}` : `Type : ${wish.categories.join(", ")}`);
   if (wish.occasion) understood.push(ar ? `المناسبة: ${wish.occasion.ar}` : `Occasion : ${wish.occasion.fr}`);
   if (wish.colors.length) understood.push(ar ? `اللون: ${wish.colors.map((c) => c.ar).join("، ")}` : `Couleur : ${wish.colors.map((c) => c.fr).join(", ")}`);
   if (wish.sizes.length) understood.push(ar ? `المقاس: ${wish.sizes.map((s) => s.toUpperCase()).join("، ")}` : `Taille : ${wish.sizes.map((s) => s.toUpperCase()).join(", ")}`);
