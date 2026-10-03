@@ -84,8 +84,9 @@ export function NumberField({ label, value, onChange, hint, min = 0, suffix, cla
   }, [value]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
     <Field label={label} hint={hint} className={className}>
+      {/* number and its unit (DA / دج) laid out left-to-right together, also in Arabic */}
       {(id) => (
-        <div className="relative">
+        <div className="relative" dir="ltr">
           <input
             id={id}
             className={`${inputCls} ${suffix ? "pe-12" : ""}`}
