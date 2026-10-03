@@ -73,13 +73,12 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
   const S = t.home.stories;
   const onSale = products.some((p) => p.compareAtPrice != null && p.compareAtPrice > p.price);
   const stories: Story[] = [
-    { key: "new", label: S.nouveautes, href: href("/nouveautes") },
     ...(categories ?? []).map((c) => ({ key: c.slug, label: ar ? c.nameAr : c.nameFr, href: href(`/c/${c.slug}`), category: c.slug })),
     ...(onSale ? [{ key: "promo", label: S.promo, href: "#promos" }] : []),
   ];
   return (
     <nav aria-label={t.categories.title} className="mx-auto max-w-6xl">
-      <ul className="swipe-row flex gap-3.5 overflow-x-auto px-4 pb-1 pt-1 md:justify-center md:gap-6">
+      <ul className="swipe-row mx-auto flex w-fit max-w-full gap-3.5 overflow-x-auto px-4 pb-1 pt-1 md:gap-6">
         {stories.map((s, i) => (
           <li key={s.key} className="shrink-0">
             <a
