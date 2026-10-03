@@ -407,7 +407,7 @@ const fr = {
       ios: "Touchez Partager ⬆️ puis « Sur l'écran d'accueil ».",
     },
     footerFollow: "Suivez-nous",
-    topNav: { shop: "La boutique", new: "Nouveautés", orders: "Mes commandes", store: "Notre magasin" },
+    topNav: { shop: "La boutique", new: "Nouveautés", orders: "Mes commandes", store: "Nous trouver" },
     mode: { label: "Apparence", light: "Clair", dark: "Sombre", auto: "Auto" },
     size: {
       open: "📏 Quelle taille choisir ?",
@@ -437,7 +437,7 @@ const fr = {
     },
     boutique: {
       title: "Visitez notre boutique",
-      link: "📍 Notre boutique",
+      link: "📍 Nous trouver",
       available: "Disponible en boutique",
       availableText: "Venez l'essayer à Dellys, à côté du tribunal",
       openNow: (close: string) => `Ouvert maintenant · ferme à ${close}`,
@@ -884,7 +884,7 @@ const ar: Dictionary = {
       ios: "اضغطي مشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية».",
     },
     footerFollow: "تابعينا",
-    topNav: { shop: "المتجر", new: "الجديد", orders: "تتبع طلباتي", store: "محلنا" },
+    topNav: { shop: "المتجر", new: "الجديد", orders: "تتبع طلباتي", store: "زوري محلنا" },
     mode: { label: "المظهر", light: "فاتح", dark: "داكن", auto: "تلقائي" },
     size: {
       open: "📏 أي مقاس أختار؟",
@@ -914,7 +914,7 @@ const ar: Dictionary = {
     },
     boutique: {
       title: "زوري محلنا",
-      link: "📍 محلنا",
+      link: "📍 زوري محلنا",
       available: "متوفر في المحل",
       availableText: "تعالي جربيه في محلنا بدلس، بجانب المحكمة",
       openNow: (close: string) => `مفتوح الآن · يغلق على ${close}`,
