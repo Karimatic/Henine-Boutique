@@ -331,15 +331,14 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
   for (let attempt = 0; attempt < 2; attempt++) {
     const code = newOrderCode();
     const orderRef = `(SELECT id FROM orders WHERE public_code = '${code}')`; // code is [0-9A-Z-] only
-    // a walk-in boutique sale without a phone number belongs to no customer
-    const walkIn = input.phone === "";
+    // a walk-in boutique sale without a phone number goes to the shared "no record" customer (phone "")
     const stmts: D1PreparedStatement[] = [
       env.DB.prepare(
         `INSERT INTO customers (phone, name, wilaya_code, commune_id, address, orders_count, first_order_at, last_order_at, created_at)
-         SELECT ?, ?, ?, ?, ?, 1, ?, ?, ? WHERE ?9 = 0
+         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
          ON CONFLICT(phone) DO UPDATE SET name = excluded.name, wilaya_code = excluded.wilaya_code, commune_id = excluded.commune_id,
            address = COALESCE(excluded.address, customers.address), orders_count = customers.orders_count + 1, last_order_at = excluded.last_order_at`,
-      ).bind(input.phone, input.name, input.wilaya, input.communeId, input.address ?? null, now, now, now, walkIn ? 1 : 0),
+      ).bind(input.phone, input.phone === "" ? NO_RECORD_NAME : input.name, input.wilaya, input.communeId, input.address ?? null, now, now, now),
       env.DB.prepare(
         `INSERT INTO orders (public_code, track_token_hash, idempotency_key, status, channel, locale, customer_id, name, phone, wilaya_code,
             commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code, points_used,
@@ -668,4 +667,99 @@ export async function applyStatusChange(
   }
   if (!results[0]!.meta.changes) throw new HttpError(409, "status_changed_meanwhile");
   return { id: orderId, code: order.public_code, from, to, pointsEarned };
+}
+
+/* ───────────── Delete (owner only) ───────────── */
+
+/**
+ * Orders always belong to a customer. Walk-in shop sales without a phone number, and the
+ * orders of a deleted customer, go to this one hidden entry (phone ""), left out of the
+ * Clients list and its counts.
+ */
+export const NO_RECORD_NAME = "Clientes sans fiche";
+
+export function noRecordCustomerStmt(env: Env) {
+  return env.DB.prepare("INSERT INTO customers (phone, name, created_at) VALUES ('', ?, ?) ON CONFLICT(phone) DO NOTHING").bind(NO_RECORD_NAME, Date.now());
+}
+
+/** Statuses whose pieces are still reserved in stock, and those whose pieces already left the shop. */
+const RESERVING: readonly string[] = ["nouvelle", "injoignable", "confirmee", "en_preparation"];
+const LEFT_SHOP: readonly string[] = ["expediee", "en_livraison", "livree", "retour"];
+
+/**
+ * Deletes an order for good (test order, mistake). Reserved pieces go back to sale; pieces
+ * that left the shop come back to stock only when `restock` (a test order that never left).
+ * The customer's counters, the coupon's uses and the loyalty points are put back as if the
+ * order had never existed. The deletion stays in the audit log.
+ */
+export async function deleteOrder(env: Env, id: number, actor: string, restock: boolean): Promise<{ code: string }> {
+  const o = await env.DB.prepare("SELECT id, public_code, status, customer_id, coupon_code FROM orders WHERE id = ?")
+    .bind(id)
+    .first<{ id: number; public_code: string; status: string; customer_id: number | null; coupon_code: string | null }>();
+  if (!o) throw new HttpError(404, "not_found");
+  const { results: items } = await env.DB.prepare("SELECT variant_id, qty FROM order_items WHERE order_id = ? AND variant_id IS NOT NULL").bind(id).all<{ variant_id: number; qty: number }>();
+  const now = Date.now();
+  const stmts: D1PreparedStatement[] = [];
+  for (const it of items) {
+    if (RESERVING.includes(o.status)) {
+      stmts.push(
+        env.DB.prepare("UPDATE variants SET stock_reserved = MAX(stock_reserved - ?, 0), updated_at = ? WHERE id = ?").bind(it.qty, now, it.variant_id),
+        env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, actor, note, created_at) VALUES (?, ?, 'liberation', ?, ?, ?)").bind(
+          it.variant_id, it.qty, actor, `Commande ${o.public_code} supprimée`, now,
+        ),
+      );
+    } else if (restock && LEFT_SHOP.includes(o.status)) {
+      stmts.push(
+        env.DB.prepare("UPDATE variants SET stock_on_hand = stock_on_hand + ?, updated_at = ? WHERE id = ?").bind(it.qty, now, it.variant_id),
+        env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, actor, note, created_at) VALUES (?, ?, 'retour', ?, ?, ?)").bind(
+          it.variant_id, it.qty, actor, `Commande ${o.public_code} supprimée, articles remis en stock`, now,
+        ),
+      );
+    }
+  }
+  if (o.coupon_code && !["annulee", "doublon", "fausse"].includes(o.status)) {
+    stmts.push(env.DB.prepare("UPDATE coupons SET used_count = MAX(used_count - 1, 0) WHERE code = ?").bind(o.coupon_code));
+  }
+  // points earned / spent with this order are undone
+  if (o.customer_id != null) {
+    stmts.push(
+      env.DB.prepare(
+        "UPDATE customers SET points_balance = MAX(points_balance - (SELECT COALESCE(SUM(delta), 0) FROM loyalty_ledger WHERE order_id = ?), 0) WHERE id = ?",
+      ).bind(id, o.customer_id),
+    );
+  }
+  stmts.push(
+    env.DB.prepare("DELETE FROM loyalty_ledger WHERE order_id = ?").bind(id),
+    env.DB.prepare("UPDATE stock_movements SET order_id = NULL WHERE order_id = ?").bind(id),
+    env.DB.prepare("UPDATE reviews SET order_id = NULL WHERE order_id = ?").bind(id),
+    env.DB.prepare("UPDATE carts SET recovered_order_id = NULL WHERE recovered_order_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM order_events WHERE order_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(id),
+  );
+  // the customer's history, recounted from the orders that remain
+  if (o.customer_id != null) {
+    stmts.push(
+      env.DB.prepare(
+        `UPDATE customers SET
+           orders_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?1 AND status NOT IN ('annulee','doublon','fausse')),
+           delivered_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?1 AND status = 'livree'),
+           returned_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?1 AND status IN ('retour','retour_recu')),
+           cancelled_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?1 AND status IN ('annulee','doublon','fausse')),
+           fake_count = (SELECT COUNT(*) FROM orders WHERE customer_id = ?1 AND status = 'fausse'),
+           total_spent = (SELECT COALESCE(SUM(total), 0) FROM orders WHERE customer_id = ?1 AND status = 'livree'),
+           first_order_at = (SELECT MIN(created_at) FROM orders WHERE customer_id = ?1),
+           last_order_at = (SELECT MAX(created_at) FROM orders WHERE customer_id = ?1)
+         WHERE id = ?1`,
+      ).bind(o.customer_id),
+    );
+  }
+  stmts.push(
+    env.DB.prepare("INSERT INTO audit_log (actor, action, entity, entity_id, diff, created_at) VALUES (?, 'delete', 'order', ?, ?, ?)").bind(
+      actor, String(id), JSON.stringify({ code: o.public_code, status: o.status, restock }), now,
+    ),
+    bumpCatalogStmt(env),
+  );
+  await env.DB.batch(stmts);
+  return { code: o.public_code };
 }

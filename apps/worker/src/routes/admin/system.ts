@@ -15,7 +15,7 @@ import { mediaUrl, variantLabels } from "../../lib/catalog";
 import { algiersDayStart, CANCELLED_SQL, periodStats } from "../../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings, patchSetting, setSettingStmt } from "../../lib/settings";
 import { pollUpdates, processOutbox, sendTelegramText, telegramConfig, tgCall } from "../../lib/telegram";
-import { actorOf, requirePermission } from "../../middleware/access";
+import { actorOf, requireOwner, requirePermission } from "../../middleware/access";
 import { createInvite } from "../auth";
 import { ABANDONED_AFTER, attentionSql } from "./orders";
 
@@ -481,6 +481,61 @@ systemRoutes.patch("/team/:id", requirePermission("team.manage"), async (c) => {
     if (String((err as Error).message).includes("telegram_user_id")) throw new HttpError(409, "telegram_id_taken");
     throw err;
   }
+  return c.json({ ok: true });
+});
+
+/** Everything about one account, for the owner: identity, access, devices, recent actions. */
+systemRoutes.get("/team/:id/details", requireOwner, async (c) => {
+  const id = intParam(c, "id");
+  const m = await c.env.DB.prepare(
+    `SELECT m.id, m.email, m.name, m.phone, m.telegram_user_id, m.is_active, m.last_seen_at, m.created_at, m.email_verified_at,
+            m.failed_logins, m.locked_until, (m.password_hash IS NOT NULL) AS has_password, r.key AS role, r.name AS role_name, r.permissions
+       FROM team_members m JOIN roles r ON r.id = m.role_id WHERE m.id = ?`,
+  )
+    .bind(id)
+    .first<Record<string, unknown> & { permissions: string }>();
+  if (!m) throw new HttpError(404, "not_found");
+  const [sessions, actions, counts] = await c.env.DB.batch([
+    c.env.DB.prepare("SELECT id, user_agent, created_at, last_seen_at, expires_at FROM admin_sessions WHERE member_id = ? AND expires_at > ? ORDER BY last_seen_at DESC").bind(id, Date.now()),
+    c.env.DB.prepare("SELECT action, entity, entity_id, created_at FROM audit_log WHERE actor LIKE ? ORDER BY id DESC LIMIT 15").bind(`member:${id}:%`),
+    c.env.DB.prepare(
+      `SELECT (SELECT COUNT(*) FROM order_events WHERE actor LIKE ?1 AND kind = 'status') AS order_changes,
+              (SELECT COUNT(*) FROM orders o JOIN order_events e ON e.order_id = o.id WHERE e.actor LIKE ?1 AND e.to_status = 'confirmee') AS confirmed,
+              (SELECT COUNT(*) FROM stock_movements WHERE actor LIKE ?1) AS stock_moves`,
+    ).bind(`member:${id}:%`),
+  ]);
+  return c.json({
+    member: { ...m, permissions: JSON.parse(m.permissions) as string[] },
+    sessions: sessions!.results,
+    actions: actions!.results,
+    counts: counts!.results[0],
+  });
+});
+
+/** Removes an account for good (the owner only; never yourself, never the last owner). */
+systemRoutes.delete("/team/:id", requireOwner, async (c) => {
+  const id = intParam(c, "id");
+  const me = c.get("member");
+  if (id === me.id) throw new HttpError(409, "cannot_delete_self");
+  const target = await c.env.DB.prepare("SELECT m.id, m.email, m.name, r.key FROM team_members m JOIN roles r ON r.id = m.role_id WHERE m.id = ?")
+    .bind(id)
+    .first<{ id: number; email: string; name: string; key: string }>();
+  if (!target) throw new HttpError(404, "not_found");
+  if (target.key === "owner") {
+    const owners = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM team_members m JOIN roles r ON r.id = m.role_id WHERE r.key = 'owner' AND m.is_active = 1 AND m.id != ?")
+      .bind(id)
+      .first<{ n: number }>();
+    if (!owners?.n) throw new HttpError(409, "last_owner");
+  }
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE orders SET assigned_to = NULL WHERE assigned_to = ?").bind(id),
+    c.env.DB.prepare("UPDATE products SET created_by = NULL WHERE created_by = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM admin_sessions WHERE member_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM auth_challenges WHERE member_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM team_members WHERE id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM roles WHERE key = ?").bind(`custom-${id}`),
+    auditStmt(c.env, actorOf(me), "delete", "team_member", id, { email: target.email, name: target.name }),
+  ]);
   return c.json({ ok: true });
 });
 

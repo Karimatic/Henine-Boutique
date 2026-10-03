@@ -25,7 +25,25 @@ export function FloatingHelp() {
   const site = useSite();
   const [path, setPath] = useState("");
   const [open, setOpen] = useState(false);
+  // once per visit: a little bubble introducing the assistant, gone after a few seconds
+  const [hint, setHint] = useState(false);
   useEffect(() => setPath(location.pathname.replace(/^\/fr(?=\/|$)/, "") || "/"), []);
+  useEffect(() => {
+    let seen = "1";
+    try {
+      seen = sessionStorage.getItem("henine.assistantHint") ?? "";
+      sessionStorage.setItem("henine.assistantHint", "1");
+    } catch {
+      /* private mode: no bubble */
+    }
+    if (seen) return;
+    const show = setTimeout(() => setHint(true), 5000);
+    const hide = setTimeout(() => setHint(false), 13000);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, []);
   useEffect(() => {
     const show = () => setOpen(true);
     window.addEventListener("henine:assistant", show);
@@ -42,14 +60,34 @@ export function FloatingHelp() {
           onProduct ? "bottom-[calc(8.75rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.75rem+env(safe-area-inset-bottom))]"
         }`}
       >
+        {hint && (
+          <button
+            type="button"
+            onClick={() => {
+              setHint(false);
+              setOpen(true);
+            }}
+            className="toast-in max-w-[14rem] rounded-2xl rounded-ee-sm bg-surface px-3.5 py-2.5 text-start text-sm font-medium shadow-[0_12px_30px_-10px_rgb(23_10_16/0.45)] ring-1 ring-line"
+          >
+            {t.plus.assistant.hint}
+          </button>
+        )}
         <button
           type="button"
-          onClick={() => setOpen(true)}
+          onClick={() => {
+            setHint(false);
+            setOpen(true);
+          }}
           aria-label={t.plus.assistant.open}
-          className="lift flex h-11 items-center gap-1.5 rounded-full bg-surface px-3.5 text-sm font-semibold text-plum-700 shadow-[0_8px_24px_-8px_rgb(23_10_16/0.35)] ring-1 ring-line"
+          className="assistant-fab lift relative flex h-12 items-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-rose-500 via-plum-600 to-plum-700 ps-1.5 pe-4 text-sm font-semibold text-white shadow-[0_12px_30px_-8px_rgb(142_16_72/0.7)] ring-2 ring-white/80"
         >
-          <span aria-hidden="true">✨</span>
-          <span className="hidden sm:inline">{t.plus.assistant.open}</span>
+          <span className="grid size-9 place-items-center rounded-full bg-white/20" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="assistant-spark">
+              <path d="M12 2c.6 4.6 2.4 6.4 7 7-4.6.6-6.4 2.4-7 7-.6-4.6-2.4-6.4-7-7 4.6-.6 6.4-2.4 7-7Z" />
+              <path d="M19 14c.3 2 1 2.7 3 3-2 .3-2.7 1-3 3-.3-2-1-2.7-3-3 2-.3 2.7-1 3-3Z" opacity=".8" />
+            </svg>
+          </span>
+          <span className="whitespace-nowrap">{t.plus.assistant.short}</span>
         </button>
         {wa && (
           <a

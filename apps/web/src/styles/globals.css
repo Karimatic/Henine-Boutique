@@ -528,3 +528,26 @@
 :root:not([data-theme="light"]) .text-success { color: #72dfa9; }
 }
 }
+
+/* ── ✨ assistant button: a light sweep every few seconds and a twinkling star ── */
+.assistant-fab::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 35%, rgb(255 255 255 / 0.45) 50%, transparent 65%);
+  transform: translateX(-120%);
+  animation: assistant-sweep 4.5s ease-in-out 1.5s infinite;
+  pointer-events: none;
+}
+@keyframes assistant-sweep {
+  0%, 70% { transform: translateX(-120%); }
+  100% { transform: translateX(120%); }
+}
+.assistant-spark { animation: assistant-twinkle 2.4s ease-in-out infinite; transform-origin: center; }
+@keyframes assistant-twinkle {
+  0%, 100% { transform: scale(1) rotate(0); }
+  50% { transform: scale(1.15) rotate(12deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .assistant-fab::after, .assistant-spark { animation: none; }
+}

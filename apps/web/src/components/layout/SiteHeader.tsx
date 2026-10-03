@@ -31,7 +31,8 @@ function OrderPill() {
       className="flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-semibold text-plum-700"
     >
       <PackageIcon size={15} />
-      <span className="hidden min-[380px]:inline">{t.status[status.status]}</span>
+      {/* phones: the icon only, so it never runs into the shop's name */}
+      <span className="hidden sm:inline">{t.status[status.status]}</span>
     </a>
   );
 }
@@ -48,7 +49,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ivory/90 backdrop-blur supports-[backdrop-filter]:bg-ivory/75">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-4">
         <div className="flex min-w-0 items-center">
-          <a href={href("/")} className="flex min-w-0 items-center gap-1.5" aria-label="Henine Boutique">
+          <a href={href("/")} className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-label="Henine Boutique">
             {logo ? (
               // the shop's own logo (Admin → Page d'accueil → Apparence)
               <img src={logo} alt="Henine Boutique" className="h-9 w-auto max-w-[11rem] object-contain md:h-11" />

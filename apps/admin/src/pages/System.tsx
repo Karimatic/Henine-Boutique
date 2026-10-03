@@ -11,6 +11,7 @@ import {
 } from "../ui";
 import { lang, setLang, tr } from "../i18n";
 import { useColorMode, type ColorMode } from "../lib/colorMode";
+import { MemberOwnerPanel } from "./MemberDetails";
 
 function useSave<T>(fn: (v: T) => Promise<unknown>, keys: string[], ok = "Enregistré ✓") {
   const qc = useQueryClient();
@@ -41,7 +42,7 @@ interface Member {
   sessions: number;
 }
 
-const PERMISSION_LABEL: Record<string, string> = {
+export const PERMISSION_LABEL: Record<string, string> = {
   "orders.confirm": tr("Confirmer / annuler"), "orders.ship": tr("Préparer / expédier"), "orders.edit": tr("Modifier commandes"), "orders.export": tr("Exporter"),
   "customers.edit": tr("Fiches clientes"), "products.edit": tr("Produits"), "stock.edit": tr("Stock"), "cost.view": tr("Prix d'achat"), "sales.create": tr("Ventes manuelles"),
   "promos.edit": tr("Promos"), "loyalty.edit": tr("Fidélité"), "marketing.edit": tr("Marketing"), "reviews.moderate": tr("Avis"), "stats.view": tr("Statistiques"),
@@ -150,6 +151,7 @@ function MemberSheet({ member, onClose }: { member: Member; onClose: () => void 
           </Button>
         </div>
         {link && <textarea readOnly className={`${inputCls} h-20 py-2 font-mono text-xs`} value={link} onFocus={(e) => e.target.select()} />}
+        <MemberOwnerPanel id={member.id} onDeleted={onClose} />
       </div>
     </Sheet>
   );
@@ -510,9 +512,15 @@ function DeliveryPrices() {
                   {w.code} - {w.name_fr}
                   {w.parent_code ? <span className="block text-xs text-ink-soft">{tr("nouvelle wilaya (ex-")}{w.parent_code}) · {w.communes} {tr("communes")}</span> : null}
                 </td>
-                <td className="px-2 text-end tabular-nums">{da(w.home_price)}</td>
-                <td className="px-2 text-end tabular-nums">{da(w.desk_price)}</td>
-                <td className="px-2 text-end">{w.delay_days ?? "—"} j</td>
+                <td className="px-1 text-end">
+                  <CellInput value={w.home_price} suffix={tr("DA")} label={tr("Domicile {0}", { 0: w.name_fr })} onSave={(v) => save.mutate({ codes: [w.code], homePrice: v })} />
+                </td>
+                <td className="px-1 text-end">
+                  <CellInput value={w.desk_price} suffix={tr("DA")} label={tr("Bureau {0}", { 0: w.name_fr })} onSave={(v) => save.mutate({ codes: [w.code], deskPrice: v })} />
+                </td>
+                <td className="px-1 text-end">
+                  <CellInput text value={w.delay_days} suffix={tr("j")} label={tr("Délai {0}", { 0: w.name_fr })} onSave={(v) => save.mutate({ codes: [w.code], delayDays: v })} />
+                </td>
                 <td className="px-3 text-end">
                   <input type="checkbox" className="size-4 accent-plum-600" aria-label={tr("Livrer {0}", { 0: w.name_fr })} checked={!!w.is_active} onChange={(e) => save.mutate({ codes: [w.code], isActive: e.target.checked })} />
                 </td>
@@ -522,6 +530,38 @@ function DeliveryPrices() {
         </table>
       </div>
     </div>
+  );
+}
+
+/** A price or delay typed right in the table: saved when leaving the box (or Enter) if it changed. */
+function CellInput({ value, onSave, suffix, label, text = false }: { value: number | string | null; onSave: (v: never) => void; suffix: string; label: string; text?: boolean }) {
+  const [v, setV] = useState(value == null ? "" : String(value));
+  useEffect(() => setV(value == null ? "" : String(value)), [value]);
+  const commit = () => {
+    const raw = v.trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
+    if (raw === (value == null ? "" : String(value))) return;
+    if (text) {
+      if (/^\d{1,2}(-\d{1,2})?$/.test(raw)) onSave(raw as never);
+      else setV(value == null ? "" : String(value));
+      return;
+    }
+    const n = Math.round(Number(raw));
+    if (raw !== "" && Number.isFinite(n) && n >= 0 && n <= 20000) onSave(n as never);
+    else setV(value == null ? "" : String(value));
+  };
+  return (
+    <span className="inline-flex items-center gap-1" dir="ltr">
+      <input
+        value={v}
+        inputMode={text ? "text" : "numeric"}
+        aria-label={label}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
+        className="h-9 w-20 rounded-lg border border-line bg-surface px-2 text-end tabular-nums focus:border-plum-600 focus:outline-none"
+      />
+      <span className="text-xs text-ink-soft">{suffix}</span>
+    </span>
   );
 }
 

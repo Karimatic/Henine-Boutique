@@ -712,7 +712,7 @@ export function NotifierPage() {
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {(w.phones ?? "").split(", ").filter(Boolean).map((p) => (
                     <a key={p} href={waLink(p, `Bonjour 🌸 Bonne nouvelle : « ${w.name_fr} (${w.options}) » est de retour chez Henine Boutique ! ${location.origin}`)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1 text-xs font-semibold text-white">
-                      {formatDzPhone(p)}
+                      <bdi dir="ltr">{formatDzPhone(p)}</bdi>
                     </a>
                   ))}
                 </div>

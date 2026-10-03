@@ -76,7 +76,8 @@ publicRoutes.get("/site", (c) =>
         phone: s.contact.phone, whatsapp: s.contact.whatsapp, instagram: s.contact.instagram, tiktok: s.contact.tiktok,
         facebook: s.contact.facebook, maps: s.contact.maps,
       },
-      checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: s.checkout.express_on_product, deskEnabled: s.checkout.desk_enabled },
+      // quick order on the product page: always on
+      checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: true, deskEnabled: s.checkout.desk_enabled },
       turnstileSiteKey: c.env.TURNSTILE_SITE_KEY,
       maintenance: { active: s.maintenance.active },
       texts: { ar: s.texts.ar ?? {}, fr: s.texts.fr ?? {} },

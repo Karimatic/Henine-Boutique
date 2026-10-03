@@ -56,6 +56,13 @@ export function requirePermission(permission: Permission): MiddlewareHandler<App
   };
 }
 
+/** The shop owner only (role "owner"): deletions and the team's full details. */
+export const requireOwner: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const member = c.get("member");
+  if (!member || member.role !== "owner") return c.json({ error: "owner_only" }, 403);
+  return next();
+};
+
 /** Actor string recorded in audit logs, order events and stock movements. */
 export function actorOf(member: { id: number; name: string }): string {
   return `member:${member.id}:${member.name}`;

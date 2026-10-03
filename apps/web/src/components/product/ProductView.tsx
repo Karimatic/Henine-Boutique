@@ -175,7 +175,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
       .slice(0, 4)
       .map((e) => e.x);
   }, [catalog.data, p, related]);
-  const expressEnabled = site.data?.checkout.expressOnProduct ?? true;
+  const expressEnabled = true; // quick order on the product page: always on
   const soldOut = !!variant && variant.available === 0;
 
   function buyNow() {

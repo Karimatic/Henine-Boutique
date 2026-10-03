@@ -6,6 +6,7 @@ import { api, del, errorMessage, patch, post, put } from "../api";
 import { tr } from "../i18n";
 import { ago } from "../lib/format";
 import { useMe } from "../Shell";
+import { MemberOwnerPanel } from "./MemberDetails";
 import { Badge, Button, Card, ErrorState, inputCls, ListSkeleton, PageHeader, Sheet, TextField, useToast } from "../ui";
 
 /**
@@ -314,6 +315,7 @@ function AccountSheet({ account, isMe, onClose }: { account: Account; isMe: bool
           </div>
         )}
         {link && <textarea readOnly dir="ltr" className={`${inputCls} h-20 py-2 font-mono text-xs`} value={link} onFocus={(e) => e.target.select()} />}
+        <MemberOwnerPanel id={account.id} onDeleted={onClose} />
       </div>
     </Sheet>
   );

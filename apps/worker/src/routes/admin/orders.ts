@@ -26,10 +26,10 @@ import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
-import { applyStatusChange, CANCELLED_SQL, createOrder } from "../../lib/orders";
+import { applyStatusChange, CANCELLED_SQL, createOrder, deleteOrder, noRecordCustomerStmt } from "../../lib/orders";
 import { getSetting, getSettings, setSetting } from "../../lib/settings";
 import { permissionFor, syncOrderMessage } from "../../lib/telegram";
-import { actorOf, requirePermission } from "../../middleware/access";
+import { actorOf, requireOwner, requirePermission } from "../../middleware/access";
 import { hasPermission } from "@henine/shared";
 
 export const orderRoutes = new Hono<AppEnv>();
@@ -132,21 +132,25 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
 });
 
 /**
- * Several orders at once (selection in the orders list). Only the steps that need nothing
- * else: cancelling / returning still asks for a reason, "Expédiée" for the tracking number,
- * so those stay one by one. Each order goes through the same checks as a single change.
+ * Several orders at once (selection in the orders list), the same steps as on one order;
+ * cancelling and returns carry one reason for all. "Expédiée" needs each order's tracking
+ * number, so it stays one by one. Each order goes through the same checks as a single change.
  */
-const BULK_TARGETS = ["confirmee", "injoignable", "en_preparation", "en_livraison", "livree"] as const;
+const BULK_TARGETS = ["confirmee", "injoignable", "en_preparation", "en_livraison", "livree", "annulee", "doublon", "fausse", "retour", "retour_recu", "nouvelle"] as const;
 
 orderRoutes.post("/orders/bulk-status", requirePermission("orders.view"), async (c) => {
-  const input = await body(c, z.object({ ids: z.array(z.number().int().positive()).min(1).max(50), to: z.enum(BULK_TARGETS) }));
+  const input = await body(
+    c,
+    z.object({ ids: z.array(z.number().int().positive()).min(1).max(50), to: z.enum(BULK_TARGETS), reason: z.enum(OUTCOME_REASONS).optional() }),
+  );
   if (!hasPermission(c.get("member").permissions, permissionFor(input.to))) throw new HttpError(403, "forbidden");
   const actor = actorOf(c.get("member"));
   const done: string[] = [];
   const failed: { id: number; error: string }[] = [];
+  const note = ["action groupée", input.reason ? OUTCOME_REASON_LABEL[input.reason] : null].filter(Boolean).join(" · ");
   for (const id of new Set(input.ids)) {
     try {
-      const r = await applyStatusChange(c.env, id, input.to, actor, "admin", "action groupée");
+      const r = await applyStatusChange(c.env, id, input.to, actor, "admin", note, input.reason);
       done.push(r.code);
       c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
     } catch (err) {
@@ -399,7 +403,8 @@ orderRoutes.get("/sales", requirePermission("sales.view"), async (c) => {
 orderRoutes.get("/customers", requirePermission("customers.view"), async (c) => {
   const q = (c.req.query("q") ?? "").trim();
   const segment = c.req.query("segment") ?? "all";
-  const where: string[] = [];
+  // the hidden "Clientes sans fiche" entry (walk-in sales, deleted customers) is not a customer
+  const where: string[] = ["c.phone != ''"];
   const binds: unknown[] = [];
   if (q) {
     where.push("(c.name LIKE ? OR c.phone LIKE ?)");
@@ -419,7 +424,7 @@ orderRoutes.get("/customers", requirePermission("customers.view"), async (c) => 
          FROM customers c LEFT JOIN wilayas w ON w.code = c.wilaya_code
          ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY c.last_order_at DESC LIMIT 200`,
     ).bind(...binds),
-    c.env.DB.prepare(`SELECT COUNT(*) AS all_count, ${segCounts} FROM customers c`),
+    c.env.DB.prepare(`SELECT COUNT(*) AS all_count, ${segCounts} FROM customers c WHERE c.phone != ''`),
   ]);
   type Row = RiskCounters & { total_spent: number };
   return c.json({
@@ -588,4 +593,43 @@ orderRoutes.put("/loyalty", requirePermission("loyalty.edit"), async (c) => {
   await setSetting(c.env, "loyalty", input);
   await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "loyalty", input)]);
   return c.json(input);
+});
+
+/* ───────────── Deleting (owner only) ───────────── */
+
+/** ?restock=1: pieces that already left the shop come back to stock (a test order). */
+orderRoutes.delete("/orders/:id", requireOwner, async (c) => {
+  const r = await deleteOrder(c.env, intParam(c, "id"), actorOf(c.get("member")), c.req.query("restock") === "1");
+  return c.json(r);
+});
+
+orderRoutes.post("/orders/bulk-delete", requireOwner, async (c) => {
+  const input = await body(c, z.object({ ids: z.array(z.number().int().positive()).min(1).max(50), restock: z.boolean().default(false) }));
+  const done: string[] = [];
+  for (const id of new Set(input.ids)) {
+    try {
+      done.push((await deleteOrder(c.env, id, actorOf(c.get("member")), input.restock)).code);
+    } catch {
+      /* already deleted */
+    }
+  }
+  return c.json({ done });
+});
+
+/**
+ * A customer removed from the list. Her orders stay (sales history) under "Clientes sans
+ * fiche"; her loyalty points go with her. A new order from her number starts a new record.
+ */
+orderRoutes.delete("/customers/:id", requireOwner, async (c) => {
+  const id = intParam(c, "id");
+  const cust = await c.env.DB.prepare("SELECT id, name, phone FROM customers WHERE id = ?").bind(id).first<{ id: number; name: string; phone: string }>();
+  if (!cust || cust.phone === "") throw new HttpError(404, "not_found");
+  await c.env.DB.batch([
+    noRecordCustomerStmt(c.env),
+    c.env.DB.prepare("UPDATE orders SET customer_id = (SELECT id FROM customers WHERE phone = '') WHERE customer_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM loyalty_ledger WHERE customer_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM customers WHERE id = ?").bind(id),
+    auditStmt(c.env, actorOf(c.get("member")), "delete", "customer", id, { name: cust.name, phone: cust.phone }),
+  ]);
+  return c.json({ ok: true });
 });

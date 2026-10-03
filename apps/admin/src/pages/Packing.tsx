@@ -164,7 +164,7 @@ function PackingFlow({ order: o, onBack, onRefresh }: { order: PackOrder; onBack
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="font-mono text-lg font-bold">{o.public_code}</p>
-            <p className="font-semibold">{o.name} · <span className="font-mono text-sm">{formatDzPhone(o.phone)}</span></p>
+            <p className="font-semibold">{o.name} · <span className="font-mono text-sm"><bdi dir="ltr">{formatDzPhone(o.phone)}</bdi></span></p>
             <p className="text-sm text-ink-soft">{o.wilaya_code} · {o.wilaya}{o.commune ? ` › ${o.commune}` : ""}</p>
           </div>
           <span className={`rounded-lg px-3 py-1.5 text-sm font-bold ${o.delivery_type === "bureau" ? "bg-ink text-on-ink" : "bg-rose-100 text-plum-700"}`}>

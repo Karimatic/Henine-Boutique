@@ -214,9 +214,6 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
     const max = Math.max(1, Math.min(20, Math.round(Number(maxOrders) || 3)));
     return (
       <Panel>
-        <Row title={tr("Commande rapide sur la fiche produit")} help={tr("La cliente remplit son nom, son téléphone et sa wilaya directement sur la page du produit, sans passer par le panier. Recommandé : plus de commandes.")}>
-          <Switch checked={h.checkout.express_on_product} onChange={(v) => apply({ checkout: { express_on_product: v } })} on={tr("Activée")} off={tr("Désactivée (passage par le panier)")} />
-        </Row>
         <Row title={tr("Livraison au bureau (stop-desk)")} help={tr("Proposer le retrait au bureau ZR Express, moins cher que la livraison à domicile.")}>
           <Switch checked={h.checkout.desk_enabled} onChange={(v) => apply({ checkout: { desk_enabled: v } })} on={tr("Proposée aux clientes")} off={tr("Non proposée (domicile seulement)")} />
         </Row>

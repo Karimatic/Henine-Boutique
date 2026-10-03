@@ -2,6 +2,7 @@ import {
   formatDzPhone,
   OUTCOME_REASON_LABEL,
   OUTCOME_REASONS,
+  canTransition,
   type CustomerSegment,
   type OrderStatus,
   type OutcomeReason,
@@ -11,10 +12,10 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { api, errorMessage, patch, post } from "../api";
+import { api, del, errorMessage, patch, post } from "../api";
 import { ago, CHANNEL_LABEL, da, dateTime, statusLabel, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
-import { useCan } from "../Shell";
+import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
 import { tr } from "../i18n";
 
@@ -196,55 +197,114 @@ export function OrdersPage() {
   );
 }
 
-const BULK: { to: OrderStatus; label: string; from: OrderStatus[]; perm: "orders.confirm" | "orders.ship" }[] = [
-  { to: "confirmee", label: tr("✅ Confirmer"), from: ["nouvelle", "injoignable"], perm: "orders.confirm" },
-  { to: "en_preparation", label: tr("📦 En préparation"), from: ["confirmee"], perm: "orders.ship" },
-  { to: "en_livraison", label: tr("🛵 En livraison"), from: ["expediee"], perm: "orders.ship" },
-  { to: "livree", label: tr("🎉 Livrées"), from: ["expediee", "en_livraison"], perm: "orders.ship" },
+/** Pieces of these orders have left the shop (deleting asks whether to put them back in stock). */
+const LEFT_SHOP = ["expediee", "en_livraison", "livree", "retour"] as const;
+
+/** The same steps as in one order (except "Expédiée": a tracking number per parcel). */
+const BULK: { to: OrderStatus; label: string; perm: "orders.confirm" | "orders.ship"; variant: "primary" | "secondary" | "danger"; reason?: boolean }[] = [
+  { to: "confirmee", label: tr("✅ Confirmer"), perm: "orders.confirm", variant: "primary" },
+  { to: "injoignable", label: tr("📵 Injoignable"), perm: "orders.confirm", variant: "secondary" },
+  { to: "en_preparation", label: tr("📦 En préparation"), perm: "orders.ship", variant: "secondary" },
+  { to: "en_livraison", label: tr("🛵 En livraison"), perm: "orders.ship", variant: "secondary" },
+  { to: "livree", label: tr("🎉 Livrées"), perm: "orders.ship", variant: "secondary" },
+  { to: "retour", label: tr("↩️ Retour"), perm: "orders.ship", variant: "danger", reason: true },
+  { to: "retour_recu", label: tr("📥 Retour reçu"), perm: "orders.ship", variant: "secondary" },
+  { to: "nouvelle", label: tr("Rouvrir"), perm: "orders.confirm", variant: "secondary" },
+  { to: "annulee", label: tr("Annuler"), perm: "orders.confirm", variant: "danger", reason: true },
+  { to: "doublon", label: tr("Doublon"), perm: "orders.confirm", variant: "danger" },
+  { to: "fausse", label: tr("Fausse commande"), perm: "orders.confirm", variant: "danger" },
 ];
 
-/** Bottom bar shown while orders are ticked: one status for all of them, or print their slips. */
+/**
+ * Bottom bar shown while orders are ticked: only the steps that at least one of them can
+ * take (a confirmed order can't be confirmed again…), with how many will change.
+ */
 function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDone: () => void }) {
   const can = useCan();
+  const owner = useMe().data?.role === "owner";
   const qc = useQueryClient();
   const toast = useToast();
   const chosen = rows.filter((r) => ids.includes(r.id));
+  const [askReason, setAskReason] = useState<OrderStatus | null>(null);
+  const done = () => {
+    void qc.invalidateQueries({ queryKey: ["orders"] });
+    void qc.invalidateQueries({ queryKey: ["dashboard"] });
+    onDone();
+  };
   const run = useMutation({
-    mutationFn: (to: OrderStatus) => post<{ done: string[]; failed: { id: number; error: string }[] }>("/orders/bulk-status", { ids, to }),
-    onSuccess: (r, to) => {
-      toast(tr("{0} commande(s) : {1}{2}", { 0: r.done.length, 1: statusLabel(to), 2: r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : "" }), r.failed.length ? "error" : undefined);
-      void qc.invalidateQueries({ queryKey: ["orders"] });
-      void qc.invalidateQueries({ queryKey: ["dashboard"] });
-      onDone();
+    mutationFn: (v: { to: OrderStatus; reason?: OutcomeReason }) =>
+      post<{ done: string[]; failed: { id: number; error: string }[] }>("/orders/bulk-status", { ids: chosen.filter((r) => canTransition(r.status, v.to)).map((r) => r.id), ...v }),
+    onSuccess: (r, v) => {
+      toast(tr("{0} commande(s) : {1}{2}", { 0: r.done.length, 1: statusLabel(v.to), 2: r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : "" }), r.failed.length ? "error" : undefined);
+      setAskReason(null);
+      done();
     },
     onError: (e) => toast(errorMessage(e), "error"),
   });
+  const remove = useMutation({
+    mutationFn: (restock: boolean) => post<{ done: string[] }>("/orders/bulk-delete", { ids, restock }),
+    onSuccess: (r) => {
+      toast(tr("{0} commande(s) supprimée(s)", { 0: r.done.length }));
+      done();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  const actions = BULK.filter((b) => can(b.perm)).map((b) => ({ ...b, n: chosen.filter((r) => canTransition(r.status, b.to)).length })).filter((b) => b.n > 0);
+  const reasons = askReason
+    ? OUTCOME_REASONS.filter((r) => r !== "duplicate" && (askReason === "retour" ? r !== "size_issue" && r !== "product_issue" : !["too_small", "too_large", "defect"].includes(r)))
+    : [];
   return (
     <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-surface/95 p-3 shadow-[0_-4px_16px_rgb(43_22_32/0.08)] backdrop-blur md:bottom-0 md:ps-[15rem]">
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-2 px-1 md:px-8">
-        <p className="me-auto text-sm">
-          <b>{ids.length}</b> {tr("sélectionnée(s)")}
-          <button type="button" onClick={onDone} className="ms-2 text-ink-soft underline">{tr("annuler")}</button>
-        </p>
-        {BULK.filter((b) => can(b.perm)).map((b) => {
-          const n = chosen.filter((r) => b.from.includes(r.status)).length;
-          return (
+      <div className="mx-auto max-w-6xl space-y-2 px-1 md:px-8">
+        {askReason && (
+          <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-ivory-deep p-2 text-sm">
+            <span className="me-1 font-semibold">{tr("{0} : pour quelle raison ?", { 0: BULK.find((b) => b.to === askReason)?.label ?? "" })}</span>
+            {reasons.map((r) => (
+              <Button key={r} size="sm" loading={run.isPending && run.variables?.reason === r} onClick={() => run.mutate({ to: askReason, reason: r })}>
+                {tr(OUTCOME_REASON_LABEL[r])}
+              </Button>
+            ))}
+            <button type="button" onClick={() => setAskReason(null)} className="ms-auto text-ink-soft underline">{tr("Retour")}</button>
+          </div>
+        )}
+        <div className="flex items-center gap-2 overflow-x-auto pb-0.5 [scrollbar-width:none]">
+          <p className="me-auto shrink-0 text-sm">
+            <b>{ids.length}</b> {tr("sélectionnée(s)")}
+            <button type="button" onClick={onDone} className="ms-2 text-ink-soft underline">{tr("annuler")}</button>
+          </p>
+          {actions.length === 0 && <span className="shrink-0 text-xs text-ink-soft">{tr("Aucune étape possible pour cette sélection")}</span>}
+          {actions.map((b) => (
             <Button
               key={b.to}
               size="sm"
-              variant={b.to === "confirmee" ? "primary" : "secondary"}
-              disabled={n === 0}
-              loading={run.isPending && run.variables === b.to}
-              title={n < ids.length ? tr("{0} sur {1} peuvent passer à ce statut", { 0: n, 1: ids.length }) : undefined}
-              onClick={() => confirm(tr("{0} : {1} commande(s) ?", { 0: b.label, 1: n })) && run.mutate(b.to)}
+              className="shrink-0"
+              variant={b.variant}
+              loading={run.isPending && run.variables?.to === b.to && !b.reason}
+              title={b.n < ids.length ? tr("{0} sur {1} peuvent passer à ce statut", { 0: b.n, 1: ids.length }) : undefined}
+              onClick={() => (b.reason ? setAskReason(b.to) : confirm(tr("{0} : {1} commande(s) ?", { 0: b.label, 1: b.n })) && run.mutate({ to: b.to }))}
             >
-              {b.label}{n && n < ids.length ? ` (${n})` : ""}
+              {b.label}{b.n < ids.length ? ` (${b.n})` : ""}
             </Button>
-          );
-        })}
-        <Link to="/bordereaux" search={{ ids: ids.join(",") }} className="inline-flex h-8 items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold">
-          {tr("🖨 Bordereaux")}
-        </Link>
+          ))}
+          <Link to="/bordereaux" search={{ ids: ids.join(",") }} className="inline-flex h-8 shrink-0 items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold">
+            {tr("🖨 Bordereaux")}
+          </Link>
+          {owner && (
+            <Button
+              size="sm"
+              variant="danger"
+              className="shrink-0"
+              loading={remove.isPending}
+              onClick={() => {
+                if (!confirm(tr("Supprimer définitivement {0} commande(s) ?", { 0: ids.length }))) return;
+                const left = chosen.some((r) => (LEFT_SHOP as readonly string[]).includes(r.status));
+                remove.mutate(left ? confirm(tr("Certaines sont déjà sorties de la boutique. Remettre leurs articles en stock ? (OK = oui · Annuler = non)")) : false);
+              }}
+            >
+              {tr("🗑 Supprimer")}
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -319,6 +379,22 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
   const [editing, setEditing] = useState(false);
   const d = q.data;
   const o = d?.order;
+  const owner = useMe().data?.role === "owner";
+  const remove = useMutation({
+    mutationFn: (restock: boolean) => del(`/orders/${id}${restock ? "?restock=1" : ""}`),
+    onSuccess: () => {
+      toast(tr("Commande supprimée"));
+      refresh();
+      onClose();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  function askDelete() {
+    if (!o) return;
+    if (!confirm(tr("Supprimer définitivement la commande {0} ? Le stock réservé est libéré, les points et le code promo sont rendus.", { 0: o.public_code }))) return;
+    const left = (LEFT_SHOP as readonly string[]).includes(o.status);
+    remove.mutate(left ? confirm(tr("Les articles sont déjà sortis de la boutique. Les remettre en stock ? (OK = oui, c'était un test · Annuler = non, ils ont été livrés)")) : false);
+  }
 
   const waText = o
     ? `Bonjour ${o.name} 🌸 Ici Henine Boutique. Nous confirmons votre commande ${o.public_code} (${da(o.total)}), livraison ${o.delivery_type === "bureau" ? "au bureau" : "à domicile"} à ${o.wilaya_fr}. Merci !`
@@ -331,7 +407,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
       wide
       title={o ? <span className="flex items-center gap-2"><span className="font-mono">{o.public_code}</span><StatusBadge status={o.status} /></span> : tr("Commande")}
       footer={
-        d && d.next.length > 0 ? (
+        d && (d.next.length > 0 || owner) ? (
           <div className="flex flex-wrap gap-2">
             {d.next.map((to) => (
               <Button
@@ -348,6 +424,11 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 {ACTION[to]?.label ?? statusLabel(to)}
               </Button>
             ))}
+            {owner && (
+              <Button variant="danger" size="sm" className="ms-auto" loading={remove.isPending} onClick={askDelete}>
+                {tr("🗑 Supprimer")}
+              </Button>
+            )}
           </div>
         ) : undefined
       }
@@ -371,7 +452,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-lg font-semibold">{o.name}</p>
-                <p className="font-mono text-sm">{formatDzPhone(o.phone)}</p>
+                <p className="font-mono text-sm"><bdi dir="ltr">{formatDzPhone(o.phone)}</bdi></p>
                 <p className="mt-1 text-sm text-ink-soft">
                   {o.wilaya_code} · {o.wilaya_fr} › {o.commune_fr ?? o.commune_text ?? "?"} · {o.delivery_type === "bureau" ? tr("🏢 Bureau") : tr("🏠 Domicile")}
                 </p>

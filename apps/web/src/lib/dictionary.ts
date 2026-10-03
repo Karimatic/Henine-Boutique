@@ -377,6 +377,8 @@ const fr = {
     reviews: { photos: "📷 Ajouter des photos (3 max)", photosHint: "Visibles après validation par l'équipe.", remove: "Retirer la photo", photoAlt: "Photo de la cliente" },
     assistant: {
       open: "Assistante Henine",
+      short: "Assistante",
+      hint: "Besoin d'aide pour choisir ? Dites-moi ce que vous cherchez ✨",
       title: "✨ Assistante Henine",
       intro: "Dites-moi ce que vous cherchez : couleur, occasion, taille, budget… Je vous propose uniquement des pièces en stock.",
       placeholder: "Ex. robe noire pour un mariage, moins de 8000 DA",
@@ -851,6 +853,8 @@ const ar: Dictionary = {
     reviews: { photos: "📷 أضيفي صورًا (3 كحد أقصى)", photosHint: "تظهر بعد موافقة الفريق.", remove: "حذف الصورة", photoAlt: "صورة الزبونة" },
     assistant: {
       open: "مساعدة Henine",
+      short: "مساعدتك",
+      hint: "تحتاجين مساعدة في الاختيار؟ قولي لي ماذا تبحثين عنه ✨",
       title: "✨ مساعدة Henine",
       intro: "قولي لي ماذا تبحثين عنه: اللون، المناسبة، المقاس، الميزانية… أقترح فقط قطعًا متوفرة.",
       placeholder: "مثلًا: فستان أسود لعرس بأقل من 8000 دج",

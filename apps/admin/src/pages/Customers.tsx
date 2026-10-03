@@ -1,10 +1,10 @@
 import { formatDzPhone, OUTCOME_REASON_LABEL, type CustomerSegment, type OutcomeReason, type RiskAssessment, type RiskLevel } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
-import { api, errorMessage, patch, post, put } from "../api";
+import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, date, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
-import { useCan } from "../Shell";
+import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Sheet, Stat, StatusBadge, TextArea, TextField, Toggle, useToast } from "../ui";
 import { tr } from "../i18n";
 
@@ -70,7 +70,7 @@ export function CustomersPage() {
               <button type="button" onClick={() => setOpen(c.id)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30">
                 <span className="min-w-0">
                   <span className="block truncate font-medium">{c.name} {c.is_blacklisted ? "⛔" : ""}</span>
-                  <span className="text-xs text-ink-soft">{formatDzPhone(c.phone)} · {c.wilaya ?? "—"} · {ago(c.last_order_at)}</span>
+                  <span className="text-xs text-ink-soft"><bdi dir="ltr">{formatDzPhone(c.phone)}</bdi> · {c.wilaya ?? "—"} · {ago(c.last_order_at)}</span>
                   <span className="mt-1 flex flex-wrap gap-1 text-xs">
                     <SegmentBadge segment={c.segment} />
                     {c.risk.level !== "low" && <RiskBadge level={c.risk.level} />}
@@ -135,12 +135,22 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
     onError: (e) => toast(errorMessage(e), "error"),
   });
   const c = q.data?.customer;
+  const owner = useMe().data?.role === "owner";
+  const remove = useMutation({
+    mutationFn: () => del(`/customers/${id}`),
+    onSuccess: () => {
+      toast(tr("Cliente supprimée"));
+      void qc.invalidateQueries({ queryKey: ["customers"] });
+      onClose();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
   return (
     <Sheet open onClose={onClose} title={c ? `${c.name}` : tr("Cliente")} wide>
       {!q.data || !c ? <ListSkeleton rows={4} /> : (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="font-mono">{formatDzPhone(c.phone)}</span>
+            <span className="font-mono"><bdi dir="ltr">{formatDzPhone(c.phone)}</bdi></span>
             <a href={telLink(c.phone)} className="rounded-full bg-plum-600 px-3 py-1.5 text-sm font-semibold text-white">{tr("📞 Appeler")}</a>
             <a href={waLink(c.phone, `Bonjour ${c.name} 🌸 `)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1.5 text-sm font-semibold text-white">{tr("WhatsApp")}</a>
             {c.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">{tr("⛔ Liste noire")}</Badge> : null}
@@ -197,6 +207,20 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
                 </ul>
               )}
             </Card>
+          )}
+          {owner && (
+            <div className="border-t border-line pt-3">
+              <Button
+                variant="danger"
+                loading={remove.isPending}
+                onClick={() =>
+                  confirm(tr("Supprimer la fiche de {0} ? Ses commandes restent dans l'historique (sous « Clientes sans fiche »), ses points de fidélité sont perdus.", { 0: c?.name ?? "" })) &&
+                  remove.mutate()
+                }
+              >
+                {tr("🗑 Supprimer la cliente")}
+              </Button>
+            </div>
           )}
         </div>
       )}
@@ -296,7 +320,7 @@ export function CartsPage() {
             <li key={c.id} className="rounded-xl border border-line bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="font-semibold">{c.name ?? tr("Sans nom")} · <span className="font-mono text-sm">{formatDzPhone(c.phone)}</span></p>
+                  <p className="font-semibold">{c.name ?? tr("Sans nom")} · <span className="font-mono text-sm"><bdi dir="ltr">{formatDzPhone(c.phone)}</bdi></span></p>
                   <p className="text-sm text-ink-soft">{c.items.map((i) => `${i.name} ×${i.qty}`).join(", ")}</p>
                   <p className="text-xs text-ink-soft">
                     📍 {c.wilaya ?? tr("wilaya non choisie")}{c.commune ? ` › ${c.commune}` : ""}{c.delivery_type ? ` · ${c.delivery_type === "bureau" ? "Bureau" : "Domicile"}` : ""}
