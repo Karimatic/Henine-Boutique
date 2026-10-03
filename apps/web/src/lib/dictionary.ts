@@ -9,7 +9,7 @@ const fr = {
   brand: { tagline: "L’élégance & la qualité au meilleur prix" },
   announcement: STORE_TEXTS.fr.announcement,
   skip: "Aller au contenu",
-  nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Suivi", menu: "Menu", language: "Langue", shop: "La boutique", help: "Aide", follow: "Suivez-nous" },
+  nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Mes commandes", menu: "Menu", language: "Langue", shop: "La boutique", help: "Aide", follow: "Suivez-nous" },
   hero: {
     eyebrow: STORE_TEXTS.fr.eyebrow,
     title: STORE_TEXTS.fr.title,
@@ -407,6 +407,7 @@ const fr = {
       ios: "Touchez Partager ⬆️ puis « Sur l'écran d'accueil ».",
     },
     footerFollow: "Suivez-nous",
+    topNav: { shop: "La boutique", new: "Nouveautés", orders: "Mes commandes", store: "Notre magasin" },
     mode: { label: "Apparence", light: "Clair", dark: "Sombre", auto: "Auto" },
     size: {
       open: "📏 Quelle taille choisir ?",
@@ -485,7 +486,7 @@ const ar: Dictionary = {
   brand: { tagline: "الأناقة والجودة بأفضل سعر" },
   announcement: STORE_TEXTS.ar.announcement,
   skip: "انتقل إلى المحتوى",
-  nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع", menu: "القائمة", language: "اللغة", shop: "المتجر", help: "مساعدة", follow: "تابعينا" },
+  nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع طلباتي", menu: "القائمة", language: "اللغة", shop: "المتجر", help: "مساعدة", follow: "تابعينا" },
   hero: {
     eyebrow: STORE_TEXTS.ar.eyebrow,
     title: STORE_TEXTS.ar.title,
@@ -883,6 +884,7 @@ const ar: Dictionary = {
       ios: "اضغطي مشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية».",
     },
     footerFollow: "تابعينا",
+    topNav: { shop: "المتجر", new: "الجديد", orders: "تتبع طلباتي", store: "محلنا" },
     mode: { label: "المظهر", light: "فاتح", dark: "داكن", auto: "تلقائي" },
     size: {
       open: "📏 أي مقاس أختار؟",

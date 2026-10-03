@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import type { CategoryDTO } from "@henine/shared";
 import { BagIcon, Blossom, HeartIcon, PackageIcon, SearchIcon } from "@/components/ui/icons";
 import { useApi } from "@/lib/api";
@@ -56,9 +57,6 @@ export function SiteHeader() {
               {ar ? c.nameAr : c.nameFr}
             </a>
           ))}
-          <a href={href("/suivi")} className="text-ink-soft transition hover:text-plum-700">
-            {t.nav.track}
-          </a>
         </nav>
 
         <div className="flex shrink-0 items-center gap-0.5">
@@ -84,6 +82,42 @@ export function SiteHeader() {
           <SiteMenu />
         </div>
       </div>
+      <TopNav />
     </header>
+  );
+}
+
+/** The text menu under the header: shop, new arrivals, order tracking, the shop in Dellys. */
+function TopNav() {
+  const { t, href } = useLocale();
+  const N = t.plus.topNav;
+  const [path, setPath] = useState("");
+  useEffect(() => setPath(location.pathname.replace(/^\/fr(?=\/|$)/, "") || "/"), []);
+  const items: [string, string, (p: string) => boolean][] = [
+    ["/categories", N.shop, (p) => p.startsWith("/categories") || p.startsWith("/c/") || p.startsWith("/produit/")],
+    ["/nouveautes", N.new, (p) => p.startsWith("/nouveautes")],
+    ["/suivi", N.orders, (p) => p.startsWith("/suivi")],
+    ["/boutique", N.store, (p) => p.startsWith("/boutique")],
+  ];
+  return (
+    <nav aria-label={t.nav.shop} className="border-t border-line/60">
+      <ul className="swipe-row mx-auto flex max-w-6xl gap-6 overflow-x-auto px-4 text-[13.5px] font-medium md:gap-8">
+        {items.map(([to, label, active]) => {
+          const on = path !== "" && active(path);
+          return (
+            <li key={to} className="shrink-0">
+              <a
+                href={href(to)}
+                aria-current={on ? "page" : undefined}
+                className={`relative block py-2.5 transition ${on ? "text-plum-700" : "text-ink-soft hover:text-ink"}`}
+              >
+                {label}
+                {on && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-plum-600" aria-hidden="true" />}
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
   );
 }
