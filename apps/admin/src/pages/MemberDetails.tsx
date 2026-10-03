@@ -1,5 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, del, errorMessage } from "../api";
+import { useState } from "react";
+import { api, del, errorMessage, put } from "../api";
+import { derivePasswordKey, passwordProblems } from "../lib/password";
 import { tr } from "../i18n";
 import { ago, date } from "../lib/format";
 import { useMe } from "../Shell";
@@ -119,6 +121,7 @@ export function MemberOwnerPanel({ id, onDeleted }: { id: number; onDeleted: () 
           </ul>
         </div>
       )}
+      {m.id !== me.data?.id && <SetPassword id={m.id} email={m.email} name={m.name} />}
       {m.id !== me.data?.id && (
         <div className="border-t border-line pt-3">
           <Button
@@ -131,5 +134,69 @@ export function MemberOwnerPanel({ id, onDeleted }: { id: number; onDeleted: () 
         </div>
       )}
     </section>
+  );
+}
+
+/** A readable password: 3 words-like chunks and digits, e.g. "Rose-Lune-48Kp". */
+function generatePassword(): string {
+  const parts = ["Rose", "Lune", "Soie", "Perle", "Fleur", "Satin", "Ambre", "Iris", "Jade", "Opale"];
+  const r = crypto.getRandomValues(new Uint32Array(4));
+  const tail = (r[2]! % 90) + 10;
+  const letters = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz";
+  return `${parts[r[0]! % parts.length]}-${parts[r[1]! % parts.length]}-${tail}${letters[r[3]! % letters.length]}${letters[(r[3]! >> 8) % letters.length]}`;
+}
+
+/**
+ * Passwords are never stored readable (nobody can see them, not even the owner). The owner
+ * can give an account a new one instead, and then knows it.
+ */
+function SetPassword({ id, email, name }: { id: number; email: string; name: string }) {
+  const toast = useToast();
+  const [pw, setPw] = useState("");
+  const [show, setShow] = useState(true);
+  const [done, setDone] = useState<string | null>(null);
+  const problem = pw ? passwordProblems(pw, email) : null;
+  const save = useMutation({
+    mutationFn: async () => put(`/team/${id}/password`, { newKey: await derivePasswordKey(email, pw) }),
+    onSuccess: () => {
+      setDone(pw);
+      setPw("");
+      toast(tr("Nouveau mot de passe enregistré ✓"));
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  return (
+    <div className="border-t border-line pt-3">
+      <p className="text-sm font-semibold">{tr("🔑 Mot de passe")}</p>
+      <p className="mb-2 text-xs text-ink-soft">
+        {tr("Les mots de passe ne sont jamais enregistrés en clair : personne ne peut les lire, même pas vous. Vous pouvez en donner un nouveau à {0} (ses appareils seront déconnectés).", { 0: name })}
+      </p>
+      {done ? (
+        <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-800">
+          {tr("Nouveau mot de passe de {0} :", { 0: name })} <b className="font-mono" dir="ltr">{done}</b>
+          <button type="button" className="ms-2 underline" onClick={() => navigator.clipboard?.writeText(done)}>{tr("Copier")}</button>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2">
+            <input
+              type={show ? "text" : "password"}
+              dir="ltr"
+              autoComplete="new-password"
+              className="h-10 min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 font-mono text-sm"
+              placeholder={tr("Nouveau mot de passe")}
+              value={pw}
+              onChange={(e) => setPw(e.target.value)}
+            />
+            <Button size="sm" onClick={() => setShow(!show)}>{show ? tr("Masquer") : tr("Afficher")}</Button>
+            <Button size="sm" onClick={() => setPw(generatePassword())}>{tr("Générer")}</Button>
+          </div>
+          {problem && <p className="mt-1 text-xs text-red-700">{problem}</p>}
+          <Button size="sm" variant="primary" className="mt-2" disabled={!pw || !!problem} loading={save.isPending} onClick={() => save.mutate()}>
+            {tr("Enregistrer ce mot de passe")}
+          </Button>
+        </>
+      )}
+    </div>
   );
 }

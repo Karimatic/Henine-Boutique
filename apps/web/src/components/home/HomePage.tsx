@@ -12,7 +12,7 @@ import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
 import { Banners, Featured, FlashBlock, Newsletter } from "./HomeExtras";
 import { Faq, InstagramCard, SectionHead } from "./Sections";
-import { ContestCard, Lookbook, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
+import { ContestCard, LookbookGrid, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
 
 /**
  * Home, phone first: the shop's stories, a big photo with the promise on it, the promises,
@@ -103,8 +103,12 @@ export function HomePage() {
           <ProductGrid products={favorites} />
         </section>
       ),
-    lookbook: () => <Lookbook />,
-    instagram: () => <InstagramCard />,
+    // the photos and the follow card: one block
+    instagram: () => (
+      <InstagramCard>
+        <LookbookGrid />
+      </InstagramCard>
+    ),
     contest: () => <ContestCard />,
     reviews: () => <ReviewWall />,
     recent: () => <RecentlyViewed products={products} />,

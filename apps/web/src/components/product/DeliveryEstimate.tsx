@@ -49,8 +49,9 @@ export function DeliveryEstimate() {
         <h2 className="flex items-center gap-2 font-semibold">
           <span aria-hidden="true">🚚</span> {D.title}
         </h2>
+        <span className="relative">
         <select
-          className="h-10 max-w-[13rem] rounded-xl border border-line bg-ivory px-3 text-sm"
+          className="h-10 max-w-[13rem] appearance-none rounded-xl border border-line bg-ivory pe-9 ps-3 text-sm"
           value={code ?? ""}
           aria-label={D.choose}
           onChange={(e) => {
@@ -70,6 +71,10 @@ export function DeliveryEstimate() {
             </option>
           ))}
         </select>
+          <span aria-hidden="true" className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-ink-soft">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6" /></svg>
+          </span>
+        </span>
       </div>
       {w &&
         (w.home == null && w.desk == null ? (

@@ -24,9 +24,10 @@ export interface BoutiqueDTO {
 
 export const DEFAULT_BOUTIQUE: BoutiqueDTO = {
   enabled: true,
-  addressFr: "Boumerdès",
-  addressAr: "بومرداس",
-  mapQuery: "Henine Boutique Boumerdès",
+  addressFr: "Dellys, Laqhaoui · à côté du tribunal",
+  addressAr: "دلس، لقهاوي · بجانب المحكمة",
+  /** Google plus code of the shop's door */
+  mapQuery: "WV9Q+4RW, Dellys",
   hours: Array.from({ length: 7 }, () => ({ open: "09:30", close: "20:00" })),
   noteFr: "",
   noteAr: "",

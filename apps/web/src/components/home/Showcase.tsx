@@ -138,16 +138,10 @@ const LOOKS = [
   "/ig/boutique.jpg",
 ];
 
-export function Lookbook() {
-  const { t } = useLocale();
-  const L = t.home.lookbook;
+/** The shop's Instagram photos (shown inside the Instagram card). */
+export function LookbookGrid() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-10">
-      <div className="mb-5 text-center">
-        <p className="text-xs font-semibold tracking-[0.18em] text-rose-700" dir="ltr">{L.eyebrow}</p>
-        <h2 className="heading-display mt-1 text-[1.65rem] leading-tight md:text-4xl">{L.title}</h2>
-      </div>
-      <ul className="grid grid-cols-3 gap-1.5 md:grid-cols-6 md:gap-3">
+    <ul className="grid grid-cols-3 gap-1.5 md:grid-cols-6 md:gap-3">
         {LOOKS.map((src, i) => (
           <li key={src} className={i === 0 ? "col-span-2 row-span-2 md:col-span-2" : ""}>
             <Reveal delay={i * 70} className="h-full">
@@ -160,8 +154,7 @@ export function Lookbook() {
             </Reveal>
           </li>
         ))}
-      </ul>
-    </section>
+    </ul>
   );
 }
 

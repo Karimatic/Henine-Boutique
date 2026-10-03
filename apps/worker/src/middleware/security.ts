@@ -48,11 +48,12 @@ export function adminDocumentHeaders(headers: Headers, mediaOrigin: string): voi
     [
       "default-src 'self'",
       "script-src 'self'",
-      "style-src 'self' 'unsafe-inline'",
+      // Google Fonts: previews of the store's font choices (Page d'accueil → Apparence)
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       `img-src ${img}`,
       `media-src 'self' blob: ${mediaOrigin}`.trim(),
       "connect-src 'self'",
-      "font-src 'self'",
+      "font-src 'self' https://fonts.gstatic.com",
       "worker-src 'self' blob:",
       "object-src 'none'",
       "base-uri 'none'",

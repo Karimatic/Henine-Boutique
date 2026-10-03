@@ -49,7 +49,8 @@ export function SectionHead({ title, href, link }: { title: string; href?: strin
 
 /* ───────── Instagram: the big detailed card ───────── */
 
-export function InstagramCard() {
+/** The Instagram block: the follow card with the shop's photos inside it. */
+export function InstagramCard({ children }: { children?: React.ReactNode }) {
   const { t } = useLocale();
   const href = "https://www.instagram.com/henine.boutique/";
   return (
@@ -83,6 +84,7 @@ export function InstagramCard() {
               <span dir="ltr">{t.instagram.cta}</span>
             </a>
           </div>
+          {children && <div className="relative mt-6">{children}</div>}
         </div>
       </Reveal>
     </section>

@@ -560,6 +560,16 @@ orderRoutes.get("/carts", requirePermission("carts.view"), async (c) => {
 
 });
 
+/** An unfinished checkout removed from the list (handled, test, spam). */
+orderRoutes.delete("/carts/:id", requirePermission("carts.view"), async (c) => {
+  const id = c.req.param("id");
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM carts WHERE id = ?").bind(id),
+    auditStmt(c.env, actorOf(c.get("member")), "delete", "cart", id),
+  ]);
+  return c.json({ ok: true });
+});
+
 orderRoutes.post("/carts/:id/contacted", requirePermission("carts.view"), async (c) => {
   await c.env.DB.prepare("UPDATE carts SET last_contacted_at = ? WHERE id = ?").bind(Date.now(), c.req.param("id")).run();
   return c.json({ ok: true });

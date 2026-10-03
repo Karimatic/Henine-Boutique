@@ -512,6 +512,28 @@ systemRoutes.get("/team/:id/details", requireOwner, async (c) => {
   });
 });
 
+/**
+ * The owner gives an account a new password (passwords are never stored readable, so this
+ * replaces "seeing" it). The browser stretches it like at login; the account is signed out
+ * everywhere and unblocked.
+ */
+systemRoutes.put("/team/:id/password", requireOwner, async (c) => {
+  const id = intParam(c, "id");
+  if (id === c.get("member").id) throw new HttpError(409, "use_my_account");
+  const input = await body(c, z.object({ newKey: z.string().refine(passwordKeyValid) }));
+  const m = await c.env.DB.prepare("SELECT id, email FROM team_members WHERE id = ?").bind(id).first<{ id: number; email: string }>();
+  if (!m) throw new HttpError(404, "not_found");
+  const { hash, salt } = await hashPassword(c.env, input.newKey);
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "UPDATE team_members SET password_hash = ?, password_salt = ?, email_verified_at = COALESCE(email_verified_at, ?), failed_logins = 0, locked_until = NULL WHERE id = ?",
+    ).bind(hash, salt, Date.now(), id),
+    c.env.DB.prepare("DELETE FROM admin_sessions WHERE member_id = ?").bind(id),
+    auditStmt(c.env, actorOf(c.get("member")), "password_set_by_owner", "team_member", id),
+  ]);
+  return c.json({ ok: true });
+});
+
 /** Removes an account for good (the owner only; never yourself, never the last owner). */
 systemRoutes.delete("/team/:id", requireOwner, async (c) => {
   const id = intParam(c, "id");

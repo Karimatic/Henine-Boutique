@@ -355,7 +355,23 @@ export function CartsPage() {
                 >
                   {tr("WhatsApp")}
                 </a>
+                <button
+                  type="button"
+                  onClick={() => confirm(tr("Supprimer ce panier de la liste ?")) && void del(`/carts/${c.id}`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
+                  className="ms-auto inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold text-red-700"
+                >
+                  {tr("🗑 Supprimer")}
+                </button>
                 </div>
+              )}
+              {c.recovered_code && (
+                <button
+                  type="button"
+                  onClick={() => confirm(tr("Supprimer ce panier de la liste ?")) && void del(`/carts/${c.id}`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
+                  className="ms-2 text-xs font-semibold text-red-700 underline"
+                >
+                  {tr("🗑 Supprimer")}
+                </button>
               )}
             </li>
             );

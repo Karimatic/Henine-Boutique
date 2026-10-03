@@ -100,7 +100,10 @@ export function DesignEditor() {
     for (const key of Object.keys(FONT_PRESETS) as FontPreset[]) {
       const href = fontStylesheet(key);
       if (!href || document.querySelector(`link[data-font="${key}"]`)) continue;
-      document.head.appendChild(Object.assign(document.createElement("link"), { rel: "stylesheet", href, dataset: { font: key } }));
+      // dataset is read-only: set the attribute itself (assigning it threw and broke the page)
+      const link = Object.assign(document.createElement("link"), { rel: "stylesheet", href });
+      link.dataset.font = key;
+      document.head.appendChild(link);
     }
   }, []);
 

@@ -10,13 +10,16 @@ const MAX_PER_VISIT = 3;
 
 /**
  * "Une cliente de Blida vient de commander…": real orders of the last 48 h only (product,
- * wilaya, time; never a name or a number). A few times per visit, never during checkout,
- * under the header so it never covers the buy buttons.
+ * wilaya, time; never a name or a number). A few times per visit, never during checkout.
+ * Bottom corner on the start side, next to the ✨ button (end side): it covers no title,
+ * and sits above the buy bar on product pages.
  */
 export function ActivityToast() {
   const { t, ar, href } = useLocale();
   const [list, setList] = useState<ActivityDTO[]>([]);
   const [shown, setShown] = useState<ActivityDTO | null>(null);
+  const [lifted, setLifted] = useState(false);
+  useEffect(() => setLifted(/\/(produit|tenue)/.test(location.pathname)), []);
 
   useEffect(() => {
     if (/\/(panier|commande|merci|suivi)/.test(location.pathname)) return;
@@ -50,10 +53,15 @@ export function ActivityToast() {
 
   if (!shown) return null;
   return (
-    <div role="status" className="pointer-events-none fixed inset-x-3 top-[4.25rem] z-30 flex justify-center md:top-20">
+    <div
+      role="status"
+      className={`pointer-events-none fixed start-3 z-30 flex md:bottom-6 md:start-6 ${
+        lifted ? "bottom-[calc(8.9rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.9rem+env(safe-area-inset-bottom))]"
+      }`}
+    >
       <a
         href={href(`/produit/${shown.productSlug}`)}
-        className="toast-in pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl border border-line bg-surface/95 px-4 py-2.5 shadow-[0_12px_32px_-12px_rgb(23_10_16/0.35)] backdrop-blur"
+        className="toast-in pointer-events-auto flex w-[13.5rem] items-center gap-2.5 sm:w-auto sm:max-w-sm rounded-2xl border border-line bg-surface/95 px-4 py-2.5 shadow-[0_12px_32px_-12px_rgb(23_10_16/0.35)] backdrop-blur"
       >
         <span className="relative flex size-2.5 shrink-0" aria-hidden="true">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />
@@ -63,7 +71,7 @@ export function ActivityToast() {
           <span className="block text-ink-soft">{t.activity.ordered(ar ? shown.wilayaAr : shown.wilayaFr)}</span>
           <b className="block truncate">{ar ? shown.productAr : shown.productFr}</b>
         </span>
-        <span className="shrink-0 text-[11px] text-ink-soft">{t.activity.ago(shown.minutesAgo)}</span>
+        <span className="hidden shrink-0 text-[11px] text-ink-soft sm:inline">{t.activity.ago(shown.minutesAgo)}</span>
       </a>
     </div>
   );

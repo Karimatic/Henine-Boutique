@@ -161,6 +161,8 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
     abStep(experiments, "product");
   }, [buyTest?.exp.id, experiments]); // eslint-disable-line react-hooks/exhaustive-deps
   const boutique = site.data?.boutique;
+  // the chosen size / colour if any, otherwise the product as a whole
+  const availableNow = variant ? variant.available > 0 : p.inStock;
   const [lightbox, setLightbox] = useState<number | null>(null);
   const G = t.plus.gallery;
   const slides = images.length + (p.video ? 1 : 0);
@@ -416,7 +418,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             <a href={href(`/tenue?p=${encodeURIComponent(p.slug)}`)} className="mt-2 flex h-12 items-center justify-center rounded-full border border-line bg-surface text-sm font-semibold">
               {t.plus.outfit.open}
             </a>
-            {boutique?.enabled && boutique.showOnProducts && p.inStock && (
+            {boutique?.enabled && boutique.showOnProducts && availableNow && (
               <a href={href("/boutique")} className="mt-3 flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-rose-100 text-lg" aria-hidden="true">🏪</span>
                 <span className="min-w-0 flex-1">
@@ -438,9 +440,11 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             </section>
           )}
 
-          <div className="mt-6">
-            <DeliveryEstimate />
-          </div>
+          {availableNow && (
+            <div className="mt-6">
+              <DeliveryEstimate />
+            </div>
+          )}
 
           <div className="mt-8 space-y-6 border-t border-line pt-6">
             {(ar ? p.descriptionAr : p.descriptionFr) && (
