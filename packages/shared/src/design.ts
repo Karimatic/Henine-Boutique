@@ -6,8 +6,8 @@
 
 /** Home page building blocks, in their default order. */
 export const HOME_SECTIONS = [
-  "stories",
   "hero",
+  "stories",
   "promise",
   "drop",
   "flash",
