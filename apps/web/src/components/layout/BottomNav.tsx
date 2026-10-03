@@ -3,19 +3,22 @@
 import { useEffect, useState } from "react";
 import { BagIcon, GridIcon, HeartIcon, HomeIcon, PackageIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
+import { useActiveOrder } from "@/lib/activeOrder";
 import { cartCount, useCart } from "@/lib/stores";
 
 /** Mobile thumb-zone navigation. Hidden from md up. */
 export function BottomNav() {
   const { t, href } = useLocale();
   const count = cartCount(useCart());
+  const order = useActiveOrder();
   const [path, setPath] = useState("");
   useEffect(() => setPath(location.pathname.replace(/^\/fr(?=\/|$)/, "") || "/"), []);
 
   const items = [
     { to: "/", label: t.nav.home, Icon: HomeIcon, match: (p: string) => p === "/" },
     { to: "/categories", label: t.nav.categories, Icon: GridIcon, match: (p: string) => p.startsWith("/categories") || p.startsWith("/c/") },
-    { to: "/suivi", label: t.nav.track, Icon: PackageIcon, match: (p: string) => p.startsWith("/suivi") },
+    // an order on its way: the tab opens it directly and shows a dot
+    { to: order ? order.link : "/suivi", label: t.nav.track, Icon: PackageIcon, match: (p: string) => p.startsWith("/suivi") },
     { to: "/favoris", label: t.nav.favorites, Icon: HeartIcon, match: (p: string) => p.startsWith("/favoris") },
     { to: "/panier", label: t.nav.cart, Icon: BagIcon, match: (p: string) => p.startsWith("/panier") || p.startsWith("/commande") },
   ];
@@ -35,6 +38,9 @@ export function BottomNav() {
                   <Icon size={20} />
                 </span>
                 {label}
+                {label === t.nav.track && order && (
+                  <span className="absolute top-1.5 size-2.5 rounded-full bg-rose-500 ring-2 ring-white ms-7" aria-label={t.status[order.status]} />
+                )}
                 {to === "/panier" && count > 0 && (
                   <span className="absolute top-1 grid min-w-5 place-items-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-5 text-white ring-2 ring-white ms-8">
                     {count}

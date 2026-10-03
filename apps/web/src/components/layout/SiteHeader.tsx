@@ -1,38 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { CategoryDTO, TrackedOrderDTO } from "@henine/shared";
+import type { CategoryDTO } from "@henine/shared";
 import { BagIcon, Blossom, HeartIcon, PackageIcon, SearchIcon } from "@/components/ui/icons";
-import { apiGet, useApi } from "@/lib/api";
+import { useApi } from "@/lib/api";
+import { useActiveOrder } from "@/lib/activeOrder";
 import { useLocale } from "@/lib/locale";
 import { useDesign } from "@/lib/site";
-import { cartCount, useCart, useFavorites, useSavedOrders } from "@/lib/stores";
+import { cartCount, useCart, useFavorites } from "@/lib/stores";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { SiteMenu } from "./SiteMenu";
 
-const DONE = new Set(["livree", "retour_recu", "annulee", "doublon", "fausse"]);
-
-/** "📦 Ma commande : Expédiée": shown when this device placed an order that isn't finished. */
+/** "📦 Ma commande : Expédiée" (computers; on phones the "Suivi" tab of the bottom bar shows it). */
 function OrderPill() {
   const { t, href } = useLocale();
-  const orders = useSavedOrders();
-  const [status, setStatus] = useState<{ code: string; status: string } | null>(null);
-  const latest = orders[0];
-  useEffect(() => {
-    if (!latest || Date.now() - latest.createdAt > 30 * 86400_000) return;
-    apiGet<TrackedOrderDTO>(`/track/${latest.code}?t=${encodeURIComponent(latest.token)}`)
-      .then((o) => !DONE.has(o.status) && setStatus({ code: o.code, status: o.status }))
-      .catch(() => undefined);
-  }, [latest]);
-  if (!status || !latest) return null;
+  const order = useActiveOrder();
+  if (!order) return null;
   return (
-    <a
-      href={href(`/suivi?c=${status.code}&t=${encodeURIComponent(latest.token)}`)}
-      className="flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-semibold text-plum-700"
-    >
+    <a href={href(order.link)} className="hidden items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-semibold text-plum-700 md:flex">
       <PackageIcon size={15} />
-      {/* phones: the icon only, so it never runs into the shop's name */}
-      <span className="hidden sm:inline">{t.status[status.status]}</span>
+      {t.status[order.status]}
     </a>
   );
 }
