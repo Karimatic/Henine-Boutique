@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { dateLocale, normalizeDzPhone, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
+import { dateLocale, normalizeDzPhone, type ImageRef, type ProductCardDTO, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
+import { FlashPanel } from "@/components/home/HomeExtras";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { BagIcon, HeartIcon } from "@/components/ui/icons";
 import { Markdown } from "@/components/ui/Markdown";
@@ -12,6 +13,8 @@ import { pushSupported, subscribeRestock } from "@/lib/push";
 import { cart, rememberViewed, toggleFavorite, useFavorites } from "@/lib/stores";
 import { Turnstile } from "@/lib/turnstile";
 import { Badges } from "./Badges";
+import { AskWhatsApp, DeliveryEstimate } from "./DeliveryEstimate";
+import { Lightbox } from "./Lightbox";
 import { ProductGrid } from "./ProductCard";
 import { ReviewForm } from "./ReviewForm";
 import { ShareButton } from "./ShareButton";
@@ -145,6 +148,20 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   const fav = favorites.includes(p.slug);
   // computed by the API: hand-picked look → bought together → same category (no catalogue download)
   const related = p.related;
+  const [lightbox, setLightbox] = useState<number | null>(null);
+  const G = t.plus.gallery;
+  const slides = images.length + (p.video ? 1 : 0);
+  // "Vous aimerez peut-être": other pieces in her price range, in stock, best rated / selling first
+  const catalog = useApi<ProductCardDTO[]>("/catalog");
+  const mayLike = useMemo(() => {
+    const skip = new Set([p.id, ...related.map((r) => r.id)]);
+    return (catalog.data ?? [])
+      .filter((x) => !skip.has(x.id) && x.inStock && x.price >= p.price * 0.5 && x.price <= p.price * 1.6)
+      .map((x) => ({ x, score: (x.categorySlug !== p.categorySlug ? 2 : 0) + x.tags.filter((tag) => p.tags.includes(tag)).length + (x.rating?.avg ?? 0) / 2 + (x.badge ? 1.5 : 0) + (x.flash ? 1 : 0) }))
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+      .map((e) => e.x);
+  }, [catalog.data, p, related]);
   const expressEnabled = site.data?.checkout.expressOnProduct ?? true;
   const soldOut = !!variant && variant.available === 0;
 
@@ -190,27 +207,49 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             {/* phones: full-width swipe */}
             <div ref={swipeRef} onScroll={onSwipe} className="swipe-row flex snap-x snap-mandatory overflow-x-auto md:hidden" aria-label={name}>
               {(images.length ? images : [null]).map((img, i) => (
-                <ProductImage
+                <button
                   key={img?.src ?? "none"}
-                  image={img}
-                  alt={i === 0 ? name : ""}
-                  category={p.categorySlug}
-                  color={colorHex}
-                  priority={i === 0}
-                  sizes="100vw"
-                  className="aspect-[4/5] w-full shrink-0 snap-center"
-                />
+                  type="button"
+                  onClick={() => img && setLightbox(i)}
+                  aria-label={G.open}
+                  className="w-full shrink-0 snap-center"
+                >
+                  <ProductImage image={img} alt={i === 0 ? name : ""} category={p.categorySlug} color={colorHex} priority={i === 0} sizes="100vw" className="aspect-[4/5] w-full" />
+                </button>
               ))}
+              {p.video && (
+                <div className="relative aspect-[4/5] w-full shrink-0 snap-center bg-black">
+                  <video src={p.video} controls playsInline preload="metadata" muted loop className="absolute inset-0 size-full object-cover" aria-label={G.video} />
+                </div>
+              )}
             </div>
-            {images.length > 1 && (
+            {slides > 1 && (
               <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-1.5 md:hidden" aria-hidden="true">
-                {images.map((img, i) => (
-                  <span key={img.src} className={`h-1.5 rounded-full transition-all ${i === active ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />
+                {Array.from({ length: slides }, (_, i) => (
+                  <span key={i} className={`h-1.5 rounded-full transition-all ${i === active ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />
                 ))}
               </div>
             )}
-            {/* larger screens: one photo + thumbnails */}
-            <ProductImage image={images[active] ?? null} alt={name} category={p.categorySlug} color={colorHex} priority sizes="50vw" className="hidden aspect-[4/5] rounded-card md:block" />
+            {/* larger screens: one photo (zooms under the mouse, opens full screen) + thumbnails */}
+            {p.video && active === images.length ? (
+              <div className="relative hidden aspect-[4/5] overflow-hidden rounded-card bg-black md:block">
+                <video src={p.video} controls autoPlay playsInline muted loop className="absolute inset-0 size-full object-contain" aria-label={G.video} />
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => images[active] && setLightbox(active)}
+                aria-label={G.open}
+                className="hover-zoom hidden w-full cursor-zoom-in md:block"
+                onMouseMove={(e) => {
+                  const r = e.currentTarget.getBoundingClientRect();
+                  e.currentTarget.style.setProperty("--zx", `${((e.clientX - r.left) / r.width) * 100}%`);
+                  e.currentTarget.style.setProperty("--zy", `${((e.clientY - r.top) / r.height) * 100}%`);
+                }}
+              >
+                <ProductImage image={images[active] ?? null} alt={name} category={p.categorySlug} color={colorHex} priority sizes="50vw" className="aspect-[4/5] rounded-card" />
+              </button>
+            )}
             <Badges p={p} className="pointer-events-none absolute start-3 top-3" />
             <button
               type="button"
@@ -222,17 +261,30 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               <HeartIcon fill={fav ? "currentColor" : "none"} />
             </button>
           </div>
-          {images.length > 1 && (
+          {slides > 1 && (
             <ul className="mt-3 hidden gap-2 overflow-x-auto pb-1 md:flex">
               {images.map((img, i) => (
                 <li key={img.src}>
-                  <button type="button" onClick={() => setActive(i)} className={`block overflow-hidden rounded-lg ring-2 ${i === active ? "ring-plum-600" : "ring-transparent"}`} aria-label={`${i + 1}/${images.length}`}>
+                  <button type="button" onClick={() => setActive(i)} className={`block overflow-hidden rounded-lg ring-2 ${i === active ? "ring-plum-600" : "ring-transparent"}`} aria-label={`${i + 1}/${slides}`}>
                     <ProductImage image={img} alt="" sizes="80px" className="aspect-[4/5] w-16" />
                   </button>
                 </li>
               ))}
+              {p.video && (
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => setActive(images.length)}
+                    className={`grid aspect-[4/5] w-16 place-items-center rounded-lg bg-ink text-xl text-white ring-2 ${active === images.length ? "ring-plum-600" : "ring-transparent"}`}
+                    aria-label={G.video}
+                  >
+                    ▶
+                  </button>
+                </li>
+              )}
             </ul>
           )}
+          {lightbox != null && <Lightbox images={images} video={p.video} start={lightbox} name={name} onClose={() => setLightbox(null)} />}
         </div>
 
         <div>
@@ -255,6 +307,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
           <div className="mt-2 text-2xl font-semibold">
             <Price value={variant?.price ?? p.price} compareAt={p.compareAtPrice} />
           </div>
+          {p.flash && <FlashPanel flash={p.flash} />}
 
           <div id="variant-options" className="mt-6 space-y-5 scroll-mt-28">
             {p.options.map((o) => (
@@ -336,6 +389,10 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             </div>
           )}
 
+          <div className="mt-3">
+            <AskWhatsApp name={name} />
+          </div>
+
           {showExpress && variant && variant.available > 0 && (
             <section id="express" className="mt-6 scroll-mt-24 rounded-card border border-plum-600/30 bg-white/70 p-4">
               <h2 className="text-lg font-semibold">{t.product.express}</h2>
@@ -343,6 +400,10 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               <CheckoutForm key={variant.id} lines={[{ variantId: variant.id, qty: 1 }]} channel="express" compact />
             </section>
           )}
+
+          <div className="mt-6">
+            <DeliveryEstimate />
+          </div>
 
           <div className="mt-8 space-y-6 border-t border-line pt-6">
             {(ar ? p.descriptionAr : p.descriptionFr) && (
@@ -363,6 +424,13 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
         <section className="mt-12">
           <h2 className="heading-display mb-5 text-3xl">{p.relatedKind === "look" ? t.look.title : t.look.similar}</h2>
           <ProductGrid products={related} />
+        </section>
+      )}
+
+      {mayLike.length > 0 && (
+        <section className="mt-12">
+          <h2 className="heading-display mb-5 text-3xl">{t.plus.youMayLike}</h2>
+          <ProductGrid products={mayLike} />
         </section>
       )}
 
@@ -469,8 +537,12 @@ function Reviews({ p }: { p: ProductDetailDTO }) {
   const R = t.reviewsPlus;
   const [open, setOpen] = useState(false);
   const [done, setDone] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<{ list: string[]; start: number } | null>(null);
+  const asImages = (list: string[]): ImageRef[] =>
+    list.map((src) => ({ src, widths: [], width: 0, height: 0, lqip: null, altFr: null, altAr: null, optionValueId: null }));
   return (
     <section id="avis" className="mt-12 scroll-mt-24">
+      {photos && <Lightbox images={asImages(photos.list)} video={null} start={photos.start} name={t.plus.reviews.photoAlt} onClose={() => setPhotos(null)} />}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h2 className="heading-display text-3xl">
           {t.product.reviews}
@@ -512,6 +584,15 @@ function Reviews({ p }: { p: ProductDetailDTO }) {
               </div>
               {r.verified && <p className="mt-0.5 text-xs text-success">✓ {t.product.verified}</p>}
               {r.text && <p className="mt-2 text-sm leading-relaxed text-ink-soft">{r.text}</p>}
+              {r.photos.length > 0 && (
+                <div className="mt-3 flex gap-2">
+                  {r.photos.map((src, i) => (
+                    <button key={src} type="button" onClick={() => setPhotos({ list: r.photos, start: i })} className="overflow-hidden rounded-xl ring-1 ring-line" aria-label={t.plus.reviews.photoAlt}>
+                      <img src={src} alt={t.plus.reviews.photoAlt} loading="lazy" className="size-20 object-cover" />
+                    </button>
+                  ))}
+                </div>
+              )}
               {r.reply && <p className="mt-2 border-s-2 border-rose-300 ps-3 text-sm text-ink">🌸 {r.reply}</p>}
               <p className="mt-2 text-xs text-ink-soft">{new Date(r.createdAt).toLocaleDateString(dateLocale(locale))}</p>
             </li>

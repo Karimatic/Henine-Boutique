@@ -44,6 +44,28 @@ app.route("/api", api);
 /* ─── Product photos from R2 (edge cached, immutable keys) ─── */
 app.get("/media/*", async (c) => {
   const key = decodeURIComponent(new URL(c.req.url).pathname.slice("/media/".length));
+  // product videos: streamed with byte ranges (phones seek and buffer, Safari requires it)
+  if (/^[a-z0-9/_-]+\.(mp4|webm)$/i.test(key)) {
+    const range = c.req.header("Range");
+    const obj = await c.env.MEDIA.get(key, range ? { range: c.req.raw.headers } : undefined);
+    if (!obj || !("body" in obj)) return c.notFound();
+    const headers = new Headers({
+      "Content-Type": obj.httpMetadata?.contentType ?? "video/mp4",
+      "Cache-Control": "public, max-age=31536000, immutable",
+      "Accept-Ranges": "bytes",
+      "X-Content-Type-Options": "nosniff",
+      ETag: obj.httpEtag,
+    });
+    const r = obj.range as { offset?: number; length?: number } | undefined;
+    if (range && r && r.offset != null) {
+      const length = r.length ?? obj.size - r.offset;
+      headers.set("Content-Range", `bytes ${r.offset}-${r.offset + length - 1}/${obj.size}`);
+      headers.set("Content-Length", String(length));
+      return new Response(obj.body, { status: 206, headers });
+    }
+    headers.set("Content-Length", String(obj.size));
+    return new Response(obj.body, { headers });
+  }
   if (!/^[a-z0-9/_-]+\.(webp|jpg)$/i.test(key)) return c.notFound();
   const cache = caches.default;
   const hit = await cache.match(c.req.raw);

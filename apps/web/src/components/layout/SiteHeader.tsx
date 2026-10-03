@@ -5,6 +5,7 @@ import type { CategoryDTO, TrackedOrderDTO } from "@henine/shared";
 import { BagIcon, Blossom, HeartIcon, PackageIcon, SearchIcon } from "@/components/ui/icons";
 import { apiGet, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { useDesign } from "@/lib/site";
 import { cartCount, useCart, useFavorites, useSavedOrders } from "@/lib/stores";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { SiteMenu } from "./SiteMenu";
@@ -41,16 +42,24 @@ export function SiteHeader() {
   const favs = useFavorites();
   const count = cartCount(items);
   const { data: categories } = useApi<CategoryDTO[]>("/categories");
+  const logo = useDesign().logo;
 
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ivory/90 backdrop-blur supports-[backdrop-filter]:bg-ivory/75">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-4">
         <div className="flex min-w-0 items-center">
           <a href={href("/")} className="flex min-w-0 items-center gap-1.5" aria-label="Henine Boutique">
-            <Blossom size={22} className="animate-bloom shrink-0" />
-            <span className="brand-mark heading-display whitespace-nowrap text-[1.08rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
-              Henine Boutique
-            </span>
+            {logo ? (
+              // the shop's own logo (Admin → Page d'accueil → Apparence)
+              <img src={logo} alt="Henine Boutique" className="h-9 w-auto max-w-[11rem] object-contain md:h-11" />
+            ) : (
+              <>
+                <Blossom size={22} className="animate-bloom shrink-0" />
+                <span className="brand-mark heading-display whitespace-nowrap text-[1.08rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
+                  Henine Boutique
+                </span>
+              </>
+            )}
           </a>
         </div>
 

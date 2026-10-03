@@ -7,6 +7,7 @@ import { da } from "../lib/format";
 import { useCan } from "../Shell";
 import { Badge, Button, ErrorState, inputCls, ListSkeleton, PageHeader, useToast } from "../ui";
 import { ContactSettingsCard, StoreTextsEditor, type ContactSettings, type Overrides } from "./Marketing";
+import { DesignEditor } from "./Design";
 import { IntegrationsSection, MyAccount } from "./System";
 import { tr } from "../i18n";
 
@@ -299,6 +300,7 @@ export function HomeSettingsPage() {
         }
       />
       <StoreSettings tab="boutique" goTo={toTexts} />
+      <DesignEditor />
       <div id="textes" className="scroll-mt-20">
         <StoreSettings tab="textes" goTo={toTexts} />
       </div>

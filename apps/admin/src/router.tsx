@@ -22,7 +22,10 @@ const publicRoutes = [
 ];
 
 // Printable pages: no sidebar / header around them
-const printRoutes = [createRoute({ getParentRoute: () => rootRoute, path: "/bordereaux", component: lazy(() => import("./pages/Slips"), "SlipsPage") as () => React.ReactNode })];
+const printRoutes = [
+  createRoute({ getParentRoute: () => rootRoute, path: "/bordereaux", component: lazy(() => import("./pages/Slips"), "SlipsPage") as () => React.ReactNode }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/facture", component: lazy(() => import("./pages/Invoice"), "InvoicePage") as () => React.ReactNode }),
+];
 
 // Everything else lives inside the authenticated shell
 const shellRoute = createRoute({ getParentRoute: () => rootRoute, id: "app", component: Shell });

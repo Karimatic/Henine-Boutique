@@ -3,7 +3,7 @@ import type { Env } from "./env";
 import { recordError } from "./lib/audit";
 import { algiersDate, algiersDayStart, periodStats } from "./lib/orders";
 import { processOutbox, sendTelegramText } from "./lib/telegram";
-import { sendRestockPushes } from "./lib/webpush";
+import { sendCampaignBatch, sendRestockPushes } from "./lib/webpush";
 import { refreshInstagramToken } from "./routes/admin/instagram";
 
 /**
@@ -17,7 +17,9 @@ export async function scheduled(controller: ScheduledController, env: Env, ctx: 
     case "*/5 * * * *":
       run("outbox", processOutbox(env, 10));
       // back-in-stock pushes not sent at restock time (more than one batch, or a network error)
-      run("restock_push", sendRestockPushes(env, undefined, 30));
+      run("restock_push", sendRestockPushes(env, undefined, 25)); // 10 + 25 + 10 ≤ 50 sub-requests
+      // store news to subscribers, next batch
+      run("campaign_push", sendCampaignBatch(env, 10));
       break;
     case "*/30 * * * *":
       run("callbacks", callbackReminder(env));

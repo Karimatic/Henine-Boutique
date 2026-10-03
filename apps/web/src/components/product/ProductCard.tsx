@@ -4,6 +4,7 @@ import type { ProductCardDTO } from "@henine/shared";
 import { HeartIcon } from "@/components/ui/icons";
 import { Price, ProductImage, Stars } from "@/components/ui/kit";
 import { useLocale } from "@/lib/locale";
+import { FlashStock } from "@/components/home/HomeExtras";
 import { Badges } from "./Badges";
 import { QuickAddButton } from "./QuickAdd";
 import { toggleFavorite, useFavorites } from "@/lib/stores";
@@ -21,12 +22,18 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
         <div className="relative">
           <ProductImage image={p.image} alt={name} category={p.categorySlug} color={p.colors[0]} priority={priority} className="aspect-[4/5] rounded-card transition duration-300 group-hover:shadow-soft" />
           <div className="pointer-events-none absolute start-2 top-2 flex flex-col items-start gap-1">
+            {p.flash && p.inStock && (
+              <span className="rounded-full bg-gradient-to-r from-plum-600 to-rose-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm" dir="ltr">
+                ⚡ -{p.flash.percent}%
+              </span>
+            )}
             {p.inStock ? <Badges p={p} className="flex-col items-start" /> : <span className="rounded-full bg-ink/80 px-2 py-0.5 text-[11px] font-semibold text-ivory">{t.product.outOfStock}</span>}
           </div>
         </div>
         <div className="mt-2 space-y-1 px-0.5">
           <h3 className="line-clamp-1 text-[13.5px] font-medium text-ink">{name}</h3>
           <Price value={p.price} compareAt={p.compareAtPrice} className="text-sm" />
+          {p.flash?.limit != null && p.inStock && <FlashStock flash={p.flash} compact />}
           <div className="flex items-center gap-2">
             {p.colors.length > 0 && (
               <span className="flex -space-x-1 rtl:space-x-reverse" aria-hidden="true">

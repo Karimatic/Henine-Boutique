@@ -16,6 +16,8 @@ import {
   OUTCOME_REASONS,
   RISK_LEVELS,
   segmentSql,
+  EXTRA_SEGMENTS,
+  extraSegmentSql,
   STATUS_LABELS,
   type CustomerSegment,
   type OrderStatus,
@@ -75,8 +77,9 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     active: ["nouvelle", "injoignable", "confirmee", "en_preparation"],
     a_confirmer: ["nouvelle", "injoignable"],
     en_cours: ["confirmee", "en_preparation", "expediee", "en_livraison"],
-    termine: ["livree", "retour_recu"],
-    annule: ["annulee", "doublon", "fausse", "retour"],
+    termine: ["livree"],
+    annule: ["annulee", "doublon", "fausse"],
+    retours: ["retour", "retour_recu"],
   };
   const attn = attention ? attentionSql(Date.now())[attention] : undefined;
   if (attn) where.push(attn);
@@ -91,6 +94,21 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     const digits = q.replace(/\D/g, "");
     where.push("(o.public_code LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR o.tracking_number = ?)");
     binds.push(`%${q.toUpperCase()}%`, `%${q}%`, `%${digits || q}%`, q);
+  }
+  const wilaya = Number(c.req.query("wilaya") ?? 0);
+  if (Number.isInteger(wilaya) && wilaya >= 1 && wilaya <= 69) {
+    where.push("o.wilaya_code = ?");
+    binds.push(wilaya);
+  }
+  const from = Number(c.req.query("from") ?? 0);
+  const to = Number(c.req.query("to") ?? 0);
+  if (from > 0) {
+    where.push("o.created_at >= ?");
+    binds.push(from);
+  }
+  if (to > 0) {
+    where.push("o.created_at < ?");
+    binds.push(to);
   }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const [rows, counts] = await c.env.DB.batch([
@@ -147,7 +165,7 @@ orderRoutes.get("/order-slips", requirePermission("orders.view"), async (c) => {
     c.env.DB.prepare(
       `SELECT o.id, o.public_code, o.status, o.created_at, o.name, o.phone, o.wilaya_code, w.name_fr AS wilaya_fr, w.name_ar AS wilaya_ar,
               COALESCE(cm.name_fr, o.commune_text) AS commune_fr, COALESCE(cm.name_ar, o.commune_text) AS commune_ar, o.address, o.delivery_type,
-              o.subtotal, o.discount_total, o.shipping_price, o.total, o.customer_note, o.tracking_number, o.locale
+              o.subtotal, o.discount_total, o.shipping_price, o.total, o.customer_note, o.tracking_number, o.locale, o.coupon_code
          FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN communes cm ON cm.id = o.commune_id
         WHERE o.id IN (${ph})`,
     ).bind(...ids),
@@ -385,10 +403,13 @@ orderRoutes.get("/customers", requirePermission("customers.view"), async (c) => 
     where.push("(c.name LIKE ? OR c.phone LIKE ?)");
     binds.push(`%${q}%`, `%${q.replace(/\s/g, "")}%`);
   }
+  const now = Date.now();
   if (["new", "returning", "vip", "high_risk"].includes(segment)) where.push(segmentSql(segment as CustomerSegment, "c"));
-  else if (segment === "inactives") where.push(`c.last_order_at < ${Date.now() - 60 * 86400_000}`);
-  else if (segment === "blacklist") where.push("c.is_blacklisted = 1");
-  const segCounts = (["new", "returning", "vip", "high_risk"] as const).map((s) => `SUM(CASE WHEN ${segmentSql(s, "c")} THEN 1 ELSE 0 END) AS "${s}"`).join(", ");
+  else if ((EXTRA_SEGMENTS as readonly string[]).includes(segment)) where.push(extraSegmentSql(segment as (typeof EXTRA_SEGMENTS)[number], "c", now));
+  const segCounts = [
+    ...(["new", "returning", "vip", "high_risk"] as const).map((s) => `SUM(CASE WHEN ${segmentSql(s, "c")} THEN 1 ELSE 0 END) AS "${s}"`),
+    ...EXTRA_SEGMENTS.map((s) => `SUM(CASE WHEN ${extraSegmentSql(s, "c", now)} THEN 1 ELSE 0 END) AS "${s}"`),
+  ].join(", ");
   const [rows, counts] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT c.id, c.name, c.phone, c.wilaya_code, w.name_fr AS wilaya, c.orders_count, c.delivered_count, c.returned_count, c.cancelled_count,

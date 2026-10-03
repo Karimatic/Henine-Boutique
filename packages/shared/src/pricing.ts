@@ -8,10 +8,12 @@ export interface CouponRule {
   type: "percent" | "fixed" | "free_shipping";
   value: number;
   minSubtotal: number | null;
+  /** limited to some products / categories: the discount only counts the lines marked `eligible` */
+  restricted?: boolean;
 }
 
 export interface TotalsInput {
-  lines: { unitPrice: number; qty: number }[];
+  lines: { unitPrice: number; qty: number; eligible?: boolean }[];
   shippingPrice: number | null; // null = delivery unavailable for this wilaya/type
   coupon: CouponRule | null;
   freeShippingOver: number | null;
@@ -24,7 +26,7 @@ export interface Totals {
   total: number;
   freeShipping: boolean;
   couponApplied: boolean;
-  couponReason: "min_subtotal" | null;
+  couponReason: "min_subtotal" | "not_applicable" | null;
 }
 
 export function computeTotals({ lines, shippingPrice, coupon, freeShippingOver }: TotalsInput): Totals {
@@ -35,12 +37,16 @@ export function computeTotals({ lines, shippingPrice, coupon, freeShippingOver }
   let couponApplied = false;
   let couponReason: Totals["couponReason"] = null;
   if (coupon) {
+    // a coupon for some products / categories only takes off from those lines
+    const base = coupon.restricted ? lines.filter((l) => l.eligible).reduce((s, l) => s + l.unitPrice * l.qty, 0) : subtotal;
     if (coupon.minSubtotal != null && subtotal < coupon.minSubtotal) {
       couponReason = "min_subtotal";
+    } else if (coupon.restricted && base === 0) {
+      couponReason = "not_applicable";
     } else {
       couponApplied = true;
-      if (coupon.type === "percent") discount = Math.floor((subtotal * Math.min(Math.max(coupon.value, 0), 100)) / 100);
-      else if (coupon.type === "fixed") discount = Math.min(Math.max(coupon.value, 0), subtotal);
+      if (coupon.type === "percent") discount = Math.floor((base * Math.min(Math.max(coupon.value, 0), 100)) / 100);
+      else if (coupon.type === "fixed") discount = Math.min(Math.max(coupon.value, 0), base);
       else couponFreeShipping = true;
     }
   }

@@ -385,3 +385,14 @@
 @view-transition {
   navigation: auto;
 }
+
+/* ── Product photo zoom under the mouse (computers only; phones open the full-screen gallery) ── */
+@media (hover: hover) and (pointer: fine) {
+  .hover-zoom img {
+    transition: transform 0.35s ease;
+    transform-origin: var(--zx, 50%) var(--zy, 50%);
+  }
+  .hover-zoom:hover img {
+    transform: scale(1.9);
+  }
+}

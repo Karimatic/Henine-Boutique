@@ -212,3 +212,47 @@ export async function sendRestockPushes(env: Env, variantIds?: number[], max = 4
   }
   return sent;
 }
+
+/**
+ * Store news sent to "Recevoir les nouveautés" subscribers (Admin → Notifier), a batch at a
+ * time: the campaign keeps a cursor (last subscription id), the cron sends the next batch.
+ */
+export async function sendCampaignBatch(env: Env, max = 35): Promise<number> {
+  const campaign = await env.DB.prepare("SELECT id, config, stats FROM campaigns WHERE kind = 'push' AND status = 'sending' ORDER BY id LIMIT 1").first<{
+    id: number; config: string; stats: string | null;
+  }>();
+  if (!campaign) return 0;
+  const cfg = JSON.parse(campaign.config) as { titleFr: string; titleAr: string; bodyFr: string; bodyAr: string; path: string };
+  const stats = { total: 0, sent: 0, failed: 0, cursor: 0, ...(JSON.parse(campaign.stats ?? "{}") as Record<string, number>) };
+  const { results } = await env.DB.prepare(
+    "SELECT id, endpoint, p256dh, auth, locale FROM push_subscriptions s WHERE id > ? AND EXISTS (SELECT 1 FROM json_each(s.tags) WHERE value = 'news') ORDER BY id LIMIT ?",
+  )
+    .bind(stats.cursor, max)
+    .all<{ id: number; endpoint: string; p256dh: string; auth: string; locale: string }>();
+  const gone: number[] = [];
+  for (const s of results) {
+    const ar = s.locale === "ar";
+    const path = cfg.path.startsWith("/") ? cfg.path : "/";
+    const outcome = await sendPush(env, s, {
+      title: ar ? cfg.titleAr : cfg.titleFr,
+      body: ar ? cfg.bodyAr : cfg.bodyFr,
+      url: new URL(`${ar ? "" : "/fr"}${path === "/" ? "" : path}${path.includes("?") ? "&" : "?"}utm_source=push&utm_medium=news`, env.PUBLIC_ORIGIN).toString(),
+      tag: `news-${campaign.id}`,
+    }).catch(() => "error" as const);
+    if (outcome === "ok") stats.sent++;
+    else stats.failed++;
+    if (outcome === "gone") gone.push(s.id);
+    stats.cursor = s.id;
+  }
+  const done = results.length < max;
+  await env.DB.batch([
+    env.DB.prepare("UPDATE campaigns SET stats = ?, status = ? WHERE id = ?").bind(JSON.stringify(stats), done ? "sent" : "sending", campaign.id),
+    ...(gone.length
+      ? [
+          env.DB.prepare(`DELETE FROM stock_alerts WHERE notified_at IS NULL AND push_subscription_id IN (${gone.join(",")})`),
+          env.DB.prepare(`DELETE FROM push_subscriptions WHERE id IN (${gone.join(",")})`),
+        ]
+      : []),
+  ]);
+  return stats.sent;
+}

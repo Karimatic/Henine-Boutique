@@ -3,11 +3,25 @@
 import { useState } from "react";
 import { normalizeDzPhone } from "@henine/shared";
 import { inputCls, Spinner } from "@/components/ui/kit";
-import { ApiError, apiPost, useApi } from "@/lib/api";
+import { ApiError, apiForm, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useSavedOrders } from "@/lib/stores";
 import { Turnstile } from "@/lib/turnstile";
 import type { SiteConfigDTO } from "@henine/shared";
+
+/** A phone photo made light for upload: WebP, 1600 px at most (EXIF orientation applied by the browser). */
+async function shrink(file: File): Promise<Blob> {
+  const bitmap = await createImageBitmap(file);
+  const scale = Math.min(1, 1600 / Math.max(bitmap.width, bitmap.height));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(bitmap.width * scale);
+  canvas.height = Math.round(bitmap.height * scale);
+  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  bitmap.close();
+  const blob = await new Promise<Blob | null>((ok) => canvas.toBlob(ok, "image/webp", 0.82));
+  // old Safari has no WebP encoder: JPEG then
+  return blob && blob.type === "image/webp" ? blob : new Promise<Blob>((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("encode"))), "image/jpeg", 0.85));
+}
 
 /**
  * Verified review: tied to a delivered order. From the tracking page the private link's
@@ -25,6 +39,7 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
   const [text, setText] = useState("");
   const [turnstile, setTurnstile] = useState("");
   const [state, setState] = useState<"idle" | "sending" | "error">("idle");
+  const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const normalizedCode = code.trim().toUpperCase();
@@ -38,15 +53,13 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
     if (!token && !p) return setError(t.checkout.errors.phone_invalid!);
     setState("sending");
     try {
-      const res = await apiPost<{ status: string }>("/reviews", {
-        code: normalizedCode,
-        token,
-        phone: p ?? undefined,
-        productId,
-        rating,
-        text: text.trim() || undefined,
-        turnstileToken: turnstile || "pending",
-      });
+      const form = new FormData();
+      form.set(
+        "data",
+        JSON.stringify({ code: normalizedCode, token, phone: p ?? undefined, productId, rating, text: text.trim() || undefined, turnstileToken: turnstile || "pending" }),
+      );
+      for (const ph of photos) form.append("photo", ph.blob, ph.blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
+      const res = await apiForm<{ status: string }>("/reviews", form);
       setState("idle");
       onDone?.(res.status);
     } catch (err) {
@@ -77,6 +90,47 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
         </div>
       )}
       <textarea className={`${inputCls} h-24 py-3`} placeholder={R.text} aria-label={R.text} value={text} onChange={(e) => setText(e.target.value)} maxLength={1000} />
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          {photos.map((ph, i) => (
+            <span key={ph.url} className="relative">
+              <img src={ph.url} alt="" className="size-16 rounded-xl object-cover ring-1 ring-line" />
+              <button
+                type="button"
+                onClick={() => setPhotos((list) => list.filter((_, j) => j !== i))}
+                className="absolute -end-1.5 -top-1.5 grid size-6 place-items-center rounded-full bg-ink text-xs text-white"
+                aria-label={t.plus.reviews.remove}
+              >
+                ✕
+              </button>
+            </span>
+          ))}
+          {photos.length < 3 && (
+            <label className="inline-flex h-11 cursor-pointer items-center rounded-full border border-dashed border-ink/25 px-4 text-sm font-semibold">
+              {t.plus.reviews.photos}
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={async (e) => {
+                  const files = [...(e.target.files ?? [])].slice(0, 3 - photos.length);
+                  e.target.value = "";
+                  for (const f of files) {
+                    try {
+                      const blob = await shrink(f);
+                      setPhotos((list) => (list.length < 3 ? [...list, { blob, url: URL.createObjectURL(blob) }] : list));
+                    } catch {
+                      /* not an image */
+                    }
+                  }
+                }}
+              />
+            </label>
+          )}
+        </div>
+        {photos.length > 0 && <p className="mt-1 text-xs text-ink-soft">{t.plus.reviews.photosHint}</p>}
+      </div>
       <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={setTurnstile} locale={locale} />
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <button type="submit" disabled={state === "sending"} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-ivory disabled:opacity-60">

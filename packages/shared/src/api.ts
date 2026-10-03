@@ -2,6 +2,7 @@
  * JSON contracts between the Worker API and the two front-ends.
  * Money is integer DA. Times are epoch milliseconds.
  */
+import type { DesignDTO } from "./design";
 import type { ProductBadge } from "./insights";
 import type { OrderStatus } from "./order-status";
 import type { StoreTextOverrides } from "./store-texts";
@@ -60,6 +61,29 @@ export interface ProductCardDTO {
   rating: { avg: number; count: number } | null;
   /** data-driven sales badge (see BADGE_RULES), null when the numbers don't support one */
   badge: ProductBadge | null;
+  /** size / colour names in both languages (search by colour or size) */
+  labels: string[];
+  /** in a flash sale right now: `price` is already the sale price, `compareAtPrice` the usual one */
+  flash: FlashInfoDTO | null;
+}
+
+export interface FlashInfoDTO {
+  saleId: number;
+  percent: number;
+  endsAt: number;
+  /** pieces offered at this price (null = no limit) and already sold during the sale */
+  limit: number | null;
+  sold: number;
+}
+
+/** Flash sale running now, for the home page block (its products carry `flash`). */
+export interface FlashSaleDTO {
+  id: number;
+  nameFr: string;
+  nameAr: string;
+  percent: number;
+  endsAt: number;
+  productIds: number[];
 }
 
 export interface OptionValueDTO {
@@ -93,6 +117,8 @@ export interface ReviewDTO {
   verified: boolean;
   reply: string | null;
   createdAt: number;
+  /** customer photos (media URLs) */
+  photos: string[];
 }
 
 /** Home page "what our customers say": verified reviews from every product. */
@@ -151,6 +177,8 @@ export interface ProductDetailDTO extends ProductCardDTO {
   relatedKind: "look" | "similar";
   /** size chart chosen for this product in the admin */
   sizeGuide: SizeGuideDTO | null;
+  /** short product video (media URL), shown in the gallery */
+  video: string | null;
 }
 
 /* ───────────── Collections / drops ───────────── */
@@ -193,6 +221,19 @@ export interface SiteConfigDTO {
   texts: { ar: StoreTextOverrides; fr: StoreTextOverrides };
   /** next or current collection launch, for the home banner */
   drop: DropTeaserDTO | null;
+  /** flash sale running now */
+  flash: FlashSaleDTO | null;
+  /** logo, colours, fonts, banners, home sections (Admin → Page d'accueil) */
+  design: DesignDTO;
+}
+
+/** Shopping assistant answer: real products only, with why each one fits. */
+export interface AssistantReplyDTO {
+  /** what was understood, in the visitor's language */
+  understood: string[];
+  products: (ProductCardDTO & { why: string[] })[];
+  /** nothing matched every wish: these are the closest ones */
+  relaxed: boolean;
 }
 
 export interface WilayaDTO {

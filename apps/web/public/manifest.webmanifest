@@ -1,0 +1,26 @@
+{
+  "name": "Henine Boutique",
+  "short_name": "Henine",
+  "description": "Robes, lingerie & pyjamas · فساتين، ملابس داخلية وبيجامات · Livraison 69 wilayas",
+  "id": "/",
+  "start_url": "/?utm_source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fffbfc",
+  "theme_color": "#8e1048",
+  "lang": "ar",
+  "dir": "rtl",
+  "categories": ["shopping", "lifestyle"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Nouveautés · الجديد", "url": "/nouveautes?utm_source=pwa" },
+    { "name": "Mes favoris · مفضلتي", "url": "/favoris?utm_source=pwa" },
+    { "name": "Suivi · تتبع الطلب", "url": "/suivi?utm_source=pwa" }
+  ]
+}

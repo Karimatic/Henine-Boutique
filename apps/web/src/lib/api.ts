@@ -17,7 +17,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   try {
     res = await fetch(`/api${path}`, {
       ...init,
-      headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
+      headers: init?.body && !(init.body instanceof FormData) ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
     });
   } catch {
     throw new ApiError(0, "network");
@@ -29,6 +29,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const apiGet = <T,>(path: string) => request<T>(path);
 export const apiPost = <T,>(path: string, data: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(data) });
+/** multipart form (files): the browser sets the Content-Type with its boundary */
+export const apiForm = <T,>(path: string, form: FormData) => request<T>(path, { method: "POST", body: form, headers: {} });
 
 /* Tiny SWR-style cache: identical GETs across components share one request. */
 const cache = new Map<string, { at: number; data?: unknown; promise?: Promise<unknown> }>();

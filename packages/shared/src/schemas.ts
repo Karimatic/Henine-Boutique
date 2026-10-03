@@ -155,7 +155,10 @@ export const stockAlertInput = z.object({
 
 /** "Prévenez-moi" by notification: the browser's push subscription for one variant. */
 export const pushSubscribeInput = z.object({
-  variantId: z.number().int().positive(),
+  /** one size of a product (restock), every sold-out size of a product (wishlist), or none: store news */
+  variantId: z.number().int().positive().optional(),
+  productId: z.number().int().positive().optional(),
+  topic: z.enum(["restock", "news"]).default("restock"),
   locale: z.enum(["fr", "ar"]).default("ar"),
   subscription: z.object({
     endpoint: z.string().url().max(800),
@@ -170,4 +173,10 @@ export const clientErrorInput = z.object({
   message: z.string().max(500),
   stack: z.string().max(4000).optional(),
   url: z.string().max(500).optional(),
+});
+
+/** Shopping assistant: a free-text wish ("robe noire pour un mariage, moins de 8000 DA"). */
+export const assistantInput = z.object({
+  q: z.string().trim().min(2).max(300),
+  locale: z.enum(["fr", "ar"]).default("ar"),
 });

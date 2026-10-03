@@ -3,6 +3,8 @@ import {
   type CategoryDTO,
   type CollectionDTO,
   type DropTeaserDTO,
+  type FlashInfoDTO,
+  type FlashSaleDTO,
   type ImageRef,
   type OptionDTO,
   type ProductBadge,
@@ -32,6 +34,7 @@ interface ProductRow {
   created_at: number;
   related_ids: string;
   size_guide_id: number | null;
+  video_key: string | null;
 }
 
 export interface ImageRow {
@@ -67,7 +70,7 @@ export function imageRef(env: Env, r: ImageRow): ImageRef {
 
 const PRODUCT_COLS = `p.id, p.slug, p.name_fr, p.name_ar, p.description_fr, p.description_ar, p.status, p.category_id,
   c.slug AS category_slug, p.tags, p.price, p.compare_at_price, p.seo_title, p.seo_description,
-  COALESCE(p.published_at, p.created_at) AS created_at, p.related_ids, p.size_guide_id`;
+  COALESCE(p.published_at, p.created_at) AS created_at, p.related_ids, p.size_guide_id, p.video_key`;
 
 const CANCELLED = "('annulee','doublon','fausse')";
 
@@ -109,7 +112,85 @@ function toCard(
     createdAt: p.created_at,
     rating: rating && rating.count > 0 ? { avg: Math.round(rating.avg * 10) / 10, count: rating.count } : null,
     badge,
+    labels: [],
+    flash: null,
   };
+}
+
+/* ───────────── Flash sales ───────────── */
+
+/** promotions.config of a "flash_sale": which products, how much off, how many pieces at that price. */
+export interface FlashConfig {
+  productIds: number[];
+  percent: number;
+  /** pieces per product at the sale price (null = until the end) */
+  limit: number | null;
+}
+
+export function parseFlashConfig(raw: string | null): FlashConfig {
+  try {
+    const c = JSON.parse(raw ?? "{}") as Partial<FlashConfig>;
+    return {
+      productIds: (c.productIds ?? []).filter((id) => Number.isInteger(id) && id > 0),
+      percent: Math.min(90, Math.max(1, Math.round(Number(c.percent) || 0))),
+      limit: c.limit != null && Number(c.limit) > 0 ? Math.round(Number(c.limit)) : null,
+    };
+  } catch {
+    return { productIds: [], percent: 1, limit: null };
+  }
+}
+
+/** Sale price, rounded to 10 DA. */
+export function flashPrice(price: number, percent: number): number {
+  return Math.max(10, Math.round((price * (100 - percent)) / 1000) * 10);
+}
+
+/**
+ * Flash sales running now. A product leaves its sale once `limit` pieces were ordered
+ * since the sale started (cancelled orders don't count); the earliest-ending sale wins.
+ * Sale names are stored "Nom FR | الاسم".
+ */
+export async function activeFlash(env: Env, now = Date.now()): Promise<{ byProduct: Map<number, FlashInfoDTO>; sales: FlashSaleDTO[] }> {
+  const byProduct = new Map<number, FlashInfoDTO>();
+  const { results } = await env.DB.prepare(
+    "SELECT id, name, config, starts_at, ends_at FROM promotions WHERE kind = 'flash_sale' AND is_active = 1 AND starts_at <= ? AND ends_at > ? ORDER BY ends_at, id",
+  )
+    .bind(now, now)
+    .all<{ id: number; name: string; config: string; starts_at: number; ends_at: number }>();
+  const sales = results.map((r) => ({ ...r, cfg: parseFlashConfig(r.config) })).filter((r) => r.cfg.productIds.length);
+  if (!sales.length) return { byProduct, sales: [] };
+  const soldRes = await env.DB.batch(
+    sales.map((r) =>
+      env.DB.prepare(
+        `SELECT oi.product_id, SUM(oi.qty) AS n FROM order_items oi JOIN orders o ON o.id = oi.order_id
+          WHERE o.created_at >= ? AND o.status NOT IN ${CANCELLED} AND oi.product_id IN (${r.cfg.productIds.join(",")})
+          GROUP BY oi.product_id`,
+      ).bind(r.starts_at),
+    ),
+  );
+  const out: FlashSaleDTO[] = [];
+  sales.forEach((r, i) => {
+    const sold = new Map((soldRes[i]!.results as { product_id: number; n: number }[]).map((x) => [x.product_id, x.n]));
+    const live: number[] = [];
+    for (const pid of r.cfg.productIds) {
+      if (byProduct.has(pid)) continue;
+      const n = sold.get(pid) ?? 0;
+      if (r.cfg.limit != null && n >= r.cfg.limit) continue;
+      byProduct.set(pid, { saleId: r.id, percent: r.cfg.percent, endsAt: r.ends_at, limit: r.cfg.limit, sold: n });
+      live.push(pid);
+    }
+    if (live.length) {
+      const [nameFr, nameAr] = r.name.split(" | ");
+      out.push({ id: r.id, nameFr: nameFr!, nameAr: nameAr || nameFr!, percent: r.cfg.percent, endsAt: r.ends_at, productIds: live });
+    }
+  });
+  return { byProduct, sales: out };
+}
+
+/** The card with its flash sale applied (sale price, usual price struck through). */
+function withFlash<T extends ProductCardDTO>(card: T, flash: FlashInfoDTO | undefined): T {
+  if (!flash) return card;
+  return { ...card, price: flashPrice(card.price, flash.percent), compareAtPrice: Math.max(card.compareAtPrice ?? 0, card.price), flash };
 }
 
 /**
@@ -146,7 +227,8 @@ export async function productCards(env: Env, ids?: number[]): Promise<ProductCar
   if (ids && !ids.length) return [];
   const now = Date.now();
   const only = (col: string) => (ids ? ` AND ${col} IN (${ids.map(Number).join(",")})` : ""); // ids are integers
-  const [products, images, colors, stock, ratings, sales] = await env.DB.batch([
+  const flashP = activeFlash(env, now);
+  const [products, images, colors, stock, ratings, sales, labels] = await env.DB.batch([
     env.DB.prepare(
       `SELECT ${PRODUCT_COLS} FROM products p LEFT JOIN categories c ON c.id = p.category_id
         WHERE ${visibleSql("p", now)}${only("p.id")}
@@ -162,7 +244,18 @@ export async function productCards(env: Env, ids?: number[]): Promise<ProductCar
     ),
     env.DB.prepare(`SELECT product_id, AVG(rating) AS avg, COUNT(*) AS count FROM reviews WHERE status = 'approved'${only("product_id")} GROUP BY product_id`),
     salesStmt(env, now),
+    env.DB.prepare(
+      `SELECT o.product_id, v.label_fr, v.label_ar FROM option_values v JOIN product_options o ON o.id = v.option_id
+        WHERE 1 = 1${only("o.product_id")} ORDER BY o.product_id, o.sort, v.sort`,
+    ),
   ]);
+  const { byProduct: flash } = await flashP;
+  const labelMap = new Map<number, string[]>();
+  for (const r of labels!.results as { product_id: number; label_fr: string; label_ar: string }[]) {
+    const list = labelMap.get(r.product_id) ?? [];
+    for (const l of [r.label_fr, r.label_ar]) if (l && !list.includes(l)) list.push(l);
+    labelMap.set(r.product_id, list);
+  }
 
   const firstImage = new Map<number, ImageRow>();
   for (const r of images!.results as unknown as ImageRow[]) if (!firstImage.has(r.product_id)) firstImage.set(r.product_id, r);
@@ -177,7 +270,10 @@ export async function productCards(env: Env, ids?: number[]): Promise<ProductCar
   const badges = badgeMap(sales!.results as { product_id: number; u30: number; u7: number; prev7: number }[]);
 
   const cards = (products!.results as unknown as ProductRow[]).map((p) =>
-    toCard(p, firstImage.get(p.id), colorMap.get(p.id) ?? [], stockMap.get(p.id) ?? 0, ratingMap.get(p.id), badges.get(p.id)?.badge ?? null, env),
+    withFlash(
+      { ...toCard(p, firstImage.get(p.id), colorMap.get(p.id) ?? [], stockMap.get(p.id) ?? 0, ratingMap.get(p.id), badges.get(p.id)?.badge ?? null, env), labels: labelMap.get(p.id) ?? [] },
+      flash.get(p.id),
+    ),
   );
   if (!ids) return cards;
   const byId = new Map(cards.map((c) => [c.id, c]));
@@ -231,13 +327,18 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
       "SELECT id, sku, option_value_ids, price_override, stock_on_hand, stock_reserved FROM variants WHERE product_id = ? AND is_active = 1 ORDER BY id",
     ).bind(p.id),
     env.DB.prepare(
-      "SELECT id, name, rating, text, verified, reply, created_at FROM reviews WHERE product_id = ? AND status = 'approved' ORDER BY is_featured DESC, created_at DESC LIMIT 30",
+      "SELECT id, name, rating, text, verified, reply, photos, created_at FROM reviews WHERE product_id = ? AND status = 'approved' ORDER BY is_featured DESC, created_at DESC LIMIT 30",
     ).bind(p.id),
     env.DB.prepare("SELECT id, slug, name_fr, name_ar, image FROM categories WHERE id = ?").bind(p.category_id ?? 0),
     salesStmt(env, Date.now()),
     env.DB.prepare('SELECT "table", tips_fr, tips_ar FROM size_guides WHERE id = ?').bind(p.size_guide_id ?? 0),
   ]);
-  const [[images, options, values, variants, reviews, category, sales, guide], related] = await Promise.all([detail, relatedProducts(env, p)]);
+  const [[images, options, values, variants, reviews, category, sales, guide], related, { byProduct: flashMap }] = await Promise.all([
+    detail,
+    relatedProducts(env, p),
+    activeFlash(env),
+  ]);
+  const flash = flashMap.get(p.id);
 
   const imageRows = images!.results as unknown as ImageRow[];
   const valueRows = values!.results as { id: number; option_id: number; label_fr: string; label_ar: string; hex: string | null }[];
@@ -254,12 +355,15 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
     id: v.id,
     sku: v.sku,
     optionValueIds: JSON.parse(v.option_value_ids) as number[],
-    price: v.price_override ?? p.price,
+    price: flash ? flashPrice(v.price_override ?? p.price, flash.percent) : (v.price_override ?? p.price),
     available: Math.max(0, v.stock_on_hand - v.stock_reserved),
   }));
   const revs: ReviewDTO[] = (
-    reviews!.results as { id: number; name: string; rating: number; text: string | null; verified: number; reply: string | null; created_at: number }[]
-  ).map((r) => ({ id: r.id, name: r.name, rating: r.rating, text: r.text, verified: !!r.verified, reply: r.reply, createdAt: r.created_at }));
+    reviews!.results as { id: number; name: string; rating: number; text: string | null; verified: number; reply: string | null; photos: string | null; created_at: number }[]
+  ).map((r) => ({
+    id: r.id, name: r.name, rating: r.rating, text: r.text, verified: !!r.verified, reply: r.reply, createdAt: r.created_at,
+    photos: reviewPhotos(env, r.photos),
+  }));
   const cat = (category!.results as { id: number; slug: string; name_fr: string; name_ar: string; image: string | null }[])[0];
   const colorHexes = opts.filter((o) => o.kind === "couleur").flatMap((o) => o.values.map((v) => v.hex).filter((h): h is string => !!h));
   const available = vars.reduce((s, v) => s + v.available, 0);
@@ -267,8 +371,9 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
 
   const badge = badgeMap(sales!.results as { product_id: number; u30: number; u7: number; prev7: number }[]).get(p.id)?.badge ?? null;
 
+  const labels = [...new Set(valueRows.flatMap((v) => [v.label_fr, v.label_ar]))];
   return {
-    ...toCard(p, imageRows[0], colorHexes, available, rating, badge, env),
+    ...withFlash({ ...toCard(p, imageRows[0], colorHexes, available, rating, badge, env), labels }, flash),
     descriptionFr: p.description_fr,
     descriptionAr: p.description_ar,
     category: cat ? { id: cat.id, slug: cat.slug, nameFr: cat.name_fr, nameAr: cat.name_ar, image: cat.image } : null,
@@ -281,7 +386,18 @@ export async function getProductDetail(env: Env, slug: string): Promise<ProductD
     related: related.cards,
     relatedKind: related.kind,
     sizeGuide: sizeGuideDto((guide!.results as { table: string; tips_fr: string | null; tips_ar: string | null }[])[0]),
+    video: p.video_key ? mediaUrl(env, p.video_key) : null,
   };
+}
+
+/** reviews.photos (R2 keys, JSON) → media URLs. */
+export function reviewPhotos(env: Env, raw: string | null): string[] {
+  try {
+    const keys = JSON.parse(raw ?? "[]") as unknown;
+    return Array.isArray(keys) ? keys.filter((k): k is string => typeof k === "string").map((k) => mediaUrl(env, k)) : [];
+  } catch {
+    return [];
+  }
 }
 
 function sizeGuideDto(r: { table: string; tips_fr: string | null; tips_ar: string | null } | undefined): SizeGuideDTO | null {

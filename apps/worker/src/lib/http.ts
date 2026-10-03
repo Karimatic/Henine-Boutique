@@ -22,6 +22,11 @@ export async function body<S extends z.ZodType>(c: Context<AppEnv>, schema: S): 
   } catch {
     throw new HttpError(400, "invalid_json");
   }
+  return validate(raw, schema);
+}
+
+/** Same checks as body() on an already-read value (e.g. the JSON part of a form with files). */
+export function validate<S extends z.ZodType>(raw: unknown, schema: S): z.infer<S> {
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {
     const fields: Record<string, string> = {};

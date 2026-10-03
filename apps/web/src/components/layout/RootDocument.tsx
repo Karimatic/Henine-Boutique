@@ -6,16 +6,23 @@ import { ActivityToast } from "./ActivityToast";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { BottomNav } from "./BottomNav";
 import { ErrorReporter } from "./ErrorReporter";
+import { FloatingHelp } from "./FloatingHelp";
+import { InstallPrompt } from "./InstallPrompt";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 import { SplashScreen } from "./SplashScreen";
+import { THEME_BOOT, ThemeStyle } from "./ThemeStyle";
 import "@/styles/globals.css";
 
 /** Shared <html> shell for the Arabic (/, main) and French (/fr) root layouts. */
 export function RootDocument({ locale, children }: { locale: Locale; children: React.ReactNode }) {
   const fonts = [playfair.variable, dmSans.variable, arabicSans.variable, arabicDisplay.variable].join(" ");
   return (
-    <html lang={locale} dir={dirOf(locale)} className={fonts}>
+    <html lang={locale} dir={dirOf(locale)} className={fonts} suppressHydrationWarning>
+      <head>
+        {/* the store's colours and fonts (Admin → Apparence) before the first paint */}
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+      </head>
       <body className="flex min-h-dvh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <noscript>
           <style>{".reveal{opacity:1!important;transform:none!important}"}</style>
@@ -36,6 +43,9 @@ export function RootDocument({ locale, children }: { locale: Locale; children: R
           <SiteFooter />
           <BottomNav />
           <ActivityToast />
+          <FloatingHelp />
+          <InstallPrompt />
+          <ThemeStyle />
           <ErrorReporter />
         </LocaleProvider>
       </body>

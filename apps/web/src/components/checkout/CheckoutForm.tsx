@@ -6,7 +6,7 @@ import { inputCls, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
-import { cart, checkoutMemory, saveOrder } from "@/lib/stores";
+import { cart, checkoutMemory, pendingCoupon, saveOrder, takePendingCoupon } from "@/lib/stores";
 import { newIdempotencyKey, Turnstile } from "@/lib/turnstile";
 import { Picker } from "./Picker";
 
@@ -44,9 +44,11 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [deliveryType, setDeliveryType] = useState<"domicile" | "bureau">(memory?.deliveryType ?? "domicile");
   const [address, setAddress] = useState(memory?.address ?? "");
   const [note, setNote] = useState("");
-  const [couponInput, setCouponInput] = useState("");
-  const [coupon, setCoupon] = useState("");
-  const [showCoupon, setShowCoupon] = useState(false);
+  // a code brought by a link (cart reminder, campaign) is already filled in
+  const linkedCoupon = useMemo(() => takePendingCoupon(), []);
+  const [couponInput, setCouponInput] = useState(linkedCoupon ?? "");
+  const [coupon, setCoupon] = useState(linkedCoupon ?? "");
+  const [showCoupon, setShowCoupon] = useState(!!linkedCoupon);
   const [usePoints, setUsePoints] = useState(false);
   const [token, setToken] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -164,6 +166,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         },
       });
       saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
+      if (coupon) pendingCoupon.set(null); // used: not offered again
       try {
         sessionStorage.removeItem(CART_KEY(channel)); // the next checkout is a new one
       } catch {

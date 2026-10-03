@@ -22,7 +22,7 @@ import {
   type QuoteLineDTO,
 } from "@henine/shared";
 import type { Env } from "../env";
-import { imageRef, lockedSql, variantLabels, type ImageRow } from "./catalog";
+import { activeFlash, flashPrice, imageRef, lockedSql, variantLabels, type ImageRow } from "./catalog";
 import { HttpError } from "./http";
 import { getSetting, getSettings } from "./settings";
 
@@ -55,6 +55,7 @@ interface VariantRow {
   name_fr: string;
   name_ar: string;
   price: number;
+  category_id: number | null;
   status: string;
   locked: number;
 }
@@ -77,10 +78,11 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
   const ids = [...merged.keys()];
   const ph = ids.map(() => "?").join(",");
 
+  const flashP = activeFlash(env);
   const [variantsRes, imagesRes, wilayaRes, communeRes] = await env.DB.batch([
     env.DB.prepare(
       `SELECT v.id, v.product_id, v.sku, v.price_override, v.stock_on_hand, v.stock_reserved, v.is_active, v.option_value_ids,
-              p.slug, p.name_fr, p.name_ar, p.price, p.status, ${lockedSql("p", Date.now())} AS locked
+              p.slug, p.name_fr, p.name_ar, p.price, p.category_id, p.status, ${lockedSql("p", Date.now())} AS locked
          FROM variants v JOIN products p ON p.id = v.product_id WHERE v.id IN (${ph})`,
     ).bind(...ids),
     env.DB.prepare(
@@ -91,7 +93,7 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
   ]);
   const variants = new Map((variantsRes!.results as unknown as VariantRow[]).map((v) => [v.id, v]));
   const images = imagesRes!.results as unknown as ImageRow[];
-  const labels = await variantLabels(env, ids);
+  const [labels, { byProduct: flash }] = await Promise.all([variantLabels(env, ids), flashP]);
 
   const lines: QuoteLineDTO[] = [];
   for (const [variantId, qty] of merged) {
@@ -103,7 +105,9 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
     // products of a drop that hasn't launched yet can't be ordered from the storefront
     const sellable = v.is_active === 1 && (req.admin ? v.status !== "archived" : v.status === "published" && !v.locked);
     const available = Math.max(0, v.stock_on_hand - v.stock_reserved);
-    const unitPrice = v.price_override ?? v.price;
+    // flash sale running: the sale price (the limit is checked by activeFlash)
+    const sale = flash.get(v.product_id);
+    const unitPrice = sale ? flashPrice(v.price_override ?? v.price, sale.percent) : (v.price_override ?? v.price);
     lines.push({
       variantId,
       productId: v.product_id,
@@ -137,11 +141,12 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
   let couponRule: CouponRule | null = null;
   let couponRow: QuoteResult["couponRow"] = null;
   let couponInvalid: string | null = null;
+  let couponScope: ((productId: number, categoryId: number | null) => boolean) | null = null;
   if (req.coupon) {
     const c = await env.DB.prepare("SELECT * FROM coupons WHERE code = ?").bind(req.coupon.toUpperCase()).first<{
       id: number; code: string; type: CouponRule["type"]; value: number; min_subtotal: number | null; is_active: number;
       starts_at: number | null; ends_at: number | null; usage_limit: number | null; used_count: number;
-      wilaya_codes: string | null; first_order_only: number; per_customer_limit: number | null;
+      wilaya_codes: string | null; first_order_only: number; per_customer_limit: number | null; applies_to: string | null;
     }>();
     const now = Date.now();
     if (!c || !c.is_active) couponInvalid = "unknown";
@@ -158,14 +163,25 @@ export async function quote(env: Env, req: QuoteRequest): Promise<QuoteResult> {
       else if (c.per_customer_limit && (used?.uses ?? 0) >= c.per_customer_limit) couponInvalid = "already_used";
     }
     if (c && !couponInvalid) {
-      couponRule = { code: c.code, type: c.type, value: c.value, minSubtotal: c.min_subtotal };
+      // limited to some products / categories: only their lines get the discount
+      const scope = JSON.parse(c.applies_to ?? "null") as { productIds?: number[]; categoryIds?: number[] } | null;
+      const productIds = scope?.productIds ?? [];
+      const categoryIds = scope?.categoryIds ?? [];
+      if (productIds.length || categoryIds.length) {
+        couponScope = (productId, categoryId) => productIds.includes(productId) || (categoryId != null && categoryIds.includes(categoryId));
+      }
+      couponRule = { code: c.code, type: c.type, value: c.value, minSubtotal: c.min_subtotal, restricted: !!couponScope };
       couponRow = { id: c.id, code: c.code };
     }
   }
 
   const priced = lines.filter((l) => l.problem !== "unavailable");
   const totals = computeTotals({
-    lines: priced.map((l) => ({ unitPrice: l.unitPrice, qty: l.qty })),
+    lines: priced.map((l) => ({
+      unitPrice: l.unitPrice,
+      qty: l.qty,
+      eligible: couponScope ? couponScope(l.productId, variants.get(l.variantId)?.category_id ?? null) : true,
+    })),
     shippingPrice,
     coupon: couponRule,
     freeShippingOver: checkout.free_shipping_over,

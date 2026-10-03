@@ -1,23 +1,28 @@
 "use client";
 
-import type { CategoryDTO, ProductCardDTO, SiteConfigDTO } from "@henine/shared";
+import { Fragment, type ReactNode } from "react";
+import type { CategoryDTO, HomeSectionKey, ProductCardDTO } from "@henine/shared";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
 import { ErrorBox } from "@/components/ui/kit";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
+import { useDesign, useSite } from "@/lib/site";
 import { useStoreTexts } from "@/lib/storeTexts";
 import { DropBanner } from "@/components/views/DropViews";
 import { AnimatedTagline } from "./AnimatedTagline";
+import { Banners, Featured, FlashBlock, Newsletter } from "./HomeExtras";
 import { Faq, InstagramCard, SectionHead } from "./Sections";
 import { ContestCard, Lookbook, PromiseBand, RecentlyViewed, ReviewWall, Stories } from "./Showcase";
 
 /**
  * Home, phone first: the shop's stories, a big photo with the promise on it, the promises,
  * then the products; the Instagram lookbook, real reviews and the questions come after.
+ * The order and which blocks show are set in Admin → Page d'accueil → Sections.
  */
 export function HomePage() {
   const { t, href, ar } = useLocale();
-  const site = useApi<SiteConfigDTO>("/site");
+  const site = useSite();
+  const design = useDesign();
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   const categories = useApi<CategoryDTO[]>("/categories");
 
@@ -34,16 +39,17 @@ export function HomePage() {
   const onSale = products.filter((p) => p.compareAtPrice != null && p.compareAtPrice > p.price).slice(0, 8);
   const heroProduct = products.find((p) => p.image && p.tags.includes("best-seller")) ?? products.find((p) => p.image);
 
-  return (
-    <>
+  const blocks: Record<HomeSectionKey, () => ReactNode> = {
+    stories: () => (
       <div className="pt-3">
         <Stories categories={categories.data} products={products} />
       </div>
-
-      {/* Hero: the shop's photo, the promise centred on it */}
+    ),
+    hero: () => (
+      /* Hero: the shop's photo, the promise centred on it */
       <section className="px-3 pt-3 md:px-4">
         <div className="relative mx-auto flex min-h-[58svh] max-w-6xl flex-col items-center justify-end overflow-hidden rounded-[1.75rem] bg-ink text-center md:min-h-[34rem] md:justify-center md:rounded-[2.25rem]">
-          <img src="/ig/pyjamas-rayures.jpg" alt="" fetchPriority="high" className="hero-zoom-img absolute inset-0 size-full object-cover" />
+          <img src={design.heroImage ?? "/ig/pyjamas-rayures.jpg"} alt="" fetchPriority="high" className="hero-zoom-img absolute inset-0 size-full object-cover" />
           <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/45 to-ink/10 md:bg-ink/45" />
           <div className="relative flex w-full max-w-2xl flex-col items-center p-6 pb-8 text-white md:p-12">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur">
@@ -66,44 +72,53 @@ export function HomePage() {
           </div>
         </div>
       </section>
-
+    ),
+    promise: () => (
       <div className="py-4">
         <PromiseBand />
       </div>
-
-      {site.data?.drop && <DropBanner drop={site.data.drop} />}
-
-      {/* New arrivals: the products, right away */}
+    ),
+    drop: () => site.data?.drop && <DropBanner drop={site.data.drop} />,
+    flash: () => <FlashBlock products={products} />,
+    /* New arrivals: the products, right away */
+    new: () => (
       <section id="nouveautes" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-6">
         <SectionHead title={t.home.newArrivals} href={href("/nouveautes")} link={t.home.seeAll} />
         {catalog.error ? <ErrorBox onRetry={catalog.reload} /> : catalog.data ? <ProductGrid products={newest} /> : <ProductGridSkeleton count={4} />}
       </section>
-
-      {onSale.length > 0 && (
+    ),
+    banners: () => <Banners />,
+    featured: () => <Featured products={products} />,
+    promos: () =>
+      onSale.length > 0 && (
         <section id="promos" className="mx-auto max-w-6xl scroll-mt-24 px-4 py-6">
           <SectionHead title={t.home.promos} />
           <ProductGrid products={onSale} />
         </section>
-      )}
-
-      {favorites.length > 0 && (
+      ),
+    best: () =>
+      favorites.length > 0 && (
         <section className="mx-auto max-w-6xl px-4 py-6">
           <SectionHead title={(selling.length ? t.home.bestSellers : t.badges.pick) ?? t.home.bestSellers} />
           <ProductGrid products={favorites} />
         </section>
-      )}
+      ),
+    lookbook: () => <Lookbook />,
+    instagram: () => <InstagramCard />,
+    contest: () => <ContestCard />,
+    reviews: () => <ReviewWall />,
+    recent: () => <RecentlyViewed products={products} />,
+    faq: () => <Faq />,
+    newsletter: () => <Newsletter />,
+  };
 
-      <Lookbook />
-
-      <InstagramCard />
-
-      <ContestCard />
-
-      <ReviewWall />
-
-      <RecentlyViewed products={products} />
-
-      <Faq />
+  return (
+    <>
+      {design.sections
+        .filter((s) => s.on)
+        .map((s) => (
+          <Fragment key={s.key}>{blocks[s.key]?.()}</Fragment>
+        ))}
     </>
   );
 }

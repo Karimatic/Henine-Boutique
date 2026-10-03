@@ -2,7 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import type { StoreTextOverrides } from "@henine/shared";
+import { DEFAULT_DESIGN, type DesignDTO, type StoreTextOverrides } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -39,6 +39,8 @@ export interface Settings {
   reviews: { auto_approve_verified: boolean };
   /** edits to the built-in store texts (hero, banner, FAQ, pause message), per language */
   texts: { ar: StoreTextOverrides; fr: StoreTextOverrides };
+  /** logo, colours, fonts, banners, home sections (Admin → Page d'accueil → Apparence) */
+  design: DesignDTO;
 }
 
 export const DEFAULTS: Settings = {
@@ -87,6 +89,7 @@ export const DEFAULTS: Settings = {
   drop_times: [],
   reviews: { auto_approve_verified: true },
   texts: { ar: {}, fr: {} },
+  design: DEFAULT_DESIGN,
 };
 
 export type SettingKey = keyof Settings;

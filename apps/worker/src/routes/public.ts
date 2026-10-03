@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import {
+  assistantInput,
   cartSaveInput,
   cleanText,
   CUSTOMER_CANCEL_REASONS,
@@ -25,9 +26,11 @@ import {
 } from "@henine/shared";
 import type { AppEnv } from "../env";
 import { recordError } from "../lib/audit";
-import { featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, variantLabels, type ImageRow } from "../lib/catalog";
+import { recommend } from "../lib/assistant";
+import { activeFlash, featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, reviewPhotos, variantLabels, type ImageRow } from "../lib/catalog";
 import { cached } from "../lib/edge-cache";
-import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, verifyTurnstile } from "../lib/http";
+import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, validate, verifyTurnstile } from "../lib/http";
+import { designOut, putImage } from "../lib/media";
 import { applyStatusChange, createOrder, quote } from "../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings } from "../lib/settings";
 import { notifyNewOrder, sendTelegramText, syncOrderMessage } from "../lib/telegram";
@@ -57,9 +60,10 @@ publicRoutes.get("/health", async (c) => {
 
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
-    const [s, drop] = await Promise.all([
-      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts"]),
+    const [s, drop, flash] = await Promise.all([
+      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design"]),
       featuredDrop(c.env),
+      activeFlash(c.env),
     ]);
     const dto: SiteConfigDTO = {
       store: { name: s.store.name },
@@ -73,6 +77,8 @@ publicRoutes.get("/site", (c) =>
       maintenance: { active: s.maintenance.active },
       texts: { ar: s.texts.ar ?? {}, fr: s.texts.fr ?? {} },
       drop,
+      flash: flash.sales[0] ?? null,
+      design: designOut(c.env, s.design),
     };
     return c.json(dto);
   }),
@@ -206,6 +212,27 @@ publicRoutes.post("/carts", async (c) => {
     )
     .run();
   return c.json({ ok: true });
+});
+
+/**
+ * Reminder link sent to a customer who left her checkout ("نسيت شيئًا في سلتك 🛒"): opens
+ * her cart again on any phone. Only the items, never the phone number or address.
+ */
+publicRoutes.get("/carts/:id", async (c) => {
+  await rateLimit(c.env.RL_LOOKUP, `cartget:${clientIp(c)}`);
+  const id = c.req.param("id");
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new HttpError(404, "not_found");
+  const row = await c.env.DB.prepare("SELECT items, recovered_order_id FROM carts WHERE id = ?").bind(id).first<{ items: string; recovered_order_id: number | null }>();
+  if (!row) throw new HttpError(404, "not_found");
+  return c.json({ lines: JSON.parse(row.items) as { variantId: number; qty: number }[], ordered: row.recovered_order_id != null });
+});
+
+/* ───────── Shopping assistant ───────── */
+
+publicRoutes.post("/assistant", async (c) => {
+  await rateLimit(c.env.RL_LOOKUP, `assistant:${clientIp(c)}`);
+  const input = await body(c, assistantInput);
+  return c.json(await recommend(c.env, input.q, input.locale));
 });
 
 /* ───────── Tracking ───────── */
@@ -369,7 +396,7 @@ publicRoutes.get("/reviews", (c) =>
   versioned(c, 600, async () => {
     const [list, agg] = await c.env.DB.batch([
       c.env.DB.prepare(
-        `SELECT r.id, r.name, r.rating, r.text, r.verified, r.reply, r.created_at, p.slug, p.name_fr, p.name_ar
+        `SELECT r.id, r.name, r.rating, r.text, r.verified, r.reply, r.photos, r.created_at, p.slug, p.name_fr, p.name_ar
            FROM reviews r JOIN products p ON p.id = r.product_id
           WHERE r.status = 'approved' AND p.status = 'published'
           ORDER BY r.is_featured DESC, (r.text IS NOT NULL) DESC, r.created_at DESC LIMIT 12`,
@@ -381,9 +408,12 @@ publicRoutes.get("/reviews", (c) =>
       avg: a?.avg != null ? Math.round(a.avg * 10) / 10 : null,
       count: a?.n ?? 0,
       reviews: (
-        list!.results as { id: number; name: string; rating: number; text: string | null; verified: number; reply: string | null; created_at: number; slug: string; name_fr: string; name_ar: string }[]
+        list!.results as {
+          id: number; name: string; rating: number; text: string | null; verified: number; reply: string | null; photos: string | null; created_at: number;
+          slug: string; name_fr: string; name_ar: string;
+        }[]
       ).map((r) => ({
-        id: r.id, name: r.name, rating: r.rating, text: r.text, verified: !!r.verified, reply: r.reply, createdAt: r.created_at,
+        id: r.id, name: r.name, rating: r.rating, text: r.text, verified: !!r.verified, reply: r.reply, createdAt: r.created_at, photos: reviewPhotos(c.env, r.photos),
         productSlug: r.slug, productFr: r.name_fr, productAr: r.name_ar,
       })),
     };
@@ -427,7 +457,23 @@ function reviewerName(full: string): string {
  */
 publicRoutes.post("/reviews", async (c) => {
   await rateLimit(c.env.RL_WRITE, `review:${clientIp(c)}`);
-  const input = await body(c, reviewInput);
+  // JSON, or a form: "data" (the same JSON) + up to 3 photos ("photo")
+  let input: ReturnType<typeof reviewInput.parse>;
+  let photos: File[] = [];
+  if ((c.req.header("Content-Type") ?? "").startsWith("multipart/form-data")) {
+    const form = await c.req.formData().catch(() => null);
+    if (!form) throw new HttpError(400, "invalid_form");
+    let raw: unknown;
+    try {
+      raw = JSON.parse(String(form.get("data") ?? ""));
+    } catch {
+      throw new HttpError(400, "invalid_json");
+    }
+    input = validate(raw, reviewInput);
+    photos = form.getAll("photo").filter((f): f is File => typeof f !== "string").slice(0, 3);
+  } else {
+    input = await body(c, reviewInput);
+  }
   await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
   const o = await c.env.DB.prepare("SELECT id, status, phone, name, track_token_hash FROM orders WHERE public_code = ?")
     .bind(input.code)
@@ -441,22 +487,27 @@ publicRoutes.post("/reviews", async (c) => {
   if (!item) throw new HttpError(422, "product_not_in_order");
 
   const { reviews: cfg, notifications: notif } = await getSettings(c.env, ["reviews", "notifications"]);
-  const status = cfg.auto_approve_verified ? "approved" : "pending";
+  // photos are always checked by the team first: a review with photos waits for approval
+  const status = cfg.auto_approve_verified && !photos.length ? "approved" : "pending";
   const name = reviewerName(o.name);
+  const keys: string[] = [];
+  for (const [i, f] of photos.entries()) keys.push(await putImage(c.env, `reviews/${o.id}-${input.productId}-${i}`, f));
   try {
     await c.env.DB.batch([
-      c.env.DB.prepare("INSERT INTO reviews (product_id, order_id, name, rating, text, verified, status, created_at) VALUES (?, ?, ?, ?, ?, 1, ?, ?)").bind(
-        input.productId, o.id, name, input.rating, input.text ?? null, status, Date.now(),
+      c.env.DB.prepare("INSERT INTO reviews (product_id, order_id, name, rating, text, photos, verified, status, created_at) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)").bind(
+        input.productId, o.id, name, input.rating, input.text ?? null, keys.length ? JSON.stringify(keys) : null, status, Date.now(),
       ),
       ...(status === "approved" ? [bumpCatalogStmt(c.env)] : []),
     ]);
   } catch (err) {
+    if (keys.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(keys).catch(() => undefined));
     if (String((err as Error).message).includes("UNIQUE")) throw new HttpError(409, "already_reviewed");
     throw err;
   }
   if (notif.telegram_review) {
     const what = status === "approved" ? "publié (vous pouvez le masquer dans Admin → Avis)" : "à valider dans Admin → Avis";
-    c.executionCtx.waitUntil(sendTelegramText(c.env, `⭐ Avis vérifié (${input.rating}/5) de ${name.replace(/[<>&]/g, "")}, ${what}.`));
+    const withPhotos = keys.length ? ` avec ${keys.length} photo(s)` : "";
+    c.executionCtx.waitUntil(sendTelegramText(c.env, `⭐ Avis vérifié (${input.rating}/5)${withPhotos} de ${name.replace(/[<>&]/g, "")}, ${what}.`));
   }
   return c.json({ ok: true, status }, 201);
 });
@@ -497,24 +548,41 @@ publicRoutes.post("/push/subscribe", async (c) => {
   await rateLimit(c.env.RL_WRITE, `push:${clientIp(c)}`);
   const input = await body(c, pushSubscribeInput);
   if (!isPushEndpoint(input.subscription.endpoint)) throw new HttpError(422, "push_endpoint");
-  const variant = await c.env.DB.prepare("SELECT id FROM variants WHERE id = ? AND is_active = 1").bind(input.variantId).first();
-  if (!variant) throw new HttpError(404, "not_found");
+  // which sizes to watch: the one chosen, or every sold-out size of a product (wishlist)
+  let variantIds: number[] = [];
+  if (input.variantId) {
+    const variant = await c.env.DB.prepare("SELECT id FROM variants WHERE id = ? AND is_active = 1").bind(input.variantId).first();
+    if (!variant) throw new HttpError(404, "not_found");
+    variantIds = [input.variantId];
+  } else if (input.productId) {
+    const { results } = await c.env.DB.prepare("SELECT id FROM variants WHERE product_id = ? AND is_active = 1 AND stock_on_hand - stock_reserved <= 0 LIMIT 40")
+      .bind(input.productId)
+      .all<{ id: number }>();
+    variantIds = results.map((r) => r.id);
+  } else if (input.topic !== "news") {
+    throw new HttpError(422, "validation_failed");
+  }
   const now = Date.now();
   const { endpoint, keys } = input.subscription;
+  const tag = input.topic === "news" ? "news" : "restock";
   await c.env.DB.batch([
     c.env.DB.prepare(
-      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, tags, created_at) VALUES (?, ?, ?, ?, '["restock"]', ?)
-       ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale`,
-    ).bind(endpoint, keys.p256dh, keys.auth, input.locale, now),
-    c.env.DB.prepare(
-      `INSERT INTO stock_alerts (variant_id, push_subscription_id, created_at)
-       SELECT ?, s.id, ? FROM push_subscriptions s WHERE s.endpoint = ?
-         AND NOT EXISTS (SELECT 1 FROM stock_alerts a WHERE a.variant_id = ? AND a.push_subscription_id = s.id AND a.notified_at IS NULL)`,
-    ).bind(input.variantId, now, endpoint, input.variantId),
+      `INSERT INTO push_subscriptions (endpoint, p256dh, auth, locale, tags, created_at) VALUES (?, ?, ?, ?, json_array(?), ?)
+       ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, locale = excluded.locale,
+         tags = CASE WHEN EXISTS (SELECT 1 FROM json_each(push_subscriptions.tags) WHERE value = ?) THEN push_subscriptions.tags
+                     ELSE json_insert(push_subscriptions.tags, '$[#]', ?) END`,
+    ).bind(endpoint, keys.p256dh, keys.auth, input.locale, tag, now, tag, tag),
+    ...variantIds.map((variantId) =>
+      c.env.DB.prepare(
+        `INSERT INTO stock_alerts (variant_id, push_subscription_id, created_at)
+         SELECT ?, s.id, ? FROM push_subscriptions s WHERE s.endpoint = ?
+           AND NOT EXISTS (SELECT 1 FROM stock_alerts a WHERE a.variant_id = ? AND a.push_subscription_id = s.id AND a.notified_at IS NULL)`,
+      ).bind(variantId, now, endpoint, variantId),
+    ),
   ]);
   // already back (stock changed while the page was open): tell her right away
-  c.executionCtx.waitUntil(sendRestockPushes(c.env, [input.variantId], 5).catch(() => undefined));
-  return c.json({ ok: true }, 201);
+  if (variantIds.length) c.executionCtx.waitUntil(sendRestockPushes(c.env, variantIds, 5).catch(() => undefined));
+  return c.json({ ok: true, watching: variantIds.length }, 201);
 });
 
 /** Client-side JS errors (sampled by the page). */

@@ -30,6 +30,9 @@ export function buildMetadata(locale: Locale): Metadata {
       description: t.meta.description,
     },
     formatDetection: { telephone: false },
-    icons: { icon: "/icon.svg" },
+    icons: { icon: "/icon.svg", apple: "/icons/apple-touch-icon.png" },
+    // installable on the home screen (PWA)
+    manifest: "/manifest.webmanifest",
+    appleWebApp: { capable: true, title: "Henine", statusBarStyle: "default" },
   };
 }

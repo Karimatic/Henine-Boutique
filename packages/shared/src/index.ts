@@ -11,3 +11,4 @@ export * from "./text";
 export * from "./insights";
 export * from "./risk";
 export * from "./store-texts";
+export * from "./design";

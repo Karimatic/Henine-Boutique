@@ -31,8 +31,10 @@ const SEGMENTS = [
   { value: "new", label: tr("Nouvelles") },
   { value: "returning", label: tr("Fidèles") },
   { value: "vip", label: tr("VIP") },
+  { value: "high_spender", label: tr("💰 Gros paniers") },
+  { value: "abandoned", label: tr("🛒 Panier abandonné") },
   { value: "high_risk", label: tr("Risque élevé") },
-  { value: "inactives", label: tr("Inactives 60 j") },
+  { value: "inactives", label: tr("😴 Inactives 60 j") },
   { value: "blacklist", label: tr("Liste noire") },
 ];
 
@@ -50,14 +52,14 @@ export function CustomersPage() {
       <PageHeader
         group={tr("Commandes")}
         title={tr("Clients")}
-        subtitle={tr("Chaque numéro de téléphone = une cliente. Segments calculés sur l'historique réel (VIP : 3 livrées ou 25 000 DA dépensés).")}
+        subtitle={tr("Chaque numéro de téléphone = une cliente. Segments calculés sur l'historique réel (VIP : 3 livrées ou 25 000 DA dépensés ; gros panier : 6 000 DA en moyenne par commande livrée).")}
       />
       <Pills
         value={segment}
         onChange={setSegment}
         options={SEGMENTS.map((s) => ({
           value: s.value,
-          label: counts && s.value !== "inactives" && s.value !== "blacklist" ? `${s.label} (${s.value === "all" ? counts.all_count : (counts[s.value] ?? 0)})` : s.label,
+          label: counts ? `${s.label} (${s.value === "all" ? counts.all_count : (counts[s.value] ?? 0)})` : s.label,
         }))}
       />
       <SearchBox value={q} onChange={setQ} placeholder={tr("Nom ou téléphone…")} />
@@ -220,6 +222,18 @@ interface CartRow {
   recovered_code: string | null;
   customer_orders: number;
   items: { variantId: number; qty: number; name: string }[];
+  locale: string | null;
+}
+
+/** "نسيت شيئًا في سلتك 🛒": the reminder in her language, with the link that refills her cart (and the code). */
+function reminderText(c: CartRow, code: string): string {
+  const ar = c.locale !== "fr";
+  const link = `${location.origin}${ar ? "" : "/fr"}/panier?r=${c.id}${code ? `&code=${encodeURIComponent(code)}` : ""}`;
+  const items = c.items.map((i) => i.name).join(ar ? "، " : ", ");
+  if (ar) {
+    return `السلام عليكم ${c.name ?? ""} 🌸\nنسيتِ شيئًا في سلتك 🛒: ${items}.${code ? `\nهدية لك: الرمز ${code} يُطبَّق تلقائيًا 🎁` : ""}\nأكملي طلبك من هنا: ${link}\nHenine Boutique`;
+  }
+  return `Bonjour ${c.name ?? ""} 🌸\nVous avez oublié quelque chose dans votre panier 🛒 : ${items}.${code ? `\nCadeau : le code ${code} est appliqué automatiquement 🎁` : ""}\nTerminez votre commande ici : ${link}\nHenine Boutique`;
 }
 
 const STEP_LABEL: Record<string, [string, number]> = {
@@ -239,7 +253,10 @@ export function CartsPage() {
     refetchInterval: 60_000,
   });
   const s = q.data?.stats;
-  const origin = location.origin;
+  // a promo code to offer in the reminders (optional)
+  const coupons = useQuery({ queryKey: ["coupons"], queryFn: () => api<{ coupons: { code: string; is_active: number; ends_at: number | null }[] }>("/coupons") });
+  const usable = (coupons.data?.coupons ?? []).filter((x) => x.is_active && (x.ends_at == null || x.ends_at > Date.now()));
+  const [code, setCode] = useState("");
   return (
     <div>
       <PageHeader
@@ -254,6 +271,16 @@ export function CartsPage() {
           <Stat label={tr("Valeur non récupérée")} value={da(s.lost_value)} />
         </div>
       )}
+      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-ivory-deep p-3 text-sm">
+        <span className="font-medium">{tr("🎁 Offrir un code dans le message :")}</span>
+        <select className="h-9 rounded-lg border border-line bg-white px-2" value={code} onChange={(e) => setCode(e.target.value)}>
+          <option value="">{tr("Aucun code")}</option>
+          {usable.map((x) => (
+            <option key={x.code} value={x.code}>{x.code}</option>
+          ))}
+        </select>
+        <span className="text-xs text-ink-soft">{tr("Le lien remet ses articles dans son panier, sur n'importe quel téléphone.")}</span>
+      </div>
       <Pills
         value={filter}
         onChange={setFilter}
@@ -296,7 +323,7 @@ export function CartsPage() {
                   {tr("📞 Appeler")}
                 </a>
                 <a
-                  href={waLink(c.phone, `Bonjour ${c.name ?? ""} 🌸 Ici Henine Boutique. Vous avez laissé des articles dans votre panier : ${c.items.map((i) => i.name).join(", ")}. Besoin d'aide pour finaliser ? ${origin}/panier`)}
+                  href={waLink(c.phone, reminderText(c, code))}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}

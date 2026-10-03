@@ -58,7 +58,8 @@ const TABS = [
   { value: "en_preparation", label: tr("Préparation") },
   { value: "en_cours", label: tr("Expédiées") },
   { value: "termine", label: tr("Livrées") },
-  { value: "annule", label: tr("Annulées / retours") },
+  { value: "annule", label: tr("Annulées") },
+  { value: "retours", label: tr("Retours") },
   { value: "all", label: tr("Toutes") },
 ];
 
@@ -74,10 +75,21 @@ export function OrdersPage() {
     const id = setTimeout(() => setDebounced(q), 300);
     return () => clearTimeout(id);
   }, [q]);
+  // more filters: wilaya and dates (Algiers days)
+  const [wilaya, setWilaya] = useState("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const wilayas = useQuery({
+    queryKey: ["geo-wilayas"],
+    queryFn: () => fetch("/api/geo/wilayas").then((r) => r.json() as Promise<{ code: number; fr: string }[]>),
+    staleTime: 3600_000,
+  });
+  const day = (s: string, end = false) => (s ? new Date(`${s}T00:00:00+01:00`).getTime() + (end ? 86400_000 : 0) : 0);
+  const extra = `${wilaya ? `&wilaya=${wilaya}` : ""}${from ? `&from=${day(from)}` : ""}${to ? `&to=${day(to, true)}` : ""}`;
   const list = useQuery({
-    queryKey: ["orders", status, debounced, attention],
+    queryKey: ["orders", status, debounced, attention, extra],
     queryFn: () =>
-      api<{ rows: OrderRow[]; counts: Record<string, number> }>(`/orders?status=${status}&q=${encodeURIComponent(debounced)}${attention ? `&attention=${attention}` : ""}`),
+      api<{ rows: OrderRow[]; counts: Record<string, number> }>(`/orders?status=${status}&q=${encodeURIComponent(debounced)}${attention ? `&attention=${attention}` : ""}${extra}`),
     refetchInterval: 20_000,
   });
   const openId = search.o ?? null;
@@ -86,7 +98,7 @@ export function OrdersPage() {
   const toConfirm = (counts.nouvelle ?? 0) + (counts.injoignable ?? 0);
   // several orders at once: tick them, then one button
   const [picked, setPicked] = useState<number[]>([]);
-  useEffect(() => setPicked([]), [status, debounced, attention]);
+  useEffect(() => setPicked([]), [status, debounced, attention, extra]);
   const rows = list.data?.rows ?? [];
   const allPicked = rows.length > 0 && rows.every((r) => picked.includes(r.id));
   const toggle = (id: number) => setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : [...p, id]));
@@ -112,6 +124,27 @@ export function OrdersPage() {
         <Pills value={status} onChange={setStatus} options={TABS.map((t) => ({ value: t.value, label: t.value === "a_confirmer" && toConfirm ? `${t.label} (${toConfirm})` : t.label }))} />
       )}
       <SearchBox value={q} onChange={setQ} placeholder={tr("N° de commande, nom, téléphone…")} />
+      <div className="-mt-2 mb-4 flex flex-wrap items-center gap-2">
+        <select className={`${inputCls} h-10 w-auto min-w-[11rem]`} value={wilaya} onChange={(e) => setWilaya(e.target.value)} aria-label={tr("Wilaya")}>
+          <option value="">{tr("Toutes les wilayas")}</option>
+          {(wilayas.data ?? []).map((w) => (
+            <option key={w.code} value={w.code}>{String(w.code).padStart(2, "0")} · {w.fr}</option>
+          ))}
+        </select>
+        <label className="flex items-center gap-1.5 text-sm text-ink-soft">
+          {tr("Du")}
+          <input type="date" className={`${inputCls} h-10 w-auto`} value={from} onChange={(e) => setFrom(e.target.value)} />
+        </label>
+        <label className="flex items-center gap-1.5 text-sm text-ink-soft">
+          {tr("au")}
+          <input type="date" className={`${inputCls} h-10 w-auto`} value={to} onChange={(e) => setTo(e.target.value)} />
+        </label>
+        {(wilaya || from || to) && (
+          <button type="button" onClick={() => { setWilaya(""); setFrom(""); setTo(""); }} className="h-10 rounded-lg px-3 text-sm font-semibold text-plum-700">
+            {tr("Effacer les filtres ✕")}
+          </button>
+        )}
+      </div>
       {list.error ? (
         <ErrorState error={list.error} onRetry={list.refetch} />
       ) : !list.data ? (
@@ -348,6 +381,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">{tr("📞 Appeler")}</a>
                 <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white">{tr("WhatsApp")}</a>
                 <Link to="/bordereaux" search={{ ids: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-white px-4 text-sm font-semibold">{tr("🖨 Bordereau")}</Link>
+                <Link to="/facture" search={{ id: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-white px-4 text-sm font-semibold">{tr("🧾 Facture PDF")}</Link>
               </div>
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 text-xs">

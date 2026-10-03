@@ -83,6 +83,9 @@ export const cartStore = createStore<CartItem[]>("henine.cart.v1", []);
 export const useCart = () => useStore(cartStore);
 
 export const cart = {
+  items(): CartItem[] {
+    return cartStore.get();
+  },
   add(item: CartItem) {
     cartStore.set((items) => {
       const existing = items.find((i) => i.variantId === item.variantId);
@@ -144,4 +147,22 @@ export const recentStore = createStore<string[]>("henine.recent.v1", []);
 export const useRecent = () => useStore(recentStore);
 export function rememberViewed(slug: string) {
   recentStore.set((list) => [slug, ...list.filter((s) => s !== slug)].slice(0, 12));
+}
+
+/* ── Recent searches (newest first, max 8) ── */
+
+export const searchesStore = createStore<string[]>("henine.searches.v1", []);
+export const useSearches = () => useStore(searchesStore);
+export function rememberSearch(q: string) {
+  const s = q.trim().slice(0, 60);
+  if (s.length < 2) return;
+  searchesStore.set((list) => [s, ...list.filter((x) => x.toLowerCase() !== s.toLowerCase())].slice(0, 8));
+}
+
+/* ── Promo code brought by a link (cart reminder, campaign): applied at checkout, 7 days ── */
+
+export const pendingCoupon = createStore<{ code: string; at: number } | null>("henine.coupon.v1", null);
+export function takePendingCoupon(): string | null {
+  const c = pendingCoupon.get();
+  return c && Date.now() - c.at < 7 * 86400_000 ? c.code : null;
 }

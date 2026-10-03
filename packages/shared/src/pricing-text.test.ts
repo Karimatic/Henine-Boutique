@@ -24,6 +24,17 @@ describe("computeTotals", () => {
     expect(t.total).toBe(400);
   });
 
+  it("limits a product/category coupon to its lines", () => {
+    const mixed = [{ unitPrice: 4900, qty: 1, eligible: true }, { unitPrice: 2800, qty: 2, eligible: false }];
+    const pct = computeTotals({ lines: mixed, shippingPrice: 600, coupon: { code: "X", type: "percent", value: 10, minSubtotal: null, restricted: true }, freeShippingOver: null });
+    expect(pct.discount).toBe(490);
+    const fixed = computeTotals({ lines: mixed, shippingPrice: 600, coupon: { code: "X", type: "fixed", value: 9000, minSubtotal: null, restricted: true }, freeShippingOver: null });
+    expect(fixed.discount).toBe(4900);
+    const none = computeTotals({ lines: mixed.map((l) => ({ ...l, eligible: false })), shippingPrice: 600, coupon: { code: "X", type: "percent", value: 10, minSubtotal: null, restricted: true }, freeShippingOver: null });
+    expect(none.couponApplied).toBe(false);
+    expect(none.couponReason).toBe("not_applicable");
+  });
+
   it("rejects a coupon below its minimum", () => {
     const t = computeTotals({ lines, shippingPrice: 600, coupon: { code: "X", type: "percent", value: 10, minSubtotal: 20000 }, freeShippingOver: null });
     expect(t.couponApplied).toBe(false);

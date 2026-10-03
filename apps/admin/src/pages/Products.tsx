@@ -190,6 +190,8 @@ interface ProductForm {
   options: Option[];
   variants: Variant[];
   images?: (ImageRef & { id: number })[];
+  /** short video shown in the gallery (media URL) */
+  video?: string | null;
 }
 
 /** Photos chosen on a product that wasn't saved yet: uploaded right after the first save. */
@@ -330,6 +332,7 @@ export function ProductEditor() {
           </Card>
 
           <OptionsEditor options={form.options} onChange={setOptions} disabled={readOnly} />
+          {!isNew && !readOnly && <VideoEditor productId={form.id!} video={form.video ?? null} onChange={(v) => set("video", v)} />}
           <VariantsTable form={form} onChange={(variants) => set("variants", variants)} disabled={readOnly} />
           {!isNew ? (
             <ImagesEditor
@@ -872,3 +875,56 @@ function ImagesEditor({
   );
 }
 
+/** One short video per product (MP4 / WebM, ≤ 40 MB), shown in the gallery after the photos. */
+function VideoEditor({ productId, video, onChange }: { productId: number; video: string | null; onChange: (v: string | null) => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Card title={tr("🎬 Vidéo du produit")}>
+      <p className="mb-3 text-sm text-ink-soft">{tr("Une courte vidéo (MP4, 40 Mo max), visible dans la galerie après les photos. Idéal : 10 à 30 secondes, filmée en vertical.")}</p>
+      {video && <video src={video} controls playsInline className="mb-3 max-h-72 rounded-xl bg-black" />}
+      <div className="flex flex-wrap gap-2">
+        <label className="inline-flex h-10 cursor-pointer items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-white">
+          {busy ? tr("Envoi de la vidéo…") : video ? tr("Remplacer la vidéo") : tr("Ajouter une vidéo")}
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            className="sr-only"
+            disabled={busy}
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              if (file.size > 40_000_000) return toast(tr("Vidéo trop lourde (40 Mo max). Raccourcissez-la ou baissez la qualité."), "error");
+              setBusy(true);
+              try {
+                const form = new FormData();
+                form.append("video", file);
+                const res = await upload<{ video: string }>(`/products/${productId}/video`, form);
+                onChange(res.video);
+                toast(tr("Vidéo ajoutée ✓"));
+              } catch (err) {
+                toast(errorMessage(err), "error");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </label>
+        {video && (
+          <Button
+            variant="danger"
+            disabled={busy}
+            onClick={async () => {
+              if (!confirm(tr("Retirer la vidéo ?"))) return;
+              await del(`/products/${productId}/video`);
+              onChange(null);
+            }}
+          >
+            {tr("Retirer")}
+          </Button>
+        )}
+      </div>
+    </Card>
+  );
+}

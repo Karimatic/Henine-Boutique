@@ -1,21 +1,64 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatDA, normalizeSearch, type CategoryDTO, type ProductCardDTO, type SiteConfigDTO } from "@henine/shared";
+import { formatDA, type CategoryDTO, type ProductCardDTO, type QuoteDTO, type SiteConfigDTO } from "@henine/shared";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { CategoryCard } from "@/components/product/CategoryCard";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
-import { SearchIcon } from "@/components/ui/icons";
-import { ErrorBox, inputCls, PageTitle, ProductImage } from "@/components/ui/kit";
-import { slugFromPath, useApi } from "@/lib/api";
+import { ErrorBox, PageTitle, ProductImage } from "@/components/ui/kit";
+import { apiGet, apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
-import { cart, cartCount, useCart, useFavorites } from "@/lib/stores";
+import { pushSupported, subscribeProduct } from "@/lib/push";
+import { cart, cartCount, favoritesStore, pendingCoupon, useCart, useFavorites } from "@/lib/stores";
+
+export { SearchView } from "./SearchView";
+
+/**
+ * Reminder link from the team ("نسيت شيئًا في سلتك 🛒"): /panier?r=<cart id>&code=<promo>.
+ * Puts the items back in the cart on this phone and keeps the code for the checkout.
+ */
+function useCartRestore() {
+  const { locale } = useLocale();
+  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
+  const { t } = useLocale();
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const id = params.get("r");
+    const code = params.get("code")?.trim().toUpperCase().replace(/[^A-Z0-9_-]/g, "").slice(0, 32);
+    if (!id && !code) return;
+    history.replaceState(null, "", location.pathname);
+    const notes: string[] = [];
+    if (code) {
+      pendingCoupon.set({ code, at: Date.now() });
+      notes.push(t.plus.restore.code(code));
+    }
+    if (!id) return setNote({ ok: true, text: notes.join(" · ") });
+    apiGet<{ lines: { variantId: number; qty: number }[]; ordered: boolean }>(`/carts/${encodeURIComponent(id)}`)
+      .then(async (saved) => {
+        if (saved.ordered) return setNote({ ok: true, text: t.plus.restore.ordered });
+        const q = await apiPost<QuoteDTO>("/quote", { lines: saved.lines });
+        const ok = q.lines.filter((l) => l.problem !== "unavailable" && l.problem !== "out_of_stock");
+        const inCart = new Set(cart.items().map((i) => i.variantId));
+        for (const l of ok) {
+          if (inCart.has(l.variantId)) continue;
+          cart.add({
+            variantId: l.variantId, qty: Math.min(l.qty, Math.max(1, l.available)), productId: l.productId, slug: l.slug, nameFr: l.nameFr, nameAr: l.nameAr,
+            optionsFr: l.optionsFr, optionsAr: l.optionsAr, price: l.unitPrice, image: l.image, color: null,
+          });
+        }
+        setNote(ok.length ? { ok: true, text: [t.plus.restore.restored(ok.length), ...notes].join(" · ") } : { ok: false, text: t.plus.restore.gone });
+      })
+      .catch(() => setNote({ ok: false, text: t.plus.restore.gone }));
+  }, [locale]); // eslint-disable-line react-hooks/exhaustive-deps
+  return note;
+}
 
 /* ───────── Cart ───────── */
 
 export function CartView() {
   const { t, href, ar, locale } = useLocale();
   const items = useCart();
+  const restored = useCartRestore();
   const [ready, setReady] = useState(false);
   useEffect(() => setReady(true), []);
   const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
@@ -26,6 +69,11 @@ export function CartView() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <PageTitle>{t.cart.title}</PageTitle>
+      {restored && (
+        <p role="status" className={`mb-4 rounded-2xl p-4 text-sm font-semibold ${restored.ok ? "bg-rose-100 text-plum-700" : "bg-ivory-deep text-ink-soft"}`}>
+          {restored.text}
+        </p>
+      )}
       {items.length === 0 ? (
         <div className="rounded-card border border-line bg-white/60 p-8 text-center">
           <p className="text-ink-soft">{t.cart.empty}</p>
@@ -200,22 +248,90 @@ export function CategoryView() {
   );
 }
 
-/* ───────── Favourites & search ───────── */
+/* ───────── Favourites ───────── */
 
+/**
+ * Favourites live on the phone. They can be shared as a link (/favoris?l=slug,slug), and a
+ * sold-out favourite can send a notification when it is back.
+ */
 export function FavoritesView() {
-  const { t } = useLocale();
+  const { t, locale } = useLocale();
+  const F = t.plus.favorites;
   const favorites = useFavorites();
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   const [ready, setReady] = useState(false);
-  useEffect(() => setReady(true), []);
-  const products = (catalog.data ?? []).filter((p) => favorites.includes(p.slug));
+  const [shared, setShared] = useState<string[] | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  useEffect(() => {
+    const l = new URLSearchParams(location.search).get("l");
+    if (l) setShared(l.split(",").map((s) => s.trim()).filter((s) => /^[a-z0-9-]{1,90}$/.test(s)).slice(0, 50));
+    setReady(true);
+  }, []);
+  const bySlug = (list: string[]) => list.map((slug) => catalog.data?.find((p) => p.slug === slug)).filter((p): p is ProductCardDTO => !!p);
+  const products = bySlug(favorites);
+  const soldOut = products.filter((p) => !p.inStock);
+
+  async function share() {
+    const url = `${location.origin}${location.pathname}?l=${favorites.join(",")}`;
+    try {
+      if (navigator.share) await navigator.share({ title: "Henine Boutique", text: F.shareText, url });
+      else {
+        await navigator.clipboard.writeText(url);
+        setMsg(F.copied);
+      }
+    } catch {
+      /* closed */
+    }
+  }
+
+  if (!ready || !catalog.data) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-8">
+        <PageTitle>{t.favorites.title}</PageTitle>
+        <ProductGridSkeleton count={2} />
+      </div>
+    );
+  }
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <PageTitle>{t.favorites.title}</PageTitle>
-      {!ready || !catalog.data ? (
-        <ProductGridSkeleton count={2} />
-      ) : products.length ? (
-        <ProductGrid products={products} />
+      {shared && shared.length > 0 && (
+        <section className="mb-10 rounded-[1.5rem] bg-rose-100 p-4 md:p-6">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="heading-display text-2xl md:text-3xl">{F.shared}</h1>
+            <button
+              type="button"
+              onClick={() => {
+                favoritesStore.set((list) => [...new Set([...shared, ...list])].slice(0, 100));
+                setMsg(F.added);
+              }}
+              className="h-11 rounded-full bg-plum-600 px-5 text-sm font-semibold text-white"
+            >
+              ♡ {F.addAll}
+            </button>
+          </div>
+          <ProductGrid products={bySlug(shared)} />
+        </section>
+      )}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageTitle>{t.favorites.title}</PageTitle>
+        {products.length > 0 && (
+          <button type="button" onClick={share} className="mb-6 inline-flex h-10 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold">
+            ↗ {F.share}
+          </button>
+        )}
+      </div>
+      {msg && <p role="status" className="mb-4 rounded-xl bg-rose-100 p-3 text-sm font-semibold text-plum-700">{msg}</p>}
+      {products.length ? (
+        <>
+          <ProductGrid products={products} />
+          {soldOut.length > 0 && (
+            <ul className="mt-8 space-y-2">
+              {soldOut.map((p) => (
+                <SoldOutFavorite key={p.id} p={p} locale={locale} />
+              ))}
+            </ul>
+          )}
+        </>
       ) : (
         <p className="rounded-card border border-line bg-white/60 p-8 text-center text-ink-soft">{t.favorites.empty}</p>
       )}
@@ -223,45 +339,36 @@ export function FavoritesView() {
   );
 }
 
-export function SearchView() {
-  const { t } = useLocale();
-  const catalog = useApi<ProductCardDTO[]>("/catalog");
-  const [q, setQ] = useState("");
-  useEffect(() => setQ(new URLSearchParams(location.search).get("q") ?? ""), []);
-  const results = useMemo(() => {
-    const needle = normalizeSearch(q);
-    if (!needle) return catalog.data ?? [];
-    const terms = needle.split(/\s+/);
-    return (catalog.data ?? []).filter((p) => {
-      const hay = normalizeSearch(`${p.nameFr} ${p.nameAr} ${p.categorySlug ?? ""} ${p.tags.join(" ")}`);
-      return terms.every((term) => hay.includes(term));
-    });
-  }, [q, catalog.data]);
+function SoldOutFavorite({ p, locale }: { p: ProductCardDTO; locale: "fr" | "ar" }) {
+  const { t, ar } = useLocale();
+  const F = t.plus.favorites;
+  const [state, setState] = useState<"idle" | "busy" | "done" | "denied" | "error">("idle");
+  const [can, setCan] = useState(false);
+  useEffect(() => setCan(pushSupported()), []);
   return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <PageTitle>{t.search.title}</PageTitle>
-      <div className="relative mb-6">
-        <SearchIcon className="pointer-events-none absolute start-4 top-1/2 -translate-y-1/2 text-ink-soft" />
-        <input
-          autoFocus
-          type="search"
-          className={`${inputCls} ps-12`}
-          placeholder={t.search.placeholder}
-          value={q}
-          onChange={(e) => {
-            setQ(e.target.value);
-            history.replaceState(null, "", e.target.value ? `?q=${encodeURIComponent(e.target.value)}` : location.pathname);
-          }}
-        />
+    <li className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3">
+      <ProductImage image={p.image} alt="" category={p.categorySlug} color={p.colors[0]} sizes="64px" className="aspect-[4/5] w-12 shrink-0 rounded-lg opacity-70" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold">{ar ? p.nameAr : p.nameFr}</p>
+        <p className="text-xs text-ink-soft">{F.soldOut}</p>
       </div>
-      {!catalog.data ? (
-        <ProductGridSkeleton count={4} />
-      ) : (
-        <>
-          <p className="mb-4 text-sm text-ink-soft">{results.length ? t.search.results(results.length) : t.search.none}</p>
-          <ProductGrid products={results} />
-        </>
-      )}
-    </div>
+      {state === "done" ? (
+        <span className="text-xs font-semibold text-plum-700">{F.notifyDone}</span>
+      ) : can ? (
+        <button
+          type="button"
+          disabled={state === "busy"}
+          onClick={async () => {
+            setState("busy");
+            const r = await subscribeProduct(p.id, locale);
+            setState(r === "ok" ? "done" : r);
+          }}
+          className="h-10 shrink-0 rounded-full bg-plum-600 px-4 text-xs font-semibold text-white disabled:opacity-60"
+        >
+          {F.notify}
+        </button>
+      ) : null}
+      {state === "denied" && <span className="text-xs text-danger">{F.denied}</span>}
+    </li>
   );
 }

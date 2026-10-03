@@ -3,12 +3,14 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { cleanText, slugify } from "@henine/shared";
+import { cleanText, DEFAULT_DESIGN, HOME_SECTIONS, isHexColor, slugify, type DesignDTO } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
-import { variantLabels } from "../../lib/catalog";
+import { mediaUrl, parseFlashConfig, reviewPhotos, variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
-import { bumpCatalogStmt, getSettings, setSettingStmt } from "../../lib/settings";
+import { putImage } from "../../lib/media";
+import { bumpCatalogStmt, getSetting, getSettings, setSettingStmt } from "../../lib/settings";
+import { sendCampaignBatch } from "../../lib/webpush";
 import { actorOf, requirePermission } from "../../middleware/access";
 
 export const marketingRoutes = new Hono<AppEnv>();
@@ -28,6 +30,11 @@ const couponInput = z.object({
   isActive: z.boolean().default(true),
   influencerName: cleanText(60).nullable().optional(),
   commissionPct: z.number().int().min(0).max(100).nullable().optional(),
+  /** only these products / categories get the discount (empty = the whole cart) */
+  appliesTo: z
+    .object({ productIds: z.array(z.number().int().positive()).max(200).default([]), categoryIds: z.array(z.number().int().positive()).max(50).default([]) })
+    .nullable()
+    .optional(),
 });
 
 marketingRoutes.get("/coupons", requirePermission("promos.edit"), async (c) => {
@@ -96,22 +103,24 @@ marketingRoutes.get("/influencers", requirePermission("promos.edit"), async (c) 
 async function saveCoupon(c: Parameters<typeof body>[0], id: number | null) {
   const input = await body(c, couponInput);
   if (input.type === "percent" && input.value > 100) throw new HttpError(422, "percent_over_100");
+  const scope = input.appliesTo && (input.appliesTo.productIds.length || input.appliesTo.categoryIds.length) ? JSON.stringify(input.appliesTo) : null;
   const vals = [
     input.code, input.type, input.value, input.minSubtotal ?? null, input.usageLimit ?? null, input.perCustomerLimit ?? null,
     input.firstOrderOnly ? 1 : 0, input.startsAt ?? null, input.endsAt ?? null, input.isActive ? 1 : 0, input.influencerName ?? null, input.commissionPct ?? null,
+    scope,
   ];
   try {
     if (id) {
       await c.env.DB.prepare(
         `UPDATE coupons SET code = ?, type = ?, value = ?, min_subtotal = ?, usage_limit = ?, per_customer_limit = ?, first_order_only = ?,
-           starts_at = ?, ends_at = ?, is_active = ?, influencer_name = ?, commission_pct = ? WHERE id = ?`,
+           starts_at = ?, ends_at = ?, is_active = ?, influencer_name = ?, commission_pct = ?, applies_to = ? WHERE id = ?`,
       )
         .bind(...vals, id)
         .run();
     } else {
       const row = await c.env.DB.prepare(
         `INSERT INTO coupons (code, type, value, min_subtotal, usage_limit, per_customer_limit, first_order_only, starts_at, ends_at, is_active,
-           influencer_name, commission_pct, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+           influencer_name, commission_pct, applies_to, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       )
         .bind(...vals, Date.now())
         .first<{ id: number }>();
@@ -207,7 +216,10 @@ marketingRoutes.get("/reviews", requirePermission("reviews.moderate"), async (c)
     ).bind(...(status === "all" ? [] : [status])),
     c.env.DB.prepare("SELECT status, COUNT(*) AS n, AVG(rating) AS avg FROM reviews GROUP BY status"),
   ]);
-  return c.json({ rows: rows!.results, counts: counts!.results });
+  return c.json({
+    rows: (rows!.results as (Record<string, unknown> & { photos: string | null })[]).map((r) => ({ ...r, photo_urls: reviewPhotos(c.env, r.photos) })),
+    counts: counts!.results,
+  });
 });
 
 /**
@@ -275,6 +287,9 @@ marketingRoutes.patch("/reviews/:id", requirePermission("reviews.moderate"), asy
 
 marketingRoutes.delete("/reviews/:id", requirePermission("reviews.moderate"), async (c) => {
   const id = intParam(c, "id");
+  const row = await c.env.DB.prepare("SELECT photos FROM reviews WHERE id = ?").bind(id).first<{ photos: string | null }>();
+  const keys = (JSON.parse(row?.photos ?? "[]") as string[]).filter((k) => typeof k === "string");
+  if (keys.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(keys).catch(() => undefined));
   await c.env.DB.batch([c.env.DB.prepare("DELETE FROM reviews WHERE id = ?").bind(id), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "delete", "review", id)]);
   return c.json({ ok: true });
 });
@@ -283,6 +298,10 @@ marketingRoutes.delete("/reviews/:id", requirePermission("reviews.moderate"), as
 
 marketingRoutes.get("/notifier", requirePermission("marketing.edit"), async (c) => {
   const { notifications } = await getSettings(c.env, ["notifications"]);
+  const [subs, campaigns] = await c.env.DB.batch([
+    c.env.DB.prepare("SELECT COUNT(*) AS n FROM push_subscriptions s WHERE EXISTS (SELECT 1 FROM json_each(s.tags) WHERE value = 'news')"),
+    c.env.DB.prepare("SELECT id, title, status, stats, created_at FROM campaigns WHERE kind = 'push' ORDER BY id DESC LIMIT 10"),
+  ]);
   const { results } = await c.env.DB.prepare(
     `SELECT a.variant_id, v.sku, p.name_fr, p.id AS product_id, v.stock_on_hand - v.stock_reserved AS available,
             COUNT(*) AS waiting, SUM(CASE WHEN a.push_subscription_id IS NOT NULL THEN 1 ELSE 0 END) AS push_waiting,
@@ -291,7 +310,12 @@ marketingRoutes.get("/notifier", requirePermission("marketing.edit"), async (c) 
       WHERE a.notified_at IS NULL GROUP BY a.variant_id ORDER BY waiting DESC LIMIT 100`,
   ).all<{ variant_id: number } & Record<string, unknown>>();
   const labels = await variantLabels(c.env, results.map((r) => r.variant_id));
-  return c.json({ notifications, waitlists: results.map((r) => ({ ...r, options: labels.get(r.variant_id)?.fr ?? "" })) });
+  return c.json({
+    notifications,
+    waitlists: results.map((r) => ({ ...r, options: labels.get(r.variant_id)?.fr ?? "" })),
+    newsSubscribers: (subs!.results[0] as { n: number }).n,
+    campaigns: (campaigns!.results as { stats: string | null }[]).map((r) => ({ ...r, stats: JSON.parse(r.stats ?? "{}") })),
+  });
 });
 
 marketingRoutes.put("/notifier/settings", requirePermission("marketing.edit"), async (c) => {
@@ -433,9 +457,11 @@ const collectionInput = z.object({
  * Public caches are keyed on how many of these instants have passed, so a drop's products
  * appear (and the countdown turns into the collection) the moment it starts, with no cron.
  */
+/** Start/end times of drops and flash sales: public cache keys change as each one passes. */
 async function dropTimesStmt(env: AppEnv["Bindings"]) {
   const { results } = await env.DB.prepare(
-    "SELECT starts_at, ends_at FROM collections WHERE is_active = 1 AND (starts_at IS NOT NULL OR ends_at IS NOT NULL)",
+    `SELECT starts_at, ends_at FROM collections WHERE is_active = 1 AND (starts_at IS NOT NULL OR ends_at IS NOT NULL)
+     UNION ALL SELECT starts_at, ends_at FROM promotions WHERE kind = 'flash_sale' AND is_active = 1`,
   ).all<{ starts_at: number | null; ends_at: number | null }>();
   const times = results.flatMap((r) => [r.starts_at, r.ends_at]).filter((t): t is number => t != null).sort((a, b) => a - b);
   return setSettingStmt(env, "drop_times", times);
@@ -502,4 +528,151 @@ marketingRoutes.delete("/collections/:id", requirePermission("marketing.edit"), 
   ]);
   await c.env.DB.batch([await dropTimesStmt(c.env), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "delete", "collection", id)]);
   return c.json({ ok: true });
+});
+
+/* ───────────── Notifications to subscribers ("Recevoir les nouveautés") ───────────── */
+
+marketingRoutes.post("/notifier/broadcast", requirePermission("marketing.edit"), async (c) => {
+  const input = await body(
+    c,
+    z.object({
+      titleFr: cleanText(60).pipe(z.string().min(2)),
+      titleAr: cleanText(60).pipe(z.string().min(2)),
+      bodyFr: cleanText(160).pipe(z.string().min(2)),
+      bodyAr: cleanText(160).pipe(z.string().min(2)),
+      /** page of the store it opens ("/c/robes", "/produit/…") */
+      path: z.string().trim().max(200).regex(/^\/[^\s]*$/).default("/"),
+    }),
+  );
+  const running = await c.env.DB.prepare("SELECT id FROM campaigns WHERE kind = 'push' AND status = 'sending'").first();
+  if (running) throw new HttpError(409, "campaign_running");
+  const total = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM push_subscriptions s WHERE EXISTS (SELECT 1 FROM json_each(s.tags) WHERE value = 'news')").first<{ n: number }>();
+  if (!total?.n) throw new HttpError(409, "no_subscribers");
+  const row = await c.env.DB.prepare(
+    "INSERT INTO campaigns (kind, title, config, status, stats, created_at) VALUES ('push', ?, ?, 'sending', ?, ?) RETURNING id",
+  )
+    .bind(input.titleFr, JSON.stringify(input), JSON.stringify({ total: total.n, sent: 0, failed: 0, cursor: 0 }), Date.now())
+    .first<{ id: number }>();
+  await auditStmt(c.env, actorOf(c.get("member")), "create", "campaign", row!.id, { title: input.titleFr }).run();
+  // first batch now, the rest every 5 minutes (cron) — free plan: ≤ 50 sub-requests per run
+  c.executionCtx.waitUntil(sendCampaignBatch(c.env, 35).catch(() => undefined));
+  return c.json({ id: row!.id, total: total.n }, 201);
+});
+
+/* ───────────── Ventes flash ───────────── */
+
+const flashInput = z
+  .object({
+    nameFr: cleanText(60).pipe(z.string().min(2)),
+    nameAr: cleanText(60).pipe(z.string().min(2)),
+    percent: z.number().int().min(1).max(90),
+    productIds: z.array(z.number().int().positive()).min(1).max(100),
+    limit: z.number().int().min(1).max(10_000).nullable().default(null),
+    startsAt: z.number().int(),
+    endsAt: z.number().int(),
+    isActive: z.boolean().default(true),
+  })
+  .refine((f) => f.endsAt > f.startsAt, { message: "ends_before_start", path: ["endsAt"] });
+
+marketingRoutes.get("/flash-sales", requirePermission("promos.edit"), async (c) => {
+  const { results } = await c.env.DB.prepare("SELECT * FROM promotions WHERE kind = 'flash_sale' ORDER BY is_active DESC, ends_at DESC").all<{
+    id: number; name: string; config: string; starts_at: number; ends_at: number; is_active: number;
+  }>();
+  // pieces sold during each sale, at its products
+  const sold = results.length
+    ? await c.env.DB.batch(
+        results.map((r) => {
+          const ids = parseFlashConfig(r.config).productIds;
+          return c.env.DB.prepare(
+            `SELECT COALESCE(SUM(oi.qty), 0) AS units, COALESCE(SUM(oi.qty * oi.unit_price), 0) AS sales FROM order_items oi JOIN orders o ON o.id = oi.order_id
+              WHERE o.created_at >= ? AND o.created_at < ? AND o.status NOT IN ('annulee','doublon','fausse') AND oi.product_id IN (${ids.length ? ids.join(",") : "0"})`,
+          ).bind(r.starts_at, r.ends_at);
+        }),
+      )
+    : [];
+  return c.json(
+    results.map((r, i) => {
+      const [nameFr, nameAr] = r.name.split(" | ");
+      const cfg = parseFlashConfig(r.config);
+      const s = (sold[i]?.results[0] ?? { units: 0, sales: 0 }) as { units: number; sales: number };
+      return { id: r.id, nameFr, nameAr: nameAr ?? nameFr, ...cfg, startsAt: r.starts_at, endsAt: r.ends_at, isActive: !!r.is_active, units: s.units, sales: s.sales };
+    }),
+  );
+});
+
+async function saveFlash(c: Parameters<typeof body>[0], id: number | null) {
+  const f = await body(c, flashInput);
+  const name = `${f.nameFr.replace(/\|/g, "/")} | ${f.nameAr.replace(/\|/g, "/")}`;
+  const config = JSON.stringify({ productIds: [...new Set(f.productIds)], percent: f.percent, limit: f.limit });
+  if (id) {
+    const res = await c.env.DB.prepare("UPDATE promotions SET name = ?, config = ?, starts_at = ?, ends_at = ?, is_active = ? WHERE id = ? AND kind = 'flash_sale'")
+      .bind(name, config, f.startsAt, f.endsAt, f.isActive ? 1 : 0, id)
+      .run();
+    if (!res.meta.changes) throw new HttpError(404, "not_found");
+  } else {
+    const row = await c.env.DB.prepare(
+      "INSERT INTO promotions (name, kind, config, priority, stackable, starts_at, ends_at, is_active) VALUES (?, 'flash_sale', ?, 0, 0, ?, ?, ?) RETURNING id",
+    )
+      .bind(name, config, f.startsAt, f.endsAt, f.isActive ? 1 : 0)
+      .first<{ id: number }>();
+    id = row!.id;
+  }
+  await c.env.DB.batch([await dropTimesStmt(c.env), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "save", "flash_sale", id, { name: f.nameFr, percent: f.percent })]);
+  return c.json({ id });
+}
+
+marketingRoutes.post("/flash-sales", requirePermission("promos.edit"), (c) => saveFlash(c, null));
+marketingRoutes.put("/flash-sales/:id", requirePermission("promos.edit"), (c) => saveFlash(c, intParam(c, "id")));
+marketingRoutes.delete("/flash-sales/:id", requirePermission("promos.edit"), async (c) => {
+  const id = intParam(c, "id");
+  await c.env.DB.prepare("DELETE FROM promotions WHERE id = ? AND kind = 'flash_sale'").bind(id).run();
+  await c.env.DB.batch([await dropTimesStmt(c.env), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "delete", "flash_sale", id)]);
+  return c.json({ ok: true });
+});
+
+/* ───────────── Apparence: logo, colours, fonts, banners, home sections ───────────── */
+
+const mediaKey = z.string().trim().max(200).regex(/^design\/[a-z0-9_-]+\.(webp|jpg)$/i);
+const designInput = z.object({
+  logo: mediaKey.nullable(),
+  colors: z.object({ accent: z.string().refine(isHexColor, "color"), soft: z.string().refine(isHexColor, "color") }),
+  font: z.enum(["classic", "elegant", "modern", "soft"]),
+  heroImage: mediaKey.nullable(),
+  banners: z
+    .array(
+      z.object({
+        id: z.string().trim().min(1).max(40),
+        image: mediaKey,
+        titleFr: cleanText(80).default(""),
+        titleAr: cleanText(80).default(""),
+        subtitleFr: cleanText(140).default(""),
+        subtitleAr: cleanText(140).default(""),
+        link: z.string().trim().max(300).refine((l) => l === "" || l.startsWith("/") || /^https:\/\//.test(l), "link"),
+      }),
+    )
+    .max(6),
+  featured: z.object({ titleFr: cleanText(60), titleAr: cleanText(60), productIds: z.array(z.number().int().positive()).max(24) }),
+  footerFr: cleanText(300).default(""),
+  footerAr: cleanText(300).default(""),
+  sections: z.array(z.object({ key: z.enum(HOME_SECTIONS), on: z.boolean() })).max(HOME_SECTIONS.length),
+});
+
+marketingRoutes.get("/design", requirePermission("marketing.edit"), async (c) => {
+  const design = await getSetting(c.env, "design");
+  return c.json({ design: { ...DEFAULT_DESIGN, ...design }, mediaBase: mediaUrl(c.env, "") });
+});
+
+marketingRoutes.put("/design", requirePermission("marketing.edit"), async (c) => {
+  const input = (await body(c, designInput)) as DesignDTO;
+  await c.env.DB.batch([setSettingStmt(c.env, "design", input), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "design")]);
+  return c.json(input);
+});
+
+/** Logo / hero / banner picture (WebP or JPEG made in the browser). */
+marketingRoutes.post("/design/image", requirePermission("marketing.edit"), async (c) => {
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("image");
+  if (!file || typeof file === "string") throw new HttpError(400, "image_required");
+  const key = await putImage(c.env, "design/img", file, 3_000_000);
+  return c.json({ key, url: mediaUrl(c.env, key) }, 201);
 });

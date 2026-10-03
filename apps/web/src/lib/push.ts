@@ -19,6 +19,20 @@ function keyBytes(b64url: string): Uint8Array<ArrayBuffer> {
  * "denied" = the customer (or the browser) said no; the phone form stays available.
  */
 export async function subscribeRestock(variantId: number, locale: "fr" | "ar"): Promise<"ok" | "denied" | "error"> {
+  return subscribe({ variantId }, locale);
+}
+
+/** Every sold-out size of a product (from the wishlist). */
+export function subscribeProduct(productId: number, locale: "fr" | "ar") {
+  return subscribe({ productId }, locale);
+}
+
+/** "Recevoir les nouveautés": store news sent from Admin → Notifier. */
+export function subscribeNews(locale: "fr" | "ar") {
+  return subscribe({ topic: "news" }, locale);
+}
+
+async function subscribe(target: { variantId?: number; productId?: number; topic?: "news" }, locale: "fr" | "ar"): Promise<"ok" | "denied" | "error"> {
   if (!pushSupported()) return "error";
   try {
     const permission = await Notification.requestPermission();
@@ -31,7 +45,7 @@ export async function subscribeRestock(variantId: number, locale: "fr" | "ar"): 
       sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
     }
     const json = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } };
-    await apiPost("/push/subscribe", { variantId, locale, subscription: { endpoint: json.endpoint, keys: json.keys } });
+    await apiPost("/push/subscribe", { ...target, locale, subscription: { endpoint: json.endpoint, keys: json.keys } });
     return "ok";
   } catch {
     return "error";

@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, waLink } from "../lib/format";
+import { CategoryPicker, ProductPicker } from "../lib/pickers";
 import {
   Badge, Button, Card, Empty, ErrorState, Field, inputCls, ListSkeleton, NumberField, PageHeader, Pills, Select, Sheet, TextArea, TextField, Toggle, useToast,
 } from "../ui";
@@ -38,6 +39,8 @@ interface Coupon {
   is_active: number;
   influencer_name: string | null;
   commission_pct: number | null;
+  /** JSON {productIds, categoryIds}: the discount only for these */
+  applies_to: string | null;
   used_count: number;
   orders: number;
   revenue: number;
@@ -55,6 +58,7 @@ export function PromosPage() {
     <div>
       <PageHeader group={tr("Commandes")} title={tr("Promos")} subtitle={tr("Codes promo, codes influenceuses et livraison offerte.")} actions={<Button variant="primary" onClick={() => setEdit({ type: "percent", value: 10, is_active: 1 })}>{tr("+ Nouveau code")}</Button>} />
       <FreeShipping current={q.data?.freeShippingOver ?? null} />
+      <FlashSales />
       <InfluencerReport />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.coupons.length === 0 ? <Empty title={tr("Aucun code promo")} icon="🏷" /> : (
         <ul className="grid gap-2 md:grid-cols-2">
@@ -67,7 +71,10 @@ export function PromosPage() {
                     <span className="font-mono text-lg font-bold text-plum-700">{c.code}</span>
                     <Badge tone={!c.is_active || expired ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-800"}>{!c.is_active ? tr("Désactivé") : expired ? tr("Expiré") : tr("Actif")}</Badge>
                   </div>
-                  <p className="text-sm">{couponLabel(c)}{c.min_subtotal ? tr(" dès {0}", { 0: da(c.min_subtotal) }) : ""}{c.first_order_only ? tr(" · 1re commande") : ""}</p>
+                  <p className="text-sm">
+                    {couponLabel(c)}{c.min_subtotal ? tr(" dès {0}", { 0: da(c.min_subtotal) }) : ""}{c.first_order_only ? tr(" · 1re commande") : ""}
+                    {c.applies_to ? tr(" · sur certains articles") : ""}
+                  </p>
                   <p className="mt-1 text-xs text-ink-soft">
                     {c.used_count}{c.usage_limit ? `/${c.usage_limit}` : ""} {tr("utilisation(s) ·")} {da(c.revenue)} {tr("de ventes")}{c.influencer_name ? ` · 👤 ${c.influencer_name}${c.commission_pct ? ` (${c.commission_pct} % = ${da(Math.round((c.revenue * c.commission_pct) / 100))})` : ""}` : ""}
                   </p>
@@ -201,12 +208,17 @@ function FreeShipping({ current }: { current: number | null }) {
 
 function CouponSheet({ coupon, onClose }: { coupon: Partial<Coupon>; onClose: () => void }) {
   const [f, setF] = useState(coupon);
+  const scope0 = JSON.parse(coupon.applies_to ?? "null") as { productIds?: number[]; categoryIds?: number[] } | null;
+  const [productIds, setProductIds] = useState<number[]>(scope0?.productIds ?? []);
+  const [categoryIds, setCategoryIds] = useState<number[]>(scope0?.categoryIds ?? []);
+  const [limited, setLimited] = useState(!!(scope0?.productIds?.length || scope0?.categoryIds?.length));
   const save = useSave(
     () => {
       const body = {
         code: (f.code ?? "").toUpperCase(), type: f.type, value: f.type === "free_shipping" ? 0 : f.value ?? 0, minSubtotal: f.min_subtotal ?? null,
         usageLimit: f.usage_limit ?? null, perCustomerLimit: f.per_customer_limit ?? null, firstOrderOnly: !!f.first_order_only,
         startsAt: f.starts_at ?? null, endsAt: f.ends_at ?? null, isActive: !!f.is_active, influencerName: f.influencer_name || null, commissionPct: f.commission_pct ?? null,
+        appliesTo: limited && (productIds.length || categoryIds.length) ? { productIds, categoryIds } : null,
       };
       return coupon.id ? put(`/coupons/${coupon.id}`, body) : post("/coupons", body);
     },
@@ -243,6 +255,19 @@ function CouponSheet({ coupon, onClose }: { coupon: Partial<Coupon>; onClose: ()
       </div>
       <div className="mt-3">
         <Toggle label={tr("Réservé à la première commande")} checked={!!f.first_order_only} onChange={(v) => setF({ ...f, first_order_only: v ? 1 : 0 })} />
+        <Toggle
+          label={tr("Seulement sur certaines catégories ou certains produits")}
+          hint={tr("Sinon, la remise s'applique à tout le panier.")}
+          checked={limited}
+          onChange={setLimited}
+        />
+        {limited && (
+          <div className="mb-3 space-y-4 rounded-xl bg-ivory-deep p-3">
+            <CategoryPicker label={tr("Catégories concernées")} value={categoryIds} onChange={setCategoryIds} />
+            <ProductPicker label={tr("Produits concernés")} value={productIds} onChange={setProductIds} max={200} />
+            <p className="text-xs text-ink-soft">{tr("La remise ne compte que les articles de ces catégories / produits ; les autres articles du panier gardent leur prix.")}</p>
+          </div>
+        )}
         <Toggle label={tr("Actif")} checked={!!f.is_active} onChange={(v) => setF({ ...f, is_active: v ? 1 : 0 })} />
       </div>
     </Sheet>
@@ -471,6 +496,8 @@ interface Review {
   is_featured: number;
   verified: number;
   created_at: number;
+  /** customer photos */
+  photo_urls?: string[];
 }
 
 export function ReviewsPage() {
@@ -584,6 +611,15 @@ function ReviewItem({ r, onEdit }: { r: Review; onEdit: () => void }) {
         <span className="text-xs text-ink-soft">{r.product} · {ago(r.created_at)}</span>
       </div>
       {r.text && <p className="mt-1 text-sm">{r.text}</p>}
+      {(r.photo_urls ?? []).length > 0 && (
+        <div className="mt-2 flex gap-2">
+          {r.photo_urls!.map((src) => (
+            <a key={src} href={src} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg ring-1 ring-line">
+              <img src={src} alt={tr("Photo de la cliente")} className="size-20 object-cover" />
+            </a>
+          ))}
+        </div>
+      )}
       <div className="mt-2 flex flex-wrap gap-1.5">
         {r.verified ? <Badge tone="bg-emerald-100 text-emerald-800">{tr("Achat vérifié")}</Badge> : <Badge tone="bg-stone-100 text-stone-700">{tr("Ajouté par l'équipe")}</Badge>}
         {r.is_featured ? <Badge>{tr("⭐ Mis en avant")}</Badge> : null}
@@ -617,7 +653,14 @@ interface Notifications {
 export function NotifierPage() {
   const q = useQuery({
     queryKey: ["notifier"],
-    queryFn: () => api<{ notifications: Notifications; waitlists: { variant_id: number; name_fr: string; options: string; sku: string; available: number; waiting: number; push_waiting: number | null; phones: string | null; last_at: number }[] }>("/notifier"),
+    queryFn: () =>
+      api<{
+        notifications: Notifications;
+        waitlists: { variant_id: number; name_fr: string; options: string; sku: string; available: number; waiting: number; push_waiting: number | null; phones: string | null; last_at: number }[];
+        newsSubscribers: number;
+        campaigns: { id: number; title: string; status: string; stats: { total?: number; sent?: number; failed?: number }; created_at: number }[];
+      }>("/notifier"),
+    refetchInterval: (query) => (query.state.data?.campaigns.some((x) => x.status === "sending") ? 15_000 : false),
   });
   const [n, setN] = useState<Notifications | null>(null);
   useEffect(() => {
@@ -635,6 +678,7 @@ export function NotifierPage() {
   return (
     <div className="space-y-4">
       <PageHeader group={tr("Marketing")} title={tr("Notifier")} subtitle={tr("Ce que l'équipe reçoit sur Telegram, et les clientes qui attendent un retour en stock.")} />
+      <BroadcastCard subscribers={q.data.newsSubscribers} campaigns={q.data.campaigns} />
       <Card title={tr("📱 Notifications Telegram de l'équipe")}>
         <Toggle label={tr("Nouvelle commande")} hint={tr("Avec boutons Confirmer / Injoignable / Annuler")} checked={n.telegram_new_order} onChange={toggle("telegram_new_order")} />
         <Toggle label={tr("Mise à jour du message quand le statut change")} checked={n.telegram_status_change} onChange={toggle("telegram_status_change")} />
@@ -1046,5 +1090,181 @@ function CollectionSheet({ c, onClose }: { c: Partial<CollectionRow>; onClose: (
         </Card>
       </div>
     </Sheet>
+  );
+}
+
+/* ───────────── Ventes flash ───────────── */
+
+interface FlashSale {
+  id: number;
+  nameFr: string;
+  nameAr: string;
+  percent: number;
+  productIds: number[];
+  limit: number | null;
+  startsAt: number;
+  endsAt: number;
+  isActive: boolean;
+  units: number;
+  sales: number;
+}
+
+function leftLabel(ms: number): string {
+  const m = Math.max(0, Math.round(ms / 60_000));
+  if (m < 60) return tr("{0} min", { 0: m });
+  const h = Math.floor(m / 60);
+  if (h < 48) return tr("{0} h {1} min", { 0: h, 1: m % 60 });
+  return tr("{0} jours", { 0: Math.round(h / 24) });
+}
+
+function FlashSales() {
+  const q = useQuery({ queryKey: ["flash-sales"], queryFn: () => api<FlashSale[]>("/flash-sales") });
+  const [edit, setEdit] = useState<Partial<FlashSale> | null>(null);
+  const now = Date.now();
+  return (
+    <Card
+      title={tr("⚡ Ventes flash")}
+      className="mb-4"
+      actions={
+        <Button size="sm" variant="primary" onClick={() => setEdit({ percent: 20, isActive: true, productIds: [], limit: null, startsAt: Date.now(), endsAt: Date.now() + 24 * 3600_000 })}>
+          {tr("+ Vente flash")}
+        </Button>
+      }
+    >
+      <p className="mb-3 text-sm text-ink-soft">
+        {tr("Une remise sur quelques produits pendant un temps limité : compte à rebours, ancien prix barré, % de remise et quantité limitée sur la boutique. Le prix revient tout seul à la fin.")}
+      </p>
+      {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton rows={2} /> : q.data.length === 0 ? (
+        <p className="text-sm text-ink-soft">{tr("Aucune vente flash pour l'instant.")}</p>
+      ) : (
+        <ul className="grid gap-2 md:grid-cols-2">
+          {q.data.map((f) => {
+            const live = f.isActive && f.startsAt <= now && f.endsAt > now;
+            const soon = f.isActive && f.startsAt > now;
+            return (
+              <li key={f.id}>
+                <button type="button" onClick={() => setEdit(f)} className="w-full rounded-xl border border-line bg-white p-3.5 text-start hover:border-plum-600/40">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold">⚡ {f.nameFr} · -{f.percent} %</span>
+                    <Badge tone={live ? "bg-emerald-100 text-emerald-800" : soon ? "bg-sky-100 text-sky-800" : "bg-stone-200 text-stone-600"}>
+                      {live ? tr("En cours") : soon ? tr("À venir") : !f.isActive ? tr("Désactivée") : tr("Terminée")}
+                    </Badge>
+                  </div>
+                  <p className="mt-1 text-xs text-ink-soft">
+                    {live ? tr("Se termine dans {0}", { 0: leftLabel(f.endsAt - now) }) : soon ? tr("Commence dans {0}", { 0: leftLabel(f.startsAt - now) }) : new Date(f.endsAt).toLocaleDateString()}
+                    {" · "}{tr("{0} produit(s)", { 0: f.productIds.length })}{f.limit ? tr(" · {0} pièces max par produit", { 0: f.limit }) : ""}
+                  </p>
+                  <p className="mt-1 text-xs">{tr("{0} pièce(s) vendue(s) · {1}", { 0: f.units, 1: da(f.sales) })}</p>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {edit && <FlashSheet sale={edit} onClose={() => setEdit(null)} />}
+    </Card>
+  );
+}
+
+function FlashSheet({ sale, onClose }: { sale: Partial<FlashSale>; onClose: () => void }) {
+  const [f, setF] = useState(sale);
+  const [start, setStart] = useState(toLocalInput(sale.startsAt ?? Date.now()));
+  const [end, setEnd] = useState(toLocalInput(sale.endsAt ?? Date.now() + 86400_000));
+  const toast = useToast();
+  const save = useSave(
+    () => {
+      const body = {
+        nameFr: (f.nameFr ?? "").trim(), nameAr: (f.nameAr ?? "").trim() || (f.nameFr ?? "").trim(), percent: f.percent ?? 0, productIds: f.productIds ?? [],
+        limit: f.limit ?? null, startsAt: fromLocalInput(start) ?? 0, endsAt: fromLocalInput(end) ?? 0, isActive: f.isActive ?? true,
+      };
+      return sale.id ? put(`/flash-sales/${sale.id}`, body) : post("/flash-sales", body);
+    },
+    ["flash-sales", "products"],
+  );
+  const remove = useSave(() => del(`/flash-sales/${sale.id}`), ["flash-sales"], tr("Vente flash supprimée"));
+  const valid = (f.nameFr ?? "").trim().length >= 2 && (f.percent ?? 0) >= 1 && (f.percent ?? 0) <= 90 && (f.productIds ?? []).length > 0 && (fromLocalInput(end) ?? 0) > (fromLocalInput(start) ?? 0);
+  return (
+    <Sheet
+      open
+      onClose={onClose}
+      title={sale.id ? tr("Vente flash · {0}", { 0: sale.nameFr }) : tr("Nouvelle vente flash")}
+      footer={
+        <div className="flex justify-between gap-2">
+          {sale.id ? <Button variant="danger" onClick={() => confirm(tr("Supprimer cette vente flash ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
+          <Button
+            variant="primary"
+            loading={save.isPending}
+            onClick={() => (valid ? save.mutate(undefined, { onSuccess: onClose }) : toast(tr("Nom, remise (1 à 90 %), au moins un produit, et une fin après le début."), "error"))}
+          >
+            {tr("Enregistrer")}
+          </Button>
+        </div>
+      }
+    >
+      <div className="grid gap-3 sm:grid-cols-2">
+        <TextField label={tr("Nom (français)")} placeholder={tr("Vente flash du week-end")} value={f.nameFr ?? ""} onChange={(e) => setF({ ...f, nameFr: e.target.value })} maxLength={60} />
+        <TextField label={tr("Nom (arabe)")} dir="rtl" placeholder="تخفيض نهاية الأسبوع" value={f.nameAr ?? ""} onChange={(e) => setF({ ...f, nameAr: e.target.value })} maxLength={60} />
+        <NumberField label={tr("Remise")} suffix="%" value={f.percent ?? null} onChange={(v) => setF({ ...f, percent: v ?? 0 })} hint={tr("de 1 à 90 %")} />
+        <NumberField label={tr("Quantité limitée (par produit)")} value={f.limit ?? null} onChange={(v) => setF({ ...f, limit: v })} hint={tr("vide = jusqu'à la fin, sans limite")} />
+        <TextField label={tr("Début")} type="datetime-local" value={start} onChange={(e) => setStart(e.target.value)} />
+        <TextField label={tr("Fin")} type="datetime-local" value={end} onChange={(e) => setEnd(e.target.value)} />
+      </div>
+      <div className="mt-4">
+        <ProductPicker label={tr("Produits en vente flash")} value={f.productIds ?? []} onChange={(ids) => setF({ ...f, productIds: ids })} max={100} />
+      </div>
+      <div className="mt-3">
+        <Toggle label={tr("Active")} checked={f.isActive ?? true} onChange={(v) => setF({ ...f, isActive: v })} />
+      </div>
+    </Sheet>
+  );
+}
+
+/* ───────────── Notification to "Recevoir les nouveautés" subscribers ───────────── */
+
+function BroadcastCard({ subscribers, campaigns }: { subscribers: number; campaigns: { id: number; title: string; status: string; stats: { total?: number; sent?: number; failed?: number }; created_at: number }[] }) {
+  const [f, setF] = useState({ titleFr: "", titleAr: "", bodyFr: "", bodyAr: "", path: "/" });
+  const send = useSave(() => post("/notifier/broadcast", f), ["notifier"], tr("Envoi lancé ✓"));
+  const sending = campaigns.some((c) => c.status === "sending");
+  const ready = f.titleFr.trim().length >= 2 && f.titleAr.trim().length >= 2 && f.bodyFr.trim().length >= 2 && f.bodyAr.trim().length >= 2 && f.path.startsWith("/");
+  return (
+    <Card title={tr("📣 Notification aux abonnées ({0})", { 0: subscribers })}>
+      <p className="mb-3 text-sm text-ink-soft">
+        {tr("Les clientes qui ont touché « Recevoir les nouveautés » sur la boutique reçoivent ce message sur leur téléphone, dans leur langue. Gratuit, sans e-mail. Envoi par lots de quelques dizaines toutes les 5 minutes.")}
+      </p>
+      {subscribers === 0 ? (
+        <p className="text-sm">{tr("Personne n'est encore abonné. Le bloc « Recevoir les nouveautés » est sur la page d'accueil (Page d'accueil → Sections).")}</p>
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <TextField label={tr("Titre (français)")} placeholder={tr("Nouvelle collection 🌸")} value={f.titleFr} onChange={(e) => setF({ ...f, titleFr: e.target.value })} maxLength={60} />
+            <TextField label={tr("Titre (arabe)")} dir="rtl" placeholder="تشكيلة جديدة 🌸" value={f.titleAr} onChange={(e) => setF({ ...f, titleAr: e.target.value })} maxLength={60} />
+            <TextArea label={tr("Message (français)")} rows={2} value={f.bodyFr} onChange={(e) => setF({ ...f, bodyFr: e.target.value })} maxLength={160} />
+            <TextArea label={tr("Message (arabe)")} rows={2} dir="rtl" value={f.bodyAr} onChange={(e) => setF({ ...f, bodyAr: e.target.value })} maxLength={160} />
+            <TextField label={tr("Page ouverte au toucher")} dir="ltr" placeholder="/nouveautes" value={f.path} onChange={(e) => setF({ ...f, path: e.target.value.trim() })} hint={tr("/ = accueil, /c/robes, /produit/…, /collection/…")} />
+          </div>
+          <Button
+            className="mt-3"
+            variant="primary"
+            disabled={!ready || sending}
+            loading={send.isPending}
+            onClick={() => confirm(tr("Envoyer à {0} abonnée(s) ?", { 0: subscribers })) && send.mutate(undefined, { onSuccess: () => setF({ titleFr: "", titleAr: "", bodyFr: "", bodyAr: "", path: "/" }) })}
+          >
+            {sending ? tr("Un envoi est en cours…") : tr("Envoyer la notification")}
+          </Button>
+        </>
+      )}
+      {campaigns.length > 0 && (
+        <ul className="mt-4 divide-y divide-line border-t border-line text-sm">
+          {campaigns.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-2 py-2">
+              <span className="min-w-0 truncate">{c.title}</span>
+              <span className="shrink-0 text-xs text-ink-soft">
+                {c.status === "sending" ? tr("⏳ en cours") : tr("✓ envoyée")} · {tr("{0}/{1} reçue(s)", { 0: c.stats.sent ?? 0, 1: c.stats.total ?? 0 })} · {ago(c.created_at)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
