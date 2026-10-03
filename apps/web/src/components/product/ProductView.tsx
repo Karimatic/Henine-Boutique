@@ -30,7 +30,7 @@ export function ProductView() {
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
         <p className="text-lg">{t.product.notFound}</p>
-        <a href={href("/")} className="mt-6 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-ivory">
+        <a href={href("/")} className="mt-6 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-white">
           {t.notFound.cta}
         </a>
       </div>
@@ -226,7 +226,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             {slides > 1 && (
               <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-1.5 md:hidden" aria-hidden="true">
                 {Array.from({ length: slides }, (_, i) => (
-                  <span key={i} className={`h-1.5 rounded-full transition-all ${i === active ? "w-5 bg-white" : "w-1.5 bg-white/60"}`} />
+                  <span key={i} className={`h-1.5 rounded-full transition-all ${i === active ? "w-5 bg-surface" : "w-1.5 bg-surface/60"}`} />
                 ))}
               </div>
             )}
@@ -275,7 +275,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                   <button
                     type="button"
                     onClick={() => setActive(images.length)}
-                    className={`grid aspect-[4/5] w-16 place-items-center rounded-lg bg-ink text-xl text-white ring-2 ${active === images.length ? "ring-plum-600" : "ring-transparent"}`}
+                    className={`grid aspect-[4/5] w-16 place-items-center rounded-lg bg-noir text-xl text-white ring-2 ${active === images.length ? "ring-plum-600" : "ring-transparent"}`}
                     aria-label={G.video}
                   >
                     ▶
@@ -342,7 +342,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                         type="button"
                         onClick={() => setSelected((s) => ({ ...s, [o.id]: v.id }))}
                         aria-pressed={on}
-                        className={`h-12 min-w-13 rounded-2xl border px-4 text-sm font-semibold transition active:scale-95 ${on ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink/40"} ${soldOut ? "text-ink-soft line-through opacity-60" : ""}`}
+                        className={`h-12 min-w-13 rounded-2xl border px-4 text-sm font-semibold transition active:scale-95 ${on ? "border-ink bg-ink text-on-ink" : "border-line bg-surface hover:border-ink/40"} ${soldOut ? "text-ink-soft line-through opacity-60" : ""}`}
                       >
                         {ar ? v.labelAr : v.labelFr}
                       </button>
@@ -394,7 +394,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
           </div>
 
           {showExpress && variant && variant.available > 0 && (
-            <section id="express" className="mt-6 scroll-mt-24 rounded-card border border-plum-600/30 bg-white/70 p-4">
+            <section id="express" className="mt-6 scroll-mt-24 rounded-card border border-plum-600/30 bg-surface/70 p-4">
               <h2 className="text-lg font-semibold">{t.product.express}</h2>
               <p className="mb-4 text-sm text-ink-soft">{t.product.expressHint}</p>
               <CheckoutForm key={variant.id} lines={[{ variantId: variant.id, qty: 1 }]} channel="express" compact />
@@ -438,7 +438,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 
       {/* phones: price + buy always within reach of the thumb */}
       {!soldOut && !showExpress && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-white/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-surface/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
           <div className="flex items-center gap-2.5">
             <div className="min-w-0 flex-1 leading-tight">
               <p className="truncate text-xs text-ink-soft">{variant ? labels(ar ? "ar" : "fr") : t.product.selectVariant}</p>
@@ -494,7 +494,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
               const r = await subscribeRestock(variantId, locale);
               setPush(r === "ok" ? "done" : r);
             }}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-plum-600 px-5 font-semibold text-ivory disabled:opacity-60"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-plum-600 px-5 font-semibold text-white disabled:opacity-60"
           >
             🔔 {t.product.pushCta}
           </button>
@@ -521,7 +521,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
       <p className="text-sm font-medium">{t.product.notifyMe}</p>
       <div className="flex gap-2">
         <input className={inputCls} type="tel" inputMode="tel" dir="ltr" placeholder="05 55 12 34 56" value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <button type="submit" disabled={state === "sending"} className="shrink-0 rounded-xl bg-plum-600 px-5 font-semibold text-ivory">
+        <button type="submit" disabled={state === "sending"} className="shrink-0 rounded-xl bg-plum-600 px-5 font-semibold text-white">
           OK
         </button>
       </div>
@@ -561,7 +561,7 @@ function Reviews({ p }: { p: ProductDetailDTO }) {
       <p className="mb-4 text-sm text-ink-soft">✓ {R.onlyBuyers}</p>
       {done && <p className="mb-4 rounded-xl bg-rose-100 p-4 text-sm font-medium text-plum-700">{done === "approved" ? R.thanksPublished : R.thanksPending}</p>}
       {open && !done && (
-        <div className="mb-6 rounded-card border border-line bg-white/70 p-4">
+        <div className="mb-6 rounded-card border border-line bg-surface/70 p-4">
           <ReviewForm
             productId={p.id}
             onDone={(status) => {
@@ -577,7 +577,7 @@ function Reviews({ p }: { p: ProductDetailDTO }) {
 
         <ul className="grid gap-3 md:grid-cols-2">
           {p.reviews.map((r) => (
-            <li key={r.id} className="rounded-card border border-line bg-white/60 p-4">
+            <li key={r.id} className="rounded-card border border-line bg-surface/60 p-4">
               <div className="flex items-center justify-between">
                 <span className="font-semibold">{r.name}</span>
                 <Stars value={r.rating} />

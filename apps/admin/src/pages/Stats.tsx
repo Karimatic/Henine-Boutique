@@ -109,7 +109,7 @@ function DailyChart({ data, since, days }: { data: StatsData["daily"]; since: nu
           const x = pad.l + i * bw;
           return (
             <g key={s.date}>
-              <rect x={x + bw * 0.15} y={H - pad.b - h} width={Math.max(1, bw * 0.7)} height={h} rx={Math.min(3, bw * 0.2)} fill={i === peak && s.value > 0 ? "var(--color-plum-600)" : "var(--color-rose-500)"}>
+              <rect x={x + bw * 0.15} y={H - pad.b - h} width={Math.max(1, bw * 0.7)} height={h} rx={Math.min(3, bw * 0.2)} fill={i === peak && s.value > 0 ? "var(--color-chart)" : "var(--color-rose-500)"}>
                 <title>{`${s.date} : ${metric === "revenue" ? da(s.value) : `${s.value} commande(s)`}`}</title>
               </rect>
               {i === peak && s.value > 0 && (
@@ -157,7 +157,7 @@ function HoursChart({ hours }: { hours: StatsData["hours"] }) {
     <div>
       <div className="flex h-24 items-end gap-0.5" role="img" aria-label={tr("Commandes par heure")}>
         {values.map((v, h) => (
-          <div key={h} className="flex-1 rounded-t" style={{ height: `${Math.max(2, (v / max) * 100)}%`, background: h === best && v > 0 ? "var(--color-plum-600)" : "var(--color-rose-300)" }} title={tr("{0}h : {1} commande(s)", { 0: h, 1: v })} />
+          <div key={h} className="flex-1 rounded-t" style={{ height: `${Math.max(2, (v / max) * 100)}%`, background: h === best && v > 0 ? "var(--color-chart)" : "var(--color-rose-300)" }} title={tr("{0}h : {1} commande(s)", { 0: h, 1: v })} />
         ))}
       </div>
       <div className="mt-1 flex justify-between text-[10px] text-ink-soft"><span>0h</span><span>6h</span><span>{tr("12h")}</span><span>{tr("18h")}</span><span>{tr("23h")}</span></div>
@@ -248,7 +248,7 @@ export function StatsPage() {
         group={tr("Analyse")}
         title={tr("Statistiques")}
         subtitle={tr("Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires.")}
-        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
+        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
       />
       <Pills value={range} onChange={setRange} options={RANGES} />
       {range === "custom" && (
@@ -274,11 +274,12 @@ export function StatsPage() {
             <StackBar
               label={tr("Résultat des commandes")}
               parts={[
-                { key: "delivered", label: tr("Livrées"), value: d.totals.delivered, color: "#1baf7a" },
-                { key: "progress", label: tr("En cours"), value: d.totals.inProgress, color: "#2a78d6" },
-                { key: "pending", label: tr("À confirmer"), value: d.totals.pending, color: "#eda100" },
-                { key: "returned", label: tr("Retours"), value: d.totals.returned, color: "#e34948" },
-                { key: "cancelled", label: tr("Annulées"), value: d.totals.cancelled, color: "#4a3aa7" },
+                // colours per outcome, stepped for light and dark (styles.css); order keeps red and yellow apart
+                { key: "delivered", label: tr("Livrées"), value: d.totals.delivered, color: "var(--color-o-delivered)" },
+                { key: "progress", label: tr("En cours"), value: d.totals.inProgress, color: "var(--color-o-progress)" },
+                { key: "pending", label: tr("À confirmer"), value: d.totals.pending, color: "var(--color-o-pending)" },
+                { key: "cancelled", label: tr("Annulées"), value: d.totals.cancelled, color: "var(--color-o-cancelled)" },
+                { key: "returned", label: tr("Retours"), value: d.totals.returned, color: "var(--color-o-returned)" },
               ]}
             />
           </Card>

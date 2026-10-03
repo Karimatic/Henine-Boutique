@@ -128,7 +128,7 @@ export function AccountsPage() {
                 <button
                   type="button"
                   onClick={() => setEditing(a)}
-                  className={`w-full rounded-xl border border-line bg-white p-4 text-start transition hover:border-plum-600/40 ${a.is_active ? "" : "opacity-55"}`}
+                  className={`w-full rounded-xl border border-line bg-surface p-4 text-start transition hover:border-plum-600/40 ${a.is_active ? "" : "opacity-55"}`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -180,7 +180,7 @@ function PermissionPicker({ value, onChange, disabled }: { value: Permission[]; 
               type="button"
               disabled={disabled}
               onClick={() => onChange(r.permissions.includes("*") ? [...ALL] : [...(r.permissions as Permission[])])}
-              className="h-9 rounded-full border border-line bg-white px-3.5 text-sm font-medium hover:border-plum-600 disabled:opacity-40"
+              className="h-9 rounded-full border border-line bg-surface px-3.5 text-sm font-medium hover:border-plum-600 disabled:opacity-40"
             >
               {tr(r.name)}
             </button>
@@ -205,7 +205,7 @@ function PermissionPicker({ value, onChange, disabled }: { value: Permission[]; 
               {g.items.map(([p, label]) => (
                 <li key={p}>
                   <label className={`flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm transition ${has(p) ? "bg-rose-100/60" : "hover:bg-ivory-deep"}`}>
-                    <span className={`grid size-5 shrink-0 place-items-center rounded-md border ${has(p) ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-white"}`}>
+                    <span className={`grid size-5 shrink-0 place-items-center rounded-md border ${has(p) ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface"}`}>
                       {has(p) && <Check className="size-3.5" strokeWidth={3} />}
                     </span>
                     <input type="checkbox" className="sr-only" checked={has(p)} onChange={() => toggle(p)} />

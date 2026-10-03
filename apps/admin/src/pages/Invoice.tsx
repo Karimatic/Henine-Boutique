@@ -48,8 +48,8 @@ export function InvoicePage() {
   }, [o]);
 
   return (
-    <div className="min-h-dvh bg-ivory-deep/50 print:bg-white">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 print:hidden">
+    <div className="min-h-dvh bg-ivory-deep/50 print:bg-surface">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 print:hidden">
         <p className="text-sm text-ink-soft">{tr("Dans la fenêtre qui s'ouvre, choisissez « Enregistrer au format PDF ».")}</p>
         <div className="flex gap-2">
           <button type="button" onClick={() => history.back()} className="h-9 rounded-lg border border-line px-3.5 text-sm font-semibold">
@@ -67,7 +67,7 @@ export function InvoicePage() {
       ) : !o ? (
         <p className="p-6">{tr("Commande introuvable.")}</p>
       ) : (
-        <article className="mx-auto my-6 max-w-[210mm] bg-white p-[14mm] text-[13px] leading-relaxed text-ink shadow-sm print:my-0 print:shadow-none" dir="ltr">
+        <article className="mx-auto my-6 max-w-[210mm] bg-surface p-[14mm] text-[13px] leading-relaxed text-ink shadow-sm print:my-0 print:shadow-none" dir="ltr">
           <header className="flex items-start justify-between gap-6 border-b-2 border-plum-600 pb-5">
             <div className="flex items-center gap-3">
               <Blossom className="size-11" />

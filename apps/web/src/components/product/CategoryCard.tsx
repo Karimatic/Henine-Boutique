@@ -8,7 +8,7 @@ import { useLocale } from "@/lib/locale";
 export function CategoryCard({ c, sample, wide = false }: { c: CategoryDTO; sample?: ProductCardDTO; wide?: boolean }) {
   const { t, href, ar } = useLocale();
   return (
-    <a href={href(`/c/${c.slug}`)} className="lift group block overflow-hidden rounded-3xl border border-line bg-white">
+    <a href={href(`/c/${c.slug}`)} className="lift group block overflow-hidden rounded-3xl border border-line bg-surface">
       <div className={`relative overflow-hidden ${wide ? "aspect-[16/9] md:aspect-[4/5]" : "aspect-[4/5]"}`}>
         <ProductImage
           image={sample?.image ?? null}
@@ -25,7 +25,7 @@ export function CategoryCard({ c, sample, wide = false }: { c: CategoryDTO; samp
             <span dir="ltr">{c.productCount ?? 0}</span> {t.categories.products}
           </p>
         </div>
-        <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-white transition group-hover:bg-plum-600 rtl:rotate-180">
+        <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-on-ink transition group-hover:bg-plum-600 rtl:rotate-180">
           →
         </span>
       </div>

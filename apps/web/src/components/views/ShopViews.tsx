@@ -75,9 +75,9 @@ export function CartView() {
         </p>
       )}
       {items.length === 0 ? (
-        <div className="rounded-card border border-line bg-white/60 p-8 text-center">
+        <div className="rounded-card border border-line bg-surface/60 p-8 text-center">
           <p className="text-ink-soft">{t.cart.empty}</p>
-          <a href={href("/")} className="mt-5 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-ivory">
+          <a href={href("/")} className="mt-5 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-white">
             {t.cart.continue}
           </a>
         </div>
@@ -89,7 +89,7 @@ export function CartView() {
               <p className="text-sm font-semibold">
                 {subtotal >= freeOver ? t.freeShip.done : t.freeShip.left(formatDA(freeOver - subtotal, locale))}
               </p>
-              <span className="mt-2.5 block h-2 overflow-hidden rounded-full bg-white">
+              <span className="mt-2.5 block h-2 overflow-hidden rounded-full bg-surface">
                 <span
                   className="block h-full rounded-full bg-gradient-to-r from-rose-500 to-plum-600 transition-[width] duration-700 rtl:bg-gradient-to-l"
                   style={{ width: `${Math.min(100, Math.round((subtotal / freeOver) * 100))}%` }}
@@ -97,7 +97,7 @@ export function CartView() {
               </span>
             </div>
           )}
-          <ul className="divide-y divide-line rounded-card border border-line bg-white">
+          <ul className="divide-y divide-line rounded-card border border-line bg-surface">
             {items.map((i) => (
               <li key={i.variantId} className="flex gap-3 p-3">
                 <a href={href(`/produit/${i.slug}`)} className="shrink-0">
@@ -150,7 +150,7 @@ export function CheckoutView() {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
         <p className="text-ink-soft">{t.cart.empty}</p>
-        <a href={href("/")} className="mt-5 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-ivory">{t.cart.continue}</a>
+        <a href={href("/")} className="mt-5 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-white">{t.cart.continue}</a>
       </div>
     );
   }
@@ -216,7 +216,7 @@ export function CategoryView() {
       <PageTitle>{category ? (ar ? category.nameAr : category.nameFr) : <span className="skeleton inline-block h-9 w-40" />}</PageTitle>
       <div className="mb-5 flex flex-wrap items-center gap-2">
         {([["new", ar ? "الأحدث" : "Nouveautés"], ["price_asc", ar ? "السعر ↑" : "Prix ↑"], ["price_desc", ar ? "السعر ↓" : "Prix ↓"]] as [Sort, string][]).map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setSort(k)} className={`h-9 rounded-full border px-4 text-sm font-medium ${sort === k ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-white"}`}>
+          <button key={k} type="button" onClick={() => setSort(k)} className={`h-9 rounded-full border px-4 text-sm font-medium ${sort === k ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface"}`}>
             {label}
           </button>
         ))}
@@ -232,10 +232,10 @@ export function CategoryView() {
       ) : products.length ? (
         <ProductGrid products={products} />
       ) : (
-        <div className="rounded-card border border-line bg-white p-8 text-center">
+        <div className="rounded-card border border-line bg-surface p-8 text-center">
           <p className="text-ink-soft">{t.categories.empty}</p>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <a href={href("/nouveautes")} className="inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-white">
+            <a href={href("/nouveautes")} className="inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-on-ink">
               {t.home.newArrivals}
             </a>
             <a href="https://www.instagram.com/henine.boutique/" target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center rounded-full border border-line px-5 text-sm font-semibold">
@@ -315,7 +315,7 @@ export function FavoritesView() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle>{t.favorites.title}</PageTitle>
         {products.length > 0 && (
-          <button type="button" onClick={share} className="mb-6 inline-flex h-10 items-center gap-2 rounded-full border border-line bg-white px-4 text-sm font-semibold">
+          <button type="button" onClick={share} className="mb-6 inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold">
             ↗ {F.share}
           </button>
         )}
@@ -333,7 +333,7 @@ export function FavoritesView() {
           )}
         </>
       ) : (
-        <p className="rounded-card border border-line bg-white/60 p-8 text-center text-ink-soft">{t.favorites.empty}</p>
+        <p className="rounded-card border border-line bg-surface/60 p-8 text-center text-ink-soft">{t.favorites.empty}</p>
       )}
     </div>
   );
@@ -346,7 +346,7 @@ function SoldOutFavorite({ p, locale }: { p: ProductCardDTO; locale: "fr" | "ar"
   const [can, setCan] = useState(false);
   useEffect(() => setCan(pushSupported()), []);
   return (
-    <li className="flex items-center gap-3 rounded-2xl border border-line bg-white p-3">
+    <li className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3">
       <ProductImage image={p.image} alt="" category={p.categorySlug} color={p.colors[0]} sizes="64px" className="aspect-[4/5] w-12 shrink-0 rounded-lg opacity-70" />
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-semibold">{ar ? p.nameAr : p.nameFr}</p>

@@ -21,7 +21,7 @@ const STORY_GRADIENT: Record<string, string> = {
   robes: "from-rose-300 via-rose-500 to-plum-700",
   lingerie: "from-[#f6b9cf] via-rose-500 to-[#7b1747]",
   pyjamas: "from-[#fbd3e1] via-rose-300 to-plum-600",
-  promo: "from-plum-600 via-plum-700 to-ink",
+  promo: "from-plum-600 via-plum-700 to-noir",
 };
 
 const STORY_LINES: Record<string, React.ReactNode> = {
@@ -108,7 +108,7 @@ export function PromiseBand() {
   const { t, href } = useLocale();
   return (
     <div className="mx-auto max-w-6xl px-4">
-      <ul className="grid grid-cols-3 overflow-hidden rounded-[1.4rem] bg-ink text-white">
+      <ul className="grid grid-cols-3 overflow-hidden rounded-[1.4rem] bg-noir text-white">
         {t.trust.slice(0, 3).map((item, i) => {
           const Icon = TRUST_ICONS[item.icon as keyof typeof TRUST_ICONS];
           return (
@@ -154,7 +154,7 @@ export function Lookbook() {
             <Reveal delay={i * 70} className="h-full">
               <a href={IG} target="_blank" rel="noopener noreferrer" className="group relative block h-full overflow-hidden rounded-2xl bg-ivory-deep" aria-label="Instagram">
                 <img src={src} alt="" loading="lazy" className={`w-full object-cover transition duration-700 group-hover:scale-110 ${i === 0 ? "aspect-square h-full" : "aspect-square"}`} />
-                <span className="absolute inset-0 grid place-items-center bg-ink/0 text-white opacity-0 transition group-hover:bg-ink/35 group-hover:opacity-100">
+                <span className="absolute inset-0 grid place-items-center bg-noir/0 text-white opacity-0 transition group-hover:bg-noir/35 group-hover:opacity-100">
                   <InstagramIcon size={28} />
                 </span>
               </a>
@@ -174,7 +174,7 @@ export function ContestCard() {
   return (
     <section className="mx-auto max-w-6xl px-4 py-6">
       <Reveal>
-        <a href={IG} target="_blank" rel="noopener noreferrer" className="lift group relative flex items-center gap-4 overflow-hidden rounded-[1.75rem] bg-ink p-5 text-white md:p-8">
+        <a href={IG} target="_blank" rel="noopener noreferrer" className="lift group relative flex items-center gap-4 overflow-hidden rounded-[1.75rem] bg-noir p-5 text-white md:p-8">
           <img src="/ig/pyjamas-rose.jpg" alt="" loading="lazy" className="absolute inset-y-0 end-0 h-full w-1/2 object-cover opacity-45 [mask-image:linear-gradient(to_left,black,transparent)] rtl:[mask-image:linear-gradient(to_right,black,transparent)]" />
           <span className="relative grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-[#e9c98f] via-rose-500 to-plum-600 text-2xl shadow-lg transition group-hover:scale-105">🎁</span>
           <span className="relative min-w-0 flex-1">
@@ -182,7 +182,7 @@ export function ContestCard() {
             <span className="heading-display mt-0.5 block text-xl leading-snug md:text-3xl">{C.title}</span>
             <span className="mt-1 block text-sm text-white/70">{C.text}</span>
           </span>
-          <span aria-hidden="true" className="relative grid size-10 shrink-0 place-items-center rounded-full bg-white text-ink rtl:rotate-180">→</span>
+          <span aria-hidden="true" className="relative grid size-10 shrink-0 place-items-center rounded-full bg-surface text-ink rtl:rotate-180">→</span>
         </a>
       </Reveal>
     </section>
@@ -203,7 +203,7 @@ export function ReviewWall() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-700">{R.eyebrow}</p>
           <h2 className="heading-display mt-1 text-[1.65rem] leading-tight md:text-4xl">{R.title}</h2>
           {data.avg != null && (
-            <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm shadow-sm">
+            <p className="mt-3 inline-flex items-center gap-2 rounded-full bg-surface px-4 py-2 text-sm shadow-sm">
               <b className="text-lg" dir="ltr">{data.avg.toFixed(1)}</b>
               <Stars value={data.avg} size={16} />
               <span className="text-ink-soft">{R.based(data.count)}</span>
@@ -213,7 +213,7 @@ export function ReviewWall() {
         <ul className="swipe-row flex gap-3 overflow-x-auto px-4 pb-2 md:grid md:grid-cols-3 md:overflow-visible">
           {data.reviews.map((r) => (
             <li key={r.id} className="w-[80%] shrink-0 md:w-auto">
-              <figure className="flex h-full flex-col rounded-[1.4rem] bg-white p-5 shadow-[0_1px_2px_rgb(23_10_16/0.05)]">
+              <figure className="flex h-full flex-col rounded-[1.4rem] bg-surface p-5 shadow-[0_1px_2px_rgb(23_10_16/0.05)]">
                 <span aria-hidden="true" className="heading-display text-4xl leading-none text-rose-300">“</span>
                 <Stars value={r.rating} size={15} />
                 {r.text && <blockquote className="mt-2 flex-1 text-[15px] leading-relaxed">{r.text}</blockquote>}

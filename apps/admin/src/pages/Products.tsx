@@ -69,7 +69,7 @@ export function ProductsPage() {
         group={tr("Catalogue")}
         title={tr("Produits")}
         subtitle={list.data ? tr("{0} produit(s)", { 0: list.data.length }) : undefined}
-        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-ivory">{tr("+ Nouveau produit")}</Link>}
+        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-white">{tr("+ Nouveau produit")}</Link>}
       />
       <Pills
         value={status}
@@ -111,7 +111,7 @@ export function ProductsPage() {
               <ul className="grid gap-2 md:grid-cols-2">
                 {g.rows.map((p) => (
                   <li key={p.id}>
-                    <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-xl border border-line bg-white p-3 transition hover:border-plum-600/40">
+                    <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-xl border border-line bg-surface p-3 transition hover:border-plum-600/40">
                       {p.image ? <img src={p.image} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-rose-100 text-2xl">👗</span>}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
@@ -358,7 +358,7 @@ export function ProductEditor() {
                 )
               }
             >
-              <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white p-6 text-center text-sm text-ink-soft hover:border-plum-600">
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-surface p-6 text-center text-sm text-ink-soft hover:border-plum-600">
                 <span className="text-2xl">＋</span>
                 {tr("Ajouter des photos")}
                 <span className="text-xs">{tr("Le produit est d'abord enregistré en brouillon, puis les photos sont envoyées.")}</span>
@@ -503,7 +503,7 @@ function OptionsEditor({ options, onChange, disabled }: { options: Option[]; onC
             <p className="mb-2 text-sm font-medium">{o.nameFr}</p>
             <div className="flex flex-wrap gap-2">
               {o.values.map((v) => (
-                <span key={v.ref} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white ps-2 pe-1 text-sm">
+                <span key={v.ref} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface ps-2 pe-1 text-sm">
                   {o.kind === "couleur" && (
                     <input
                       type="color"
@@ -573,7 +573,7 @@ function RelatedPicker({ productId, ids, onChange }: { productId?: number; ids: 
       {ids.length > 0 && (
         <ul className="mb-3 flex flex-wrap gap-2">
           {ids.map((id) => (
-            <li key={id} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-white ps-1 pe-1 text-sm">
+            <li key={id} className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface ps-1 pe-1 text-sm">
               {byId.get(id)?.image ? <img src={byId.get(id)!.image!} alt="" className="size-7 rounded-full object-cover" /> : <span className="grid size-7 place-items-center rounded-full bg-rose-100 text-xs">👗</span>}
               {byId.get(id)?.name_fr ?? `#${id}`}
               <button type="button" onClick={() => onChange(ids.filter((x) => x !== id))} className="grid size-7 place-items-center rounded-full text-ink-soft hover:bg-rose-100" aria-label={tr("Retirer")}>
@@ -645,7 +645,7 @@ function StockGrid({ form, onChange, disabled }: { form: ProductForm; onChange: 
                       aria-label={tr("Stock {0} {1}", { 0: c.labelFr, 1: s.labelFr })}
                       title={v.stockReserved ? tr("{0} réservé(s) par des commandes", { 0: v.stockReserved }) : undefined}
                       className={`h-11 w-full min-w-14 rounded-lg border text-center tabular-nums outline-none focus:border-plum-600 ${
-                        !v.isActive ? "border-line bg-stone-100 text-ink-soft" : v.stockOnHand - (v.stockReserved ?? 0) <= 0 ? "border-red-200 bg-red-50" : v.stockOnHand - (v.stockReserved ?? 0) <= v.lowStockThreshold ? "border-amber-200 bg-amber-50" : "border-line bg-white"
+                        !v.isActive ? "border-line bg-stone-100 text-ink-soft" : v.stockOnHand - (v.stockReserved ?? 0) <= 0 ? "border-red-200 bg-red-50" : v.stockOnHand - (v.stockReserved ?? 0) <= v.lowStockThreshold ? "border-amber-200 bg-amber-50" : "border-line bg-surface"
                       }`}
                       value={v.stockOnHand}
                       onChange={(e) => setStock(i, Math.round(Number(e.target.value) || 0))}
@@ -686,7 +686,7 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
           {gridable && (
             <span className="inline-flex rounded-full border border-line p-0.5 text-xs">
               {(["grid", "list"] as const).map((k) => (
-                <button key={k} type="button" onClick={() => setView(k)} className={`rounded-full px-2.5 py-1 font-semibold ${view === k ? "bg-plum-600 text-ivory" : ""}`}>
+                <button key={k} type="button" onClick={() => setView(k)} className={`rounded-full px-2.5 py-1 font-semibold ${view === k ? "bg-plum-600 text-white" : ""}`}>
                   {k === "grid" ? tr("Tableau") : tr("Liste")}
                 </button>
               ))}
@@ -830,14 +830,14 @@ function ImagesEditor({
         {images.map((img, i) => (
           <li key={img.id} className="group relative">
             <img src={imageUrl(img, 480)} alt="" className="aspect-[4/5] w-full rounded-xl object-cover" style={img.lqip ? { backgroundImage: `url(${img.lqip})`, backgroundSize: "cover" } : undefined} />
-            {i === 0 && <span className="absolute start-1.5 top-1.5 rounded-full bg-ink/75 px-2 py-0.5 text-[10px] font-semibold text-ivory">{tr("Principale")}</span>}
+            {i === 0 && <span className="absolute start-1.5 top-1.5 rounded-full bg-noir/75 px-2 py-0.5 text-[10px] font-semibold text-white">{tr("Principale")}</span>}
             <div className="mt-1 flex items-center justify-between gap-1">
-              <button type="button" disabled={i === 0} className="grid size-8 place-items-center rounded-full border border-line bg-white text-sm disabled:opacity-30" aria-label={tr("Avancer")} onClick={() => { const n = [...images]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; void persist(n); }}>
+              <button type="button" disabled={i === 0} className="grid size-8 place-items-center rounded-full border border-line bg-surface text-sm disabled:opacity-30" aria-label={tr("Avancer")} onClick={() => { const n = [...images]; [n[i - 1], n[i]] = [n[i]!, n[i - 1]!]; void persist(n); }}>
                 ←
               </button>
               {colors.length > 0 && (
                 <select
-                  className="h-8 min-w-0 flex-1 rounded-lg border border-line bg-white px-1 text-xs"
+                  className="h-8 min-w-0 flex-1 rounded-lg border border-line bg-surface px-1 text-xs"
                   value={img.optionValueId ?? ""}
                   aria-label={tr("Couleur de la photo")}
                   onChange={(e) => void persist(images.map((x) => (x.id === img.id ? { ...x, optionValueId: e.target.value ? Number(e.target.value) : null } : x)))}
@@ -848,7 +848,7 @@ function ImagesEditor({
               )}
               <button
                 type="button"
-                className="grid size-8 place-items-center rounded-full border border-red-200 bg-white text-sm text-red-700"
+                className="grid size-8 place-items-center rounded-full border border-red-200 bg-surface text-sm text-red-700"
                 aria-label={tr("Supprimer la photo")}
                 onClick={async () => {
                   if (!confirm(tr("Supprimer cette photo ?"))) return;
@@ -862,7 +862,7 @@ function ImagesEditor({
           </li>
         ))}
         <li>
-          <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white text-center text-xs text-ink-soft hover:border-plum-600">
+          <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-surface text-center text-xs text-ink-soft hover:border-plum-600">
             <span className="text-2xl">＋</span>
             {tr("Ajouter des photos")}
             <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { void handleFiles(e.target.files); e.target.value = ""; }} disabled={!!busy} />

@@ -53,8 +53,8 @@ export function SlipsPage() {
   }, [q.data]);
 
   return (
-    <div className="slips min-h-dvh bg-ivory-deep/50 print:bg-white">
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-white px-4 py-3 print:hidden">
+    <div className="slips min-h-dvh bg-ivory-deep/50 print:bg-surface">
+      <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-3 print:hidden">
         <p className="text-sm">
           <b>{q.data?.slips.length ?? 0}</b> {tr("bordereau(x) · 2 par feuille A4")}
         </p>
@@ -85,7 +85,7 @@ export function SlipsPage() {
 function SlipCard({ s, store }: { s: Slip; store: SlipsData["store"] }) {
   const units = s.items.reduce((n, i) => n + i.qty, 0);
   return (
-    <section className="slip mb-6 border border-dashed border-ink/40 bg-white p-5 text-[12.5px] leading-snug text-ink print:mb-0">
+    <section className="slip mb-6 border border-dashed border-ink/40 bg-surface p-5 text-[12.5px] leading-snug text-ink print:mb-0">
       <header className="flex items-start justify-between gap-4 border-b border-ink/20 pb-3">
         <div className="flex items-center gap-2">
           <Blossom size={26} />

@@ -83,7 +83,7 @@ export function SettingsPage() {
 /* ───────────── Layout helpers ───────────── */
 
 function Panel({ children }: { children: ReactNode }) {
-  return <div className="divide-y divide-line rounded-xl border border-line bg-white px-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:px-6">{children}</div>;
+  return <div className="divide-y divide-line rounded-xl border border-line bg-surface px-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:px-6">{children}</div>;
 }
 
 /** One setting: title + plain explanation on the left, the control on the right. */
@@ -108,11 +108,11 @@ function Switch({ checked, onChange, on, off, warn = false }: { checked: boolean
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-start transition ${
-        checked ? (warn ? "border-amber-300 bg-amber-50" : "border-plum-600/30 bg-rose-100/50") : "border-line bg-white hover:bg-ivory-deep/60"
+        checked ? (warn ? "border-amber-300 bg-amber-50" : "border-plum-600/30 bg-rose-100/50") : "border-line bg-surface hover:bg-ivory-deep/60"
       }`}
     >
       <span className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? (warn ? "bg-amber-500" : "bg-plum-600") : "bg-stone-300"}`}>
-        <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-all ${checked ? "start-[1.4rem]" : "start-0.5"}`} />
+        <span className={`absolute top-0.5 size-5 rounded-full bg-surface shadow-sm transition-all ${checked ? "start-[1.4rem]" : "start-0.5"}`} />
       </span>
       <span className="text-sm font-semibold">{checked ? on : off}</span>
     </button>
@@ -294,7 +294,7 @@ export function HomeSettingsPage() {
         title={tr("Page d'accueil")}
         subtitle={tr("Ce que les clientes voient en arrivant sur la boutique. Tout s'applique tout de suite.")}
         actions={
-          <a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg border border-line bg-white px-3.5 text-sm font-semibold">
+          <a href="/" target="_blank" rel="noreferrer" className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">
             {tr("Voir la boutique ↗")}
           </a>
         }

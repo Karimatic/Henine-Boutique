@@ -22,7 +22,7 @@ export function QuickAddButton({ p }: { p: ProductCardDTO }) {
         type="button"
         onClick={() => setOpen(true)}
         aria-label={t.quickAdd.open}
-        className="absolute bottom-2 end-2 grid size-10 place-items-center rounded-full bg-white/95 text-xl font-light text-ink shadow-md backdrop-blur transition hover:bg-ink hover:text-white active:scale-90"
+        className="absolute bottom-2 end-2 grid size-10 place-items-center rounded-full bg-surface/95 text-xl font-light text-ink shadow-md backdrop-blur transition hover:bg-ink hover:text-on-ink active:scale-90"
       >
         +
       </button>
@@ -93,7 +93,7 @@ function QuickAddSheet({ slug, onClose }: { slug: string; onClose: () => void })
   }
 
   return createPortal(
-    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-ink/45 md:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-end justify-center bg-noir/45 md:items-center" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
@@ -101,7 +101,7 @@ function QuickAddSheet({ slug, onClose }: { slug: string; onClose: () => void })
         dir={ar ? "rtl" : "ltr"}
         lang={locale}
         onClick={(e) => e.stopPropagation()}
-        className="animate-sheet max-h-[88vh] w-full overflow-y-auto rounded-t-[1.75rem] bg-white p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:max-w-md md:rounded-[1.75rem]"
+        className="animate-sheet max-h-[88vh] w-full overflow-y-auto rounded-t-[1.75rem] bg-surface p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] md:max-w-md md:rounded-[1.75rem]"
       >
         <span aria-hidden="true" className="mx-auto mb-4 block h-1 w-10 rounded-full bg-line md:hidden" />
         {!p ? (
@@ -148,7 +148,7 @@ function QuickAddSheet({ slug, onClose }: { slug: string; onClose: () => void })
                           disabled={soldOut}
                           onClick={() => setSelected((s) => ({ ...s, [o.id]: v.id }))}
                           aria-pressed={on}
-                          className={`h-11 min-w-12 rounded-2xl border px-4 text-sm font-semibold transition active:scale-95 ${on ? "border-ink bg-ink text-white" : "border-line bg-white"} ${soldOut ? "text-ink-soft line-through opacity-50" : ""}`}
+                          className={`h-11 min-w-12 rounded-2xl border px-4 text-sm font-semibold transition active:scale-95 ${on ? "border-ink bg-ink text-on-ink" : "border-line bg-surface"} ${soldOut ? "text-ink-soft line-through opacity-50" : ""}`}
                         >
                           {ar ? v.labelAr : v.labelFr}
                         </button>
@@ -162,7 +162,7 @@ function QuickAddSheet({ slug, onClose }: { slug: string; onClose: () => void })
             {added ? (
               <div className="mt-6 grid gap-2">
                 <p className="text-center text-sm font-semibold text-success">{t.quickAdd.added}</p>
-                <a href={href("/panier")} className="grid h-12 place-items-center rounded-full bg-ink font-semibold text-white">
+                <a href={href("/panier")} className="grid h-12 place-items-center rounded-full bg-ink font-semibold text-on-ink">
                   {t.quickAdd.viewCart}
                 </a>
                 <button type="button" onClick={onClose} className="h-11 rounded-full text-sm font-semibold text-ink-soft">

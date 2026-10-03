@@ -42,7 +42,7 @@ export function Countdown({ left, large = false }: { left: number; large?: boole
   return (
     <span className="inline-flex gap-1.5 tabular-nums" dir="ltr" role="timer" aria-live="off">
       {shown.map(([v, u], i) => (
-        <span key={i} className={`inline-flex items-baseline gap-0.5 rounded-xl bg-ivory/15 ${large ? "px-3 py-2 text-3xl font-bold md:text-4xl" : "px-2 py-1 text-base font-bold"}`}>
+        <span key={i} className={`inline-flex items-baseline gap-0.5 rounded-xl bg-white/15 ${large ? "px-3 py-2 text-3xl font-bold md:text-4xl" : "px-2 py-1 text-base font-bold"}`}>
           {String(v).padStart(2, "0")}
           <span className={large ? "text-sm font-medium opacity-80" : "text-[11px] font-medium opacity-80"}>{u}</span>
         </span>
@@ -63,7 +63,7 @@ export function DropBanner({ drop }: { drop: DropTeaserDTO }) {
     <section className="mx-auto max-w-6xl px-4 pt-4">
       <a
         href={href(`/collection/${drop.slug}`)}
-        className="flex flex-col items-center gap-3 rounded-[1.5rem] bg-gradient-to-br from-plum-700 via-plum-600 to-rose-700 p-5 text-center text-ivory shadow-soft md:flex-row md:justify-between md:p-6 md:text-start"
+        className="flex flex-col items-center gap-3 rounded-[1.5rem] bg-gradient-to-br from-plum-700 via-plum-600 to-rose-700 p-5 text-center text-white shadow-soft md:flex-row md:justify-between md:p-6 md:text-start"
       >
         <span>
           <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-rose-300">{done ? t.drop.live : t.drop.soon}</span>
@@ -71,7 +71,7 @@ export function DropBanner({ drop }: { drop: DropTeaserDTO }) {
         </span>
         {!done && drop.showCountdown ? (
           <span className="flex flex-col items-center gap-1.5 md:items-end">
-            <span className="text-xs text-ivory/80">{t.drop.launchIn}</span>
+            <span className="text-xs text-white/80">{t.drop.launchIn}</span>
             <Countdown left={left} />
           </span>
         ) : (
@@ -125,18 +125,18 @@ export function CollectionView() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-12 pt-6">
-      <header className="relative mb-8 overflow-hidden rounded-[1.75rem] bg-plum-700 text-ivory">
+      <header className="relative mb-8 overflow-hidden rounded-[1.75rem] bg-plum-700 text-white">
         {c.image && <ProductImage image={c.image} alt="" sizes="100vw" priority className="absolute inset-0 opacity-30" />}
         <div className="relative flex flex-col items-center gap-4 px-5 py-10 text-center md:py-14">
           <Blossom size={34} />
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-rose-300">{ended ? t.drop.ended : upcoming ? t.drop.soon : t.drop.live}</p>
           <h1 className="heading-display text-4xl leading-tight md:text-5xl">{name}</h1>
-          {description && <p className="max-w-xl text-ivory/85">{description}</p>}
+          {description && <p className="max-w-xl text-white/85">{description}</p>}
           {upcoming && c.showCountdown && c.startsAt && (
             <div className="mt-2 flex flex-col items-center gap-2">
-              <span className="text-sm text-ivory/80">{t.drop.launchIn}</span>
+              <span className="text-sm text-white/80">{t.drop.launchIn}</span>
               <Countdown left={left} large />
-              <span className="text-sm text-ivory/80">{t.drop.remind}</span>
+              <span className="text-sm text-white/80">{t.drop.remind}</span>
             </div>
           )}
         </div>

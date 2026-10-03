@@ -64,7 +64,7 @@ export function CustomersPage() {
       />
       <SearchBox value={q} onChange={setQ} placeholder={tr("Nom ou téléphone…")} />
       {list.error ? <ErrorState error={list.error} onRetry={list.refetch} /> : !list.data ? <ListSkeleton /> : list.data.rows.length === 0 ? <Empty title={tr("Aucune cliente")} /> : (
-        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-white">
+        <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
           {list.data.rows.map((c) => (
             <li key={c.id}>
               <button type="button" onClick={() => setOpen(c.id)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start hover:bg-rose-100/30">
@@ -141,7 +141,7 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
         <div className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-mono">{formatDzPhone(c.phone)}</span>
-            <a href={telLink(c.phone)} className="rounded-full bg-plum-600 px-3 py-1.5 text-sm font-semibold text-ivory">{tr("📞 Appeler")}</a>
+            <a href={telLink(c.phone)} className="rounded-full bg-plum-600 px-3 py-1.5 text-sm font-semibold text-white">{tr("📞 Appeler")}</a>
             <a href={waLink(c.phone, `Bonjour ${c.name} 🌸 `)} target="_blank" rel="noreferrer" className="rounded-full bg-[#25D366] px-3 py-1.5 text-sm font-semibold text-white">{tr("WhatsApp")}</a>
             {c.is_blacklisted ? <Badge tone="bg-red-100 text-red-800">{tr("⛔ Liste noire")}</Badge> : null}
             <SegmentBadge segment={q.data.segment} />
@@ -273,7 +273,7 @@ export function CartsPage() {
       )}
       <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-ivory-deep p-3 text-sm">
         <span className="font-medium">{tr("🎁 Offrir un code dans le message :")}</span>
-        <select className="h-9 rounded-lg border border-line bg-white px-2" value={code} onChange={(e) => setCode(e.target.value)}>
+        <select className="h-9 rounded-lg border border-line bg-surface px-2" value={code} onChange={(e) => setCode(e.target.value)}>
           <option value="">{tr("Aucun code")}</option>
           {usable.map((x) => (
             <option key={x.code} value={x.code}>{x.code}</option>
@@ -293,7 +293,7 @@ export function CartsPage() {
           {q.data.rows.map((c) => {
             const [stepLabel, stepN] = STEP_LABEL[c.step ?? "details"] ?? ["—", 1];
             return (
-            <li key={c.id} className="rounded-xl border border-line bg-white p-4">
+            <li key={c.id} className="rounded-xl border border-line bg-surface p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="font-semibold">{c.name ?? tr("Sans nom")} · <span className="font-mono text-sm">{formatDzPhone(c.phone)}</span></p>
@@ -319,7 +319,7 @@ export function CartsPage() {
                 <Badge tone="bg-emerald-100 text-emerald-800">{tr("✓ Commande")} {c.recovered_code}</Badge>
               ) : (
                 <div className="mt-2 flex flex-wrap gap-2">
-                <a href={telLink(c.phone)} onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))} className="inline-flex h-9 items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-ivory">
+                <a href={telLink(c.phone)} onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))} className="inline-flex h-9 items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-white">
                   {tr("📞 Appeler")}
                 </a>
                 <a

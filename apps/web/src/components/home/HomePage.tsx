@@ -48,9 +48,9 @@ export function HomePage() {
     hero: () => (
       /* Hero: the shop's photo, the promise centred on it */
       <section className="px-3 pt-3 md:px-4">
-        <div className="relative mx-auto flex min-h-[58svh] max-w-6xl flex-col items-center justify-end overflow-hidden rounded-[1.75rem] bg-ink text-center md:min-h-[34rem] md:justify-center md:rounded-[2.25rem]">
+        <div className="relative mx-auto flex min-h-[58svh] max-w-6xl flex-col items-center justify-end overflow-hidden rounded-[1.75rem] bg-noir text-center md:min-h-[34rem] md:justify-center md:rounded-[2.25rem]">
           <img src={design.heroImage ?? "/ig/pyjamas-rayures.jpg"} alt="" fetchPriority="high" className="hero-zoom-img absolute inset-0 size-full object-cover" />
-          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/95 via-ink/45 to-ink/10 md:bg-ink/45" />
+          <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-noir/95 via-noir/45 to-noir/10 md:bg-noir/45" />
           <div className="relative flex w-full max-w-2xl flex-col items-center p-6 pb-8 text-white md:p-12">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur">
               <span className="size-1.5 animate-pulse rounded-full bg-rose-300" aria-hidden="true" />
@@ -59,7 +59,7 @@ export function HomePage() {
             <AnimatedTagline key={title} text={title} tone="light" className="text-[2.35rem] leading-[1.1] md:text-6xl" />
             <p className="mt-3 max-w-md text-base leading-relaxed text-white/85 md:text-lg">{subtitle}</p>
             <div className="mt-6 flex flex-col items-center gap-2">
-              <a href="#nouveautes" className="lift inline-flex h-12 items-center justify-center rounded-full bg-white px-8 font-semibold text-ink">
+              <a href="#nouveautes" className="lift inline-flex h-12 items-center justify-center rounded-full bg-white px-8 font-semibold text-noir">
                 {t.hero.cta}
               </a>
               {heroProduct && (

@@ -13,9 +13,9 @@ import { tr } from "./i18n";
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 const VARIANT: Record<Variant, string> = {
   primary: "bg-plum-600 text-white shadow-[0_1px_2px_rgb(157_23_77/0.25)] hover:bg-plum-700",
-  secondary: "border border-line bg-white text-ink shadow-[0_1px_2px_rgb(43_22_32/0.04)] hover:border-plum-600/60 hover:bg-rose-100/40",
+  secondary: "border border-line bg-surface text-ink shadow-[0_1px_2px_rgb(43_22_32/0.04)] hover:border-plum-600/60 hover:bg-rose-100/40",
   ghost: "text-ink-soft hover:bg-rose-100/70 hover:text-ink",
-  danger: "border border-red-200 bg-white text-red-700 hover:bg-red-50",
+  danger: "border border-red-200 bg-surface text-red-700 hover:bg-red-50",
 };
 
 export function Button({
@@ -46,7 +46,7 @@ export function Spinner({ className = "size-4" }: { className?: string }) {
 /* ── Form fields ── */
 
 export const inputCls =
-  "h-10 w-full rounded-lg border border-line bg-white px-3 text-ink shadow-[0_1px_2px_rgb(43_22_32/0.04)] outline-none transition placeholder:text-ink-soft/60 focus:border-plum-600 focus:ring-3 focus:ring-plum-600/15 disabled:bg-ivory-deep";
+  "h-10 w-full rounded-lg border border-line bg-surface px-3 text-ink shadow-[0_1px_2px_rgb(43_22_32/0.04)] outline-none transition placeholder:text-ink-soft/60 focus:border-plum-600 focus:ring-3 focus:ring-plum-600/15 disabled:bg-ivory-deep";
 
 export function Field({ label, hint, error, children, className = "" }: { label: string; hint?: ReactNode; error?: string | null; children: (id: string) => ReactNode; className?: string }) {
   const id = useId();
@@ -129,7 +129,7 @@ export function Toggle({ checked, onChange, label, hint }: { checked: boolean; o
         onClick={() => onChange(!checked)}
         className={`relative mt-0.5 h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-plum-600" : "bg-stone-300"}`}
       >
-        <span className={`absolute top-0.5 size-5 rounded-full bg-white shadow-sm transition-all ${checked ? "start-[1.4rem]" : "start-0.5"}`} />
+        <span className={`absolute top-0.5 size-5 rounded-full bg-surface shadow-sm transition-all ${checked ? "start-[1.4rem]" : "start-0.5"}`} />
       </button>
     </label>
   );
@@ -152,7 +152,7 @@ export function PageHeader({ title, subtitle, actions, group }: { title: string;
 
 export function Card({ title, actions, children, className = "", padded = true }: { title?: ReactNode; actions?: ReactNode; children: ReactNode; className?: string; padded?: boolean }) {
   return (
-    <section className={`rounded-xl border border-line bg-white shadow-[0_1px_2px_rgb(43_22_32/0.04)] ${padded ? "p-4 md:p-6" : ""} ${className}`}>
+    <section className={`rounded-xl border border-line bg-surface shadow-[0_1px_2px_rgb(43_22_32/0.04)] ${padded ? "p-4 md:p-6" : ""} ${className}`}>
       {(title || actions) && (
         <div className={`mb-4 flex items-center justify-between gap-2 ${padded ? "" : "px-4 pt-4 md:px-6 md:pt-6"}`}>
           {title && <h2 className="text-lg font-semibold">{title}</h2>}
@@ -166,7 +166,7 @@ export function Card({ title, actions, children, className = "", padded = true }
 
 export function Stat({ label, value, hint, tone }: { label: string; value: ReactNode; hint?: ReactNode; tone?: "good" | "warn" }) {
   return (
-    <div className="rounded-xl border border-line bg-white p-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:p-5">
+    <div className="rounded-xl border border-line bg-surface p-4 shadow-[0_1px_2px_rgb(43_22_32/0.04)] md:p-5">
       <p className="text-sm text-ink-soft">{label}</p>
       <p className={`mt-1.5 text-2xl font-semibold tabular-nums ${tone === "warn" ? "text-amber-700" : tone === "good" ? "text-emerald-700" : "text-ink"}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-ink-soft">{hint}</p>}
@@ -191,7 +191,7 @@ export function Pills<T extends string>({ value, onChange, options }: { value: T
           type="button"
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
-          className={`h-8 shrink-0 rounded-md border px-3 text-sm font-medium transition md:border-transparent ${value === o.value ? "border-plum-600 bg-plum-600 text-white shadow-sm md:bg-white md:text-plum-700" : "border-line bg-white text-ink-soft hover:text-ink md:bg-transparent"}`}
+          className={`h-8 shrink-0 rounded-md border px-3 text-sm font-medium transition md:border-transparent ${value === o.value ? "border-plum-600 bg-plum-600 text-white shadow-sm md:bg-surface md:text-plum-700" : "border-line bg-surface text-ink-soft hover:text-ink md:bg-transparent"}`}
         >
           {o.label}
         </button>
@@ -215,7 +215,7 @@ export function SearchBox({ value, onChange, placeholder = "Rechercher…" }: { 
 
 export function Empty({ icon = "🌸", title, children }: { icon?: string; title: string; children?: ReactNode }) {
   return (
-    <div className="rounded-xl border border-dashed border-line bg-white/60 px-6 py-12 text-center">
+    <div className="rounded-xl border border-dashed border-line bg-surface/60 px-6 py-12 text-center">
       <p className="mx-auto grid size-12 place-items-center rounded-full bg-rose-100 text-2xl">{icon}</p>
       <p className="mt-2 font-semibold">{title}</p>
       {children && <div className="mt-1 text-sm text-ink-soft">{children}</div>}
@@ -264,16 +264,16 @@ export function Sheet({ open, onClose, title, children, footer, wide = false }: 
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-end justify-center md:items-stretch md:justify-end" role="dialog" aria-modal="true">
-      <button type="button" aria-label={tr("Fermer")} onClick={onClose} className="animate-fade absolute inset-0 bg-ink/40" />
+      <button type="button" aria-label={tr("Fermer")} onClick={onClose} className="animate-fade absolute inset-0 bg-noir/40" />
       <div className={`animate-sheet relative flex max-h-[92dvh] w-full flex-col rounded-t-2xl bg-ivory shadow-2xl md:max-h-none md:rounded-none md:rounded-s-2xl ${wide ? "md:w-[44rem]" : "md:w-[32rem]"}`}>
-        <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-line/70 bg-white px-4 py-3 md:rounded-none md:rounded-ss-2xl">
+        <div className="flex items-center justify-between gap-3 rounded-t-2xl border-b border-line/70 bg-surface px-4 py-3 md:rounded-none md:rounded-ss-2xl">
           <div className="min-w-0 font-semibold">{title}</div>
           <button type="button" onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-lg text-xl hover:bg-rose-100" aria-label={tr("Fermer")}>
             {tr("×")}
           </button>
         </div>
         <div className="flex-1 overflow-y-auto overscroll-contain p-4">{children}</div>
-        {footer && <div className="border-t border-line/70 bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">{footer}</div>}
+        {footer && <div className="border-t border-line/70 bg-surface p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">{footer}</div>}
       </div>
     </div>,
     document.body,
@@ -301,7 +301,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-[60] flex flex-col items-center gap-2 px-4 md:bottom-6" aria-live="polite">
         {toasts.map((t) => (
-          <div key={t.id} className={`animate-pop pointer-events-auto max-w-sm rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${t.tone === "error" ? "bg-red-700 text-white" : "bg-ink text-white"}`}>
+          <div key={t.id} className={`animate-pop pointer-events-auto max-w-sm rounded-lg px-4 py-3 text-sm font-medium shadow-lg ${t.tone === "error" ? "bg-[#b3261e] text-white" : "bg-ink text-on-ink"}`}>
 
             {t.text}
           </div>

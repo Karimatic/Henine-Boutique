@@ -53,7 +53,7 @@ export function ActivityToast() {
     <div role="status" className="pointer-events-none fixed inset-x-3 top-[4.25rem] z-30 flex justify-center md:top-20">
       <a
         href={href(`/produit/${shown.productSlug}`)}
-        className="toast-in pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl border border-line bg-white/95 px-4 py-2.5 shadow-[0_12px_32px_-12px_rgb(23_10_16/0.35)] backdrop-blur"
+        className="toast-in pointer-events-auto flex max-w-sm items-center gap-3 rounded-2xl border border-line bg-surface/95 px-4 py-2.5 shadow-[0_12px_32px_-12px_rgb(23_10_16/0.35)] backdrop-blur"
       >
         <span className="relative flex size-2.5 shrink-0" aria-hidden="true">
           <span className="absolute inline-flex size-full animate-ping rounded-full bg-emerald-400 opacity-60" />

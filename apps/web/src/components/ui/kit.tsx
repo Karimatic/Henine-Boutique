@@ -126,4 +126,4 @@ export function PageTitle({ children }: { children: React.ReactNode }) {
 }
 
 export const inputCls =
-  "h-12 w-full rounded-xl border border-line bg-white px-4 text-ink shadow-[inset_0_1px_2px_rgb(42_26_36/0.04)] outline-none transition placeholder:text-ink-soft/60 focus:border-plum-600 focus:ring-2 focus:ring-plum-600/15";
+  "h-12 w-full rounded-xl border border-line bg-surface px-4 text-ink shadow-[inset_0_1px_2px_rgb(42_26_36/0.04)] outline-none transition placeholder:text-ink-soft/60 focus:border-plum-600 focus:ring-2 focus:ring-plum-600/15";

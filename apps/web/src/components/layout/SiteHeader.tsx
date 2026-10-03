@@ -88,7 +88,7 @@ export function SiteHeader() {
           <a href={href("/panier")} className="relative grid size-11 place-items-center rounded-full hover:bg-rose-100" aria-label={`${t.nav.cart} (${count})`}>
             <BagIcon />
             {count > 0 && (
-              <span className="absolute end-0.5 top-0.5 grid min-w-5 place-items-center rounded-full bg-plum-600 px-1 text-[11px] font-bold leading-5 text-ivory">
+              <span className="absolute end-0.5 top-0.5 grid min-w-5 place-items-center rounded-full bg-plum-600 px-1 text-[11px] font-bold leading-5 text-white">
                 {count}
               </span>
             )}

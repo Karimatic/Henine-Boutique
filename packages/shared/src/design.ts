@@ -157,6 +157,20 @@ export function themeVars(colors: DesignDTO["colors"]): Record<string, string> {
     "--color-rose-100": soft,
     "--color-ivory-deep": mixHex(soft, "#ffffff", 0.45),
     "--color-line": mixHex(soft, "#d9d0d4", 0.5),
+    "--color-accent-text": mixHex(accent, "#000000", 0.25),
+  };
+}
+
+/** The same theme on the dark ground: soft fills become deep tints, accent text turns light. */
+export function themeVarsDark(colors: DesignDTO["colors"]): Record<string, string> {
+  const light = themeVars(colors);
+  const accent = light["--color-plum-600"]!;
+  return {
+    ...light,
+    "--color-rose-100": mixHex(accent, "#140c10", 0.78),
+    "--color-ivory-deep": mixHex(accent, "#1a1015", 0.92),
+    "--color-line": mixHex(accent, "#2a1d24", 0.86),
+    "--color-accent-text": mixHex(accent, "#ffffff", 0.58),
   };
 }
 

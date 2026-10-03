@@ -51,14 +51,14 @@ export function ContactView() {
             <textarea className={`${inputCls} h-36 py-3`} placeholder={t.contact.message} value={form.message} onChange={set("message")} maxLength={2000} aria-label={t.contact.message} />
             <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={setToken} locale={locale} />
             {state === "error" && <p className="text-sm text-danger">{t.checkout.errors.generic}</p>}
-            <button type="submit" disabled={state === "sending"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-7 font-semibold text-ivory">
+            <button type="submit" disabled={state === "sending"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-7 font-semibold text-white">
               {state === "sending" && <Spinner className="size-4" />}
               {t.contact.send}
             </button>
           </form>
         )}
       </div>
-      <aside className="h-fit space-y-4 rounded-card border border-line bg-white/60 p-5 text-sm">
+      <aside className="h-fit space-y-4 rounded-card border border-line bg-surface/60 p-5 text-sm">
         {wa && (
           <a href={`https://wa.me/${wa}`} target="_blank" rel="noopener noreferrer" className="grid h-12 place-items-center rounded-full bg-[#25D366] font-semibold text-white">
             {t.contact.whatsapp}
@@ -107,7 +107,7 @@ export function LinksView() {
               href={l.target.startsWith("/") ? href(l.target) : l.target}
               target={l.target.startsWith("http") ? "_blank" : undefined}
               rel={l.target.startsWith("http") ? "noopener noreferrer" : undefined}
-              className="flex h-14 items-center justify-center rounded-full border border-line bg-white font-semibold shadow-sm transition hover:border-plum-600 active:scale-[0.99]"
+              className="flex h-14 items-center justify-center rounded-full border border-line bg-surface font-semibold shadow-sm transition hover:border-plum-600 active:scale-[0.99]"
             >
               {(ar ? l.labelAr : l.labelFr) || l.target}
             </a>

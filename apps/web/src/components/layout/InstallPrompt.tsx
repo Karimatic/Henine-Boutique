@@ -67,7 +67,7 @@ export function InstallPrompt() {
   };
   if (!show || (!event && !ios)) return null;
   return (
-    <div className="toast-in fixed inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-50 mx-auto max-w-md rounded-3xl bg-white p-4 shadow-[0_18px_50px_-12px_rgb(23_10_16/0.4)] ring-1 ring-line" role="dialog" aria-label={I.title}>
+    <div className="toast-in fixed inset-x-3 top-[calc(0.75rem+env(safe-area-inset-top))] z-50 mx-auto max-w-md rounded-3xl bg-surface p-4 shadow-[0_18px_50px_-12px_rgb(23_10_16/0.4)] ring-1 ring-line" role="dialog" aria-label={I.title}>
       <div className="flex items-start gap-3">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-rose-100">
           <Blossom size={30} />

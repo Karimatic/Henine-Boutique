@@ -87,7 +87,7 @@ export function ProductWizard() {
     }
   }
 
-  const chip = (on: boolean) => `inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${on ? "border-ink bg-ink text-white" : "border-line bg-white hover:border-ink/40"}`;
+  const chip = (on: boolean) => `inline-flex h-11 items-center gap-2 rounded-xl border px-4 text-sm font-semibold transition ${on ? "border-ink bg-ink text-on-ink" : "border-line bg-surface hover:border-ink/40"}`;
 
   return (
     <div className="mx-auto max-w-2xl pb-28">
@@ -121,14 +121,14 @@ export function ProductWizard() {
             {previews.map((u, i) => (
               <li key={u} className="relative">
                 <img src={u} alt="" className="aspect-[4/5] w-full rounded-xl object-cover" />
-                {i === 0 && <span className="absolute start-1.5 top-1.5 rounded-full bg-ink/75 px-2 py-0.5 text-[10px] font-semibold text-white">{tr("Principale")}</span>}
-                <button type="button" aria-label={tr("Retirer")} onClick={() => setFiles((f) => f.filter((_, k) => k !== i))} className="absolute end-1.5 top-1.5 grid size-7 place-items-center rounded-full bg-white/90 text-sm shadow">
+                {i === 0 && <span className="absolute start-1.5 top-1.5 rounded-full bg-noir/75 px-2 py-0.5 text-[10px] font-semibold text-white">{tr("Principale")}</span>}
+                <button type="button" aria-label={tr("Retirer")} onClick={() => setFiles((f) => f.filter((_, k) => k !== i))} className="absolute end-1.5 top-1.5 grid size-7 place-items-center rounded-full bg-surface/90 text-sm shadow">
                   ×
                 </button>
               </li>
             ))}
             <li>
-              <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-white text-center text-xs text-ink-soft hover:border-plum-600">
+              <label className="flex aspect-[4/5] cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-surface text-center text-xs text-ink-soft hover:border-plum-600">
                 <ImagePlus className="size-7 text-plum-600" />
                 {tr("Ajouter des photos")}
                 <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => { const l = e.target.files ? [...e.target.files] : []; e.target.value = ""; setFiles((f) => [...f, ...l].slice(0, 12)); }} />
@@ -262,7 +262,7 @@ export function ProductWizard() {
                             aria-label={`${c.labelFr} ${s}`.trim() || tr("Quantité")}
                             value={qty[key] ?? ""}
                             onChange={(e) => setQty({ ...qty, [key]: e.target.value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[^0-9]/g, "") })}
-                            className="h-12 w-full min-w-14 rounded-lg border border-line bg-white text-center text-base font-semibold tabular-nums outline-none focus:border-plum-600 focus:ring-2 focus:ring-plum-600/15"
+                            className="h-12 w-full min-w-14 rounded-lg border border-line bg-surface text-center text-base font-semibold tabular-nums outline-none focus:border-plum-600 focus:ring-2 focus:ring-plum-600/15"
                           />
                         </td>
                       );
@@ -306,7 +306,7 @@ export function ProductWizard() {
 
       {/* navigation */}
       {step < 4 && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-white/95 p-3 backdrop-blur md:bottom-0 md:ps-[15rem]">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-surface/95 p-3 backdrop-blur md:bottom-0 md:ps-[15rem]">
           <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-1">
             <Button disabled={step === 0} onClick={() => setStep(step - 1)}>{tr("← Retour")}</Button>
             {step === 1 && !canNext && <span className="text-xs text-ink-soft">{tr("Nom et prix requis")}</span>}

@@ -59,7 +59,7 @@ export function ShareButton({ slug, name, price, className = "" }: { slug: strin
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 md:items-center" onClick={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-noir/40 md:items-center" onClick={() => setOpen(false)}>
           <div role="dialog" aria-modal="true" aria-label={t.share.title} onClick={(e) => e.stopPropagation()} className="w-full rounded-t-3xl bg-ivory p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-soft md:max-w-sm md:rounded-3xl">
             <div className="mb-4 flex items-center justify-between">
               <p className="font-semibold">{t.share.title}</p>

@@ -73,7 +73,7 @@ export function Lightbox({ images, video, start, name, onClose }: { images: Imag
           </button>
           <div className="flex justify-center gap-1.5 pb-[calc(1rem+env(safe-area-inset-bottom))] pt-3" aria-hidden="true">
             {Array.from({ length: count }, (_, i) => (
-              <span key={i} className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-1.5 bg-white/40"}`} />
+              <span key={i} className={`h-1.5 rounded-full transition-all ${i === index ? "w-5 bg-surface" : "w-1.5 bg-surface/40"}`} />
             ))}
           </div>
         </>

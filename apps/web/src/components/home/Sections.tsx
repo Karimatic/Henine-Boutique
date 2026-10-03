@@ -77,7 +77,7 @@ export function InstagramCard() {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              className="ig-btn inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-rose-700 via-plum-600 to-rose-700 px-6 font-semibold text-ivory shadow-soft transition hover:scale-[1.03]"
+              className="ig-btn inline-flex h-12 shrink-0 items-center gap-2 rounded-full bg-gradient-to-r from-rose-700 via-plum-600 to-rose-700 px-6 font-semibold text-white shadow-soft transition hover:scale-[1.03]"
             >
               <InstagramIcon size={18} />
               <span dir="ltr">{t.instagram.cta}</span>
@@ -100,7 +100,7 @@ export function Faq() {
       <h2 id="faq-title" className="heading-display mb-5 text-center text-[1.65rem] md:text-4xl">
         {t.faq.title}
       </h2>
-      <div className="divide-y divide-line overflow-hidden rounded-[1.5rem] border border-line bg-white">
+      <div className="divide-y divide-line overflow-hidden rounded-[1.5rem] border border-line bg-surface">
         {list.map((f) => (
           <details key={f.q} className="faq-item group">
             <summary className="flex cursor-pointer items-center gap-4 px-5 py-4">

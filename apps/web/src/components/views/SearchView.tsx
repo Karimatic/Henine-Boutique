@@ -117,7 +117,7 @@ export function SearchView() {
           aria-autocomplete="list"
         />
         {showSuggest && (
-          <div id="search-suggest" role="listbox" className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-line bg-white shadow-[0_18px_40px_-16px_rgb(23_10_16/0.35)]">
+          <div id="search-suggest" role="listbox" className="absolute inset-x-0 top-full z-20 mt-2 overflow-hidden rounded-2xl border border-line bg-surface shadow-[0_18px_40px_-16px_rgb(23_10_16/0.35)]">
             <p className="px-4 pb-1 pt-3 text-xs font-semibold uppercase tracking-[0.12em] text-ink-soft">{S.suggestions}</p>
             <ul>
               {matchingCategories.slice(0, 2).map((c) => (
@@ -156,7 +156,7 @@ export function SearchView() {
               </div>
               <div className="flex flex-wrap gap-2">
                 {recent.map((r) => (
-                  <button key={r} type="button" onClick={() => update(r)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-white px-3.5 text-sm">
+                  <button key={r} type="button" onClick={() => update(r)} className="inline-flex h-9 items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 text-sm">
                     <span aria-hidden="true" className="text-ink-soft">↺</span> {r}
                   </button>
                 ))}
@@ -184,7 +184,7 @@ export function SearchView() {
         </>
       ) : (
         <div className="space-y-8">
-          <div className="rounded-card border border-line bg-white p-6 text-center">
+          <div className="rounded-card border border-line bg-surface p-6 text-center">
             <p className="text-3xl" aria-hidden="true">🔎</p>
             <p className="mt-2 text-lg font-semibold">{S.noneTitle(q.trim())}</p>
             <p className="mx-auto mt-1 max-w-md text-sm text-ink-soft">{S.noneText}</p>

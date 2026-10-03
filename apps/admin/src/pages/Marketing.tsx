@@ -66,7 +66,7 @@ export function PromosPage() {
             const expired = c.ends_at != null && c.ends_at < Date.now();
             return (
               <li key={c.id}>
-                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-white p-4 text-start hover:border-plum-600/40">
+                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-surface p-4 text-start hover:border-plum-600/40">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-mono text-lg font-bold text-plum-700">{c.code}</span>
                     <Badge tone={!c.is_active || expired ? "bg-stone-200 text-stone-600" : "bg-emerald-100 text-emerald-800"}>{!c.is_active ? tr("Désactivé") : expired ? tr("Expiré") : tr("Actif")}</Badge>
@@ -342,7 +342,7 @@ export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overri
               role="tab"
               aria-selected={lang === code}
               onClick={() => setLang(code)}
-              className={`h-8 rounded-md px-3.5 text-sm font-semibold transition ${lang === code ? "bg-white text-plum-700 shadow-sm" : "text-ink-soft hover:text-ink"}`}
+              className={`h-8 rounded-md px-3.5 text-sm font-semibold transition ${lang === code ? "bg-surface text-plum-700 shadow-sm" : "text-ink-soft hover:text-ink"}`}
             >
               {label}
             </button>
@@ -391,7 +391,7 @@ export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overri
                   aria-label={tr("Supprimer ce message")}
                   disabled={draft.announcement.length <= 1}
                   onClick={() => setDraft({ ...draft, announcement: draft.announcement.filter((_, k) => k !== i) })}
-                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-white text-ink-soft hover:border-red-200 hover:text-red-700 disabled:opacity-30"
+                  className="grid size-10 shrink-0 place-items-center rounded-lg border border-line bg-surface text-ink-soft hover:border-red-200 hover:text-red-700 disabled:opacity-30"
                 >
                   {tr("×")}
                 </button>
@@ -468,7 +468,7 @@ export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overri
         </section>
       </div>
 
-      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-5 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-line/70 bg-white/95 p-3 shadow-sm backdrop-blur md:bottom-3">
+      <div className="sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] mt-5 flex flex-wrap items-center justify-end gap-2 rounded-xl border border-line/70 bg-surface/95 p-3 shadow-sm backdrop-blur md:bottom-3">
         {changed && <span className="me-auto text-sm text-amber-700">{tr("Modifications non enregistrées")}</span>}
         <Button disabled={!changed} onClick={() => setDraft(resolveStoreTexts(lang, saved[lang]))}>
           {tr("Annuler")}
@@ -605,7 +605,7 @@ function ReviewItem({ r, onEdit }: { r: Review; onEdit: () => void }) {
   const save = useSave((body: Record<string, unknown>) => patch(`/reviews/${r.id}`, body), ["reviews"]);
   const remove = useSave(() => del(`/reviews/${r.id}`), ["reviews"], tr("Avis supprimé"));
   return (
-    <li className="rounded-xl border border-line bg-white p-4">
+    <li className="rounded-xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="font-semibold">{r.name} <span className="text-gold">{"★".repeat(r.rating)}<span className="text-line">{"★".repeat(5 - r.rating)}</span></span></span>
         <span className="text-xs text-ink-soft">{r.product} · {ago(r.created_at)}</span>
@@ -857,7 +857,7 @@ export function ContactPage() {
           {q.data.rows.length === 0 ? <Empty title={tr("Aucun message")} icon="✉️" /> : (
             <ul className="space-y-2">
               {q.data.rows.map((m) => (
-                <li key={m.id} className="rounded-xl border border-line bg-white p-4">
+                <li key={m.id} className="rounded-xl border border-line bg-surface p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="font-semibold">{m.name}{m.subject ? ` · ${m.subject}` : ""}</span>
                     <span className="text-xs text-ink-soft">{ago(m.created_at)}</span>
@@ -955,7 +955,7 @@ export function CollectionsPage() {
             const [label, tone] = dropState(c);
             return (
               <li key={c.id}>
-                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-white p-4 text-start transition hover:border-plum-600/40">
+                <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-surface p-4 text-start transition hover:border-plum-600/40">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate font-semibold">{c.name_fr}</p>
@@ -1143,7 +1143,7 @@ function FlashSales() {
             const soon = f.isActive && f.startsAt > now;
             return (
               <li key={f.id}>
-                <button type="button" onClick={() => setEdit(f)} className="w-full rounded-xl border border-line bg-white p-3.5 text-start hover:border-plum-600/40">
+                <button type="button" onClick={() => setEdit(f)} className="w-full rounded-xl border border-line bg-surface p-3.5 text-start hover:border-plum-600/40">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold">⚡ {f.nameFr} · -{f.percent} %</span>
                     <Badge tone={live ? "bg-emerald-100 text-emerald-800" : soon ? "bg-sky-100 text-sky-800" : "bg-stone-200 text-stone-600"}>

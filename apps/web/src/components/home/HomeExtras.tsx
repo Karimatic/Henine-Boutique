@@ -21,7 +21,7 @@ export function FlashBlock({ products }: { products: ProductCardDTO[] }) {
   if (!list.length) return null;
   return (
     <section id="flash" className="mx-auto max-w-6xl scroll-mt-24 px-3 py-6 md:px-4">
-      <div className="overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-ink via-plum-700 to-plum-600 p-4 text-white md:p-7">
+      <div className="overflow-hidden rounded-[1.75rem] bg-gradient-to-br from-noir via-plum-700 to-plum-600 p-4 text-white md:p-7">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <p className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em]">
@@ -75,7 +75,7 @@ export function FlashPanel({ flash }: { flash: FlashInfoDTO }) {
           <Countdown left={left} />
         </div>
       </div>
-      <div className="mt-3 rounded-xl bg-white/95 p-3 text-ink">
+      <div className="mt-3 rounded-xl bg-surface/95 p-3 text-ink">
         <FlashStock flash={flash} />
       </div>
     </div>
@@ -102,12 +102,12 @@ export function Banners() {
                 <a
                   href={link(b.link)}
                   {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-                  className="group relative block aspect-[16/9] overflow-hidden rounded-[1.5rem] bg-ink md:aspect-[2/1]"
+                  className="group relative block aspect-[16/9] overflow-hidden rounded-[1.5rem] bg-noir md:aspect-[2/1]"
                 >
                   <img src={b.image} alt={title} loading="lazy" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105" />
                   {(title || subtitle) && (
                     <>
-                      <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-ink/80 via-ink/20 to-transparent" />
+                      <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-noir/80 via-noir/20 to-transparent" />
                       <span className="absolute inset-x-0 bottom-0 p-5 text-white">
                         {title && <span className="heading-display block text-2xl md:text-3xl">{title}</span>}
                         {subtitle && <span className="mt-1 block text-sm text-white/85">{subtitle}</span>}
@@ -160,7 +160,7 @@ export function Newsletter() {
     <section className="mx-auto max-w-6xl px-3 py-6 md:px-4">
       <Reveal>
         <div className="relative overflow-hidden rounded-[1.75rem] bg-rose-100 px-5 py-8 text-center md:px-10">
-          <span aria-hidden="true" className="pointer-events-none absolute -end-10 -top-10 size-40 rounded-full bg-white/50 blur-2xl" />
+          <span aria-hidden="true" className="pointer-events-none absolute -end-10 -top-10 size-40 rounded-full bg-surface/50 blur-2xl" />
           <p className="text-3xl" aria-hidden="true">💌</p>
           <h2 className="heading-display mt-2 text-3xl">{N.title}</h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-ink-soft">{N.text}</p>

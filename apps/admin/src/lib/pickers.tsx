@@ -32,7 +32,7 @@ export function ProductPicker({ value, onChange, max = 100, label }: { value: nu
               <li key={id} className="flex items-center gap-1.5 rounded-full bg-rose-100 py-1 pe-1 ps-1.5 text-sm text-plum-700">
                 {p?.image ? <img src={p.image} alt="" className="size-6 rounded-full object-cover" /> : <span aria-hidden="true">👗</span>}
                 <span className="max-w-[12rem] truncate font-medium">{p?.name_fr ?? `#${id}`}</span>
-                <button type="button" onClick={() => onChange(value.filter((x) => x !== id))} className="grid size-6 place-items-center rounded-full bg-white/70" aria-label={tr("Retirer")}>
+                <button type="button" onClick={() => onChange(value.filter((x) => x !== id))} className="grid size-6 place-items-center rounded-full bg-surface/70" aria-label={tr("Retirer")}>
                   ✕
                 </button>
               </li>
@@ -43,7 +43,7 @@ export function ProductPicker({ value, onChange, max = 100, label }: { value: nu
       {value.length < max && (
         <>
           <input type="search" className={inputCls} placeholder={tr("Chercher un produit à ajouter…")} value={q} onChange={(e) => setQ(e.target.value)} />
-          <ul className="mt-1.5 max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line bg-white">
+          <ul className="mt-1.5 max-h-56 divide-y divide-line overflow-y-auto rounded-lg border border-line bg-surface">
             {matches.map((p) => (
               <li key={p.id}>
                 <button type="button" onClick={() => onChange([...value, p.id])} className="flex w-full items-center gap-2.5 px-3 py-2 text-start hover:bg-rose-100/40">
@@ -77,7 +77,7 @@ export function CategoryPicker({ value, onChange, label }: { value: number[]; on
               type="button"
               aria-pressed={on}
               onClick={() => onChange(on ? value.filter((x) => x !== c.id) : [...value, c.id])}
-              className={`h-9 rounded-full border px-3.5 text-sm font-medium ${on ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-white"}`}
+              className={`h-9 rounded-full border px-3.5 text-sm font-medium ${on ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface"}`}
             >
               {on ? "✓ " : ""}
               {c.name_fr}

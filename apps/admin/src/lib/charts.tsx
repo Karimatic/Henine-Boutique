@@ -7,7 +7,7 @@ import { tr } from "../i18n";
  * Time always runs left → right (also in Arabic), so charts are laid out dir="ltr".
  */
 
-const PLUM = "var(--color-plum-600)";
+const PLUM = "var(--color-chart)";
 
 function useHover() {
   const [i, setI] = useState<number | null>(null);
@@ -18,7 +18,7 @@ function Tooltip({ x, y, children }: { x: number; y: number; children: ReactNode
   return (
     <div
       role="status"
-      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-line bg-white px-2.5 py-1.5 text-xs shadow-lg"
+      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs shadow-lg"
       style={{ left: `${x}%`, top: `${y}%`, marginTop: -8 }}
     >
       {children}
@@ -75,8 +75,8 @@ export function TrendChart({
       >
         <defs>
           <linearGradient id={gradId} x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="var(--color-plum-600)" stopOpacity="0.22" />
-            <stop offset="1" stopColor="var(--color-plum-600)" stopOpacity="0" />
+            <stop offset="0" stopColor="var(--color-chart)" stopOpacity="0.22" />
+            <stop offset="1" stopColor="var(--color-chart)" stopOpacity="0" />
           </linearGradient>
         </defs>
         {ticks.map((t) => (
@@ -97,7 +97,7 @@ export function TrendChart({
         {h && hover.i != null && (
           <g>
             <line x1={x(hover.i)} x2={x(hover.i)} y1={pad.t} y2={H - pad.b} stroke="var(--color-ink-soft)" strokeWidth="1" strokeDasharray="2 3" />
-            <circle cx={x(hover.i)} cy={y(h.value)} r="5" fill={PLUM} stroke="#fff" strokeWidth="2" />
+            <circle cx={x(hover.i)} cy={y(h.value)} r="5" fill={PLUM} stroke="var(--color-surface)" strokeWidth="2" />
           </g>
         )}
       </svg>
@@ -141,7 +141,7 @@ export function ColumnChart({
               className="block w-full max-w-9 rounded-t-[4px] transition-opacity"
               style={{
                 height: `${Math.max(d.value ? 4 : 1.5, (d.value / max) * 100)}%`,
-                background: i === best && d.value > 0 ? "var(--color-plum-700)" : PLUM,
+                background: i === best && d.value > 0 ? "var(--color-chart-strong)" : PLUM,
                 opacity: hover.i == null || hover.i === i ? 1 : 0.55,
               }}
             />

@@ -1264,4 +1264,11 @@ export const AR: Record<string, string> = {
   "Vus récemment": "شوهدت مؤخرًا",
   "Questions fréquentes": "الأسئلة الشائعة",
   "Recevoir les nouveautés": "استقبال الجديد",
+  "Mode clair": "الوضع الفاتح",
+  "Mode sombre": "الوضع الداكن",
+  "☀️ Clair": "☀️ فاتح",
+  "🌙 Sombre": "🌙 داكن",
+  "◐ Automatique": "◐ تلقائي",
+  "🌗 Apparence": "🌗 المظهر",
+  "Clair, sombre, ou automatique (suit le réglage du téléphone ou de l'ordinateur). Sur cet appareil uniquement.": "فاتح، داكن، أو تلقائي (يتبع إعداد الهاتف أو الحاسوب). على هذا الجهاز فقط.",
 };

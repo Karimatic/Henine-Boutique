@@ -5,7 +5,7 @@ import { tr } from "../i18n";
 export const SEGMENT_TONE: Record<CustomerSegment, string> = {
   new: "bg-sky-100 text-sky-800",
   returning: "bg-emerald-100 text-emerald-800",
-  vip: "bg-plum-600 text-ivory",
+  vip: "bg-plum-600 text-white",
   high_risk: "bg-red-100 text-red-800",
 };
 

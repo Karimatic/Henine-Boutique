@@ -7,6 +7,7 @@ import { Blossom, ChatIcon, GridIcon, HeartIcon, HomeIcon, InstagramIcon, MenuIc
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { StoryArt } from "@/components/home/Showcase";
+import { ColorModeSwitch } from "./ColorModeSwitch";
 import { useLocaleHref } from "./LanguageSwitch";
 
 /**
@@ -67,7 +68,7 @@ export function SiteMenu() {
       {open &&
         createPortal(
         <div className="fixed inset-0 z-50" role="presentation">
-          <div className="animate-fade absolute inset-0 bg-ink/40" onClick={close} aria-hidden="true" />
+          <div className="animate-fade absolute inset-0 bg-noir/40" onClick={close} aria-hidden="true" />
           <div
             id="site-menu"
             ref={panel}
@@ -104,7 +105,7 @@ export function SiteMenu() {
                     hrefLang={code}
                     lang={code}
                     aria-current={locale === code ? "true" : undefined}
-                    className={`grid h-11 place-items-center rounded-xl border text-sm font-semibold transition ${locale === code ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-white text-ink hover:border-plum-600"}`}
+                    className={`grid h-11 place-items-center rounded-xl border text-sm font-semibold transition ${locale === code ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface text-ink hover:border-plum-600"}`}
                   >
                     {label}
                   </a>
@@ -137,6 +138,10 @@ export function SiteMenu() {
                 <a href={href("/suivi")} className={row}><PackageIcon size={20} className="text-plum-600" />{t.track.cta}</a>
                 <a href={href("/contact")} className={row}><ChatIcon size={20} className="text-plum-600" />{t.contact.title}</a>
               </nav>
+              <div className="mt-4 px-3">
+                <p className="pb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">{t.plus.mode.label}</p>
+                <ColorModeSwitch />
+              </div>
             </div>
 
             {(wa || contact?.instagram) && (
@@ -144,7 +149,7 @@ export function SiteMenu() {
                 <p className="pb-2 text-xs font-semibold uppercase tracking-wider text-ink-soft">{t.nav.follow}</p>
                 <div className="flex gap-2">
                   {contact?.instagram && (
-                    <a href={contact.instagram} target="_blank" rel="noopener noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-line bg-white text-sm font-semibold">
+                    <a href={contact.instagram} target="_blank" rel="noopener noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-full border border-line bg-surface text-sm font-semibold">
                       <InstagramIcon size={18} /> Instagram
                     </a>
                   )}

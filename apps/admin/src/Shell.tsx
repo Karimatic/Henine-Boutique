@@ -1,12 +1,13 @@
 import { hasPermission } from "@henine/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, PanelLeft, Store, X } from "lucide-react";
+import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, Moon, PanelLeft, Store, Sun, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, ApiError, auth, post, type Me } from "./api";
 import { Wordmark } from "./brand";
 import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
+import { useColorMode } from "./lib/colorMode";
 import { tr } from "./i18n";
 
 export function useMe() {
@@ -145,7 +146,7 @@ function ProfileMenu({ me }: { me: Me }) {
         {avatar("size-9 text-sm")}
       </button>
       {open && (
-        <div role="menu" className="animate-pop absolute end-0 top-11 z-50 w-64 overflow-hidden rounded-xl border border-line bg-white p-1.5 shadow-lg">
+        <div role="menu" className="animate-pop absolute end-0 top-11 z-50 w-64 overflow-hidden rounded-xl border border-line bg-surface p-1.5 shadow-lg">
           <div className="flex items-center gap-3 px-2.5 py-2.5">
             {avatar("size-10 text-sm")}
             <div className="min-w-0">
@@ -240,8 +241,8 @@ export function Shell() {
       {drawer &&
         createPortal(
           <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label={tr("Menu")}>
-            <button type="button" aria-label={tr("Fermer")} className="animate-fade absolute inset-0 bg-ink/40" onClick={() => setDrawer(false)} />
-            <aside className="animate-drawer absolute inset-y-0 start-0 flex w-[min(18rem,86vw)] flex-col bg-white shadow-2xl">
+            <button type="button" aria-label={tr("Fermer")} className="animate-fade absolute inset-0 bg-noir/40" onClick={() => setDrawer(false)} />
+            <aside className="animate-drawer absolute inset-y-0 start-0 flex w-[min(18rem,86vw)] flex-col bg-surface shadow-2xl">
               <div className="flex h-16 shrink-0 items-center justify-between border-b border-line/60 px-4">
                 <Wordmark size="sm" subtitle={tr("Administration")} />
                 <button type="button" onClick={() => setDrawer(false)} aria-label={tr("Fermer")} className="grid size-9 place-items-center rounded-lg hover:bg-rose-100">
@@ -257,7 +258,7 @@ export function Shell() {
         )}
 
       <div className="flex min-w-0 flex-1 flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
-        <header className="sticky top-0 z-30 border-b border-line bg-white/90 backdrop-blur">
+        <header className="sticky top-0 z-30 border-b border-line bg-surface/90 backdrop-blur">
           <div className="mx-auto flex h-14 max-w-[90rem] items-center justify-between gap-3 px-3 sm:px-6 md:h-16">
             <div className="flex min-w-0 items-center gap-2 sm:gap-3">
               <button type="button" onClick={toggle} aria-label={tr("Afficher / masquer le menu")} className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-soft hover:bg-rose-100 hover:text-plum-700">
@@ -278,6 +279,7 @@ export function Shell() {
               </ol>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <DarkToggle />
               <a
                 href="/"
                 target="_blank"
@@ -302,12 +304,12 @@ export function Shell() {
       </div>
 
       {/* Phone tab bar */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgb(23_10_16/0.06)] backdrop-blur md:hidden">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgb(23_10_16/0.06)] backdrop-blur md:hidden">
         <ul className="grid grid-cols-5 text-[11px] font-medium">
           {TABS.map((t) => (
             <li key={t.path}>
               <Link to={t.path} activeOptions={{ exact: t.path === "/" }} className="group flex h-16 flex-col items-center justify-center gap-1 text-ink-soft [&.active]:text-ink">
-                <span className="grid h-7 w-12 place-items-center rounded-full transition group-[.active]:bg-ink group-[.active]:text-white">
+                <span className="grid h-7 w-12 place-items-center rounded-full transition group-[.active]:bg-ink group-[.active]:text-on-ink">
                   <t.icon className="size-5" strokeWidth={1.8} />
                 </span>
                 {t.label}
@@ -327,7 +329,7 @@ export function MoreMenu() {
       {visibleNav(me.data).map((g) => (
         <section key={g.label}>
           <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">{g.label}</h2>
-          <ul className="divide-y divide-line/70 overflow-hidden rounded-xl border border-line/70 bg-white shadow-[0_1px_2px_rgb(43_22_32/0.04)]">
+          <ul className="divide-y divide-line/70 overflow-hidden rounded-xl border border-line/70 bg-surface shadow-[0_1px_2px_rgb(43_22_32/0.04)]">
             {g.items.map((i) => (
               <li key={i.path}>
                 <Link to={i.path} className="flex h-13 items-center gap-3 px-4 font-medium active:bg-rose-100">
@@ -343,10 +345,10 @@ export function MoreMenu() {
         </section>
       ))}
       <div className="flex gap-3">
-        <a href="/" target="_blank" rel="noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-white font-semibold">
+        <a href="/" target="_blank" rel="noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface font-semibold">
           <ExternalLink className="size-4" /> {tr("Voir la boutique")}
         </a>
-        <button type="button" onClick={logout} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-white font-semibold text-red-700">
+        <button type="button" onClick={logout} className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-red-200 bg-surface font-semibold text-red-700">
           <LogOut className="size-4" /> {tr("Déconnexion")}
         </button>
       </div>
@@ -357,7 +359,7 @@ export function MoreMenu() {
 function ShellSkeleton() {
   return (
     <div className="flex min-h-dvh" aria-busy="true">
-      <div className="hidden w-64 space-y-3 border-e border-line bg-white p-4 md:block">
+      <div className="hidden w-64 space-y-3 border-e border-line bg-surface p-4 md:block">
         <div className="skeleton mb-6 h-9" />
         {Array.from({ length: 12 }, (_, i) => (
           <div key={i} className="skeleton h-8" />
@@ -387,5 +389,22 @@ function AccessProblem({ error }: { error: Error }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/** Top bar ☀️ / 🌙: switches to the other look (Paramètres → Mon compte also has "Auto"). */
+function DarkToggle() {
+  const { dark, setMode } = useColorMode();
+  const label = dark ? tr("Mode clair") : tr("Mode sombre");
+  return (
+    <button
+      type="button"
+      onClick={() => setMode(dark ? "light" : "dark")}
+      title={label}
+      aria-label={label}
+      className="grid size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700"
+    >
+      {dark ? <Sun className="size-5" strokeWidth={1.8} /> : <Moon className="size-5" strokeWidth={1.8} />}
+    </button>
   );
 }

@@ -22,6 +22,10 @@
   --color-gold: #a8824a;
   --color-success: #2f7a55;
   --color-danger: #b3261e;
+  --color-surface: #ffffff; /* cards, sheets, inputs (dark in dark mode) */
+  --color-noir: #170a10; /* footer, photo overlays: dark in both modes */
+  --color-on-ink: #fffbfc; /* text on an ink chip (chips turn light in dark mode) */
+  --color-accent-text: #6a0c36; /* accent text on the page ground */
 
   --font-display: var(--font-playfair), Georgia, "Times New Roman", serif;
   --font-sans: var(--font-dm-sans), system-ui, sans-serif;
@@ -54,7 +58,7 @@
   opacity: 0;
   transform: translateY(0.35em);
   color: transparent;
-  background: linear-gradient(100deg, var(--color-plum-700) 0%, var(--color-plum-700) 40%, var(--color-gold) 50%, var(--color-rose-500) 58%, var(--color-plum-700) 68%, var(--color-plum-700) 100%);
+  background: linear-gradient(100deg, var(--color-accent-text) 0%, var(--color-accent-text) 40%, var(--color-gold) 50%, var(--color-rose-500) 58%, var(--color-accent-text) 68%, var(--color-accent-text) 100%);
   background-size: 260% 100%;
   background-position: 100% 0;
   -webkit-background-clip: text;
@@ -98,7 +102,7 @@
   font-style: italic;
   font-size: 1.5rem;
   letter-spacing: 0.02em;
-  color: var(--color-plum-700);
+  color: var(--color-accent-text);
   opacity: 0;
   animation: splash-fade 0.6s ease 0.2s both;
 }
@@ -339,11 +343,11 @@
 .faq-item summary { list-style: none; }
 .faq-item summary::-webkit-details-marker { display: none; }
 .faq-plus { transition: transform 0.3s ease, background-color 0.3s ease; }
-.faq-item[open] .faq-plus { transform: rotate(45deg); background: var(--color-plum-600); color: var(--color-ivory); }
+.faq-item[open] .faq-plus { transform: rotate(45deg); background: var(--color-plum-600); color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
   .announce, .announce-track, .announce-sparkle, .ig-card, .ig-btn::after, .hero-zoom-img, .story-ring, .toast-in { animation: none; }
-  .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-plum-700); background: none; }
+  .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-accent-text); background: none; }
   .story { opacity: 1; animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   .menu-panel, .nudge { animation: none; }
@@ -395,4 +399,132 @@
   .hover-zoom:hover img {
     transform: scale(1.9);
   }
+}
+
+/* ── Dark mode ────────────────────────────────────────────────────────────────────────
+ * Follows the phone / computer setting, or the choice saved in the menu (data-theme).
+ * Screen only: printing (slips, invoices) always uses the light colours. */
+@media screen {
+:root[data-theme="dark"] {
+  --color-ivory: #140c10;
+  --color-ivory-deep: #22161c;
+  --color-surface: #1d1318;
+  --color-ink: #f6eaef;
+  --color-ink-soft: #c9b3bd;
+  --color-line: #3a2a32;
+  --color-rose-100: #3b1828;
+  --color-noir: #0b0609;
+  --color-on-ink: #170a10;
+  --color-accent-text: #f49ac0;
+  --color-sidebar: #181015;
+  --color-emerald-50: #0f2a20;
+  --color-emerald-100: #123526;
+  --color-emerald-700: #7fdcb0;
+  --color-emerald-800: #8fe4bc;
+  --color-red-50: #2f1214;
+  --color-red-100: #3d1518;
+  --color-red-200: #6b2a2e;
+  --color-red-700: #ff9b93;
+  --color-red-800: #ffaaa3;
+  --color-amber-50: #2b210b;
+  --color-amber-100: #36290d;
+  --color-amber-200: #5e4815;
+  --color-amber-300: #7a5d18;
+  --color-amber-700: #f2c96b;
+  --color-amber-800: #f5d27e;
+  --color-amber-900: #f8dc95;
+  --color-orange-100: #3a210f;
+  --color-orange-700: #ffb27a;
+  --color-orange-800: #ffbd8c;
+  --color-sky-100: #0f2638;
+  --color-sky-700: #8cc8f2;
+  --color-sky-800: #9dd2f6;
+  --color-stone-100: #2a2226;
+  --color-stone-200: #332a2f;
+  --color-stone-300: #463b41;
+  --color-stone-500: #b3a5ac;
+  --color-stone-600: #c4b7bd;
+  --color-stone-700: #d4c8ce;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px rgb(0 0 0 / 0.35);
+  color-scheme: dark;
+}
+:root[data-theme="dark"] .text-plum-600,
+:root[data-theme="dark"] .hover\:text-plum-600:hover,
+:root[data-theme="dark"] .group:hover .group-hover\:text-plum-600,
+:root[data-theme="dark"] .text-plum-700,
+:root[data-theme="dark"] .hover\:text-plum-700:hover,
+:root[data-theme="dark"] .group:hover .group-hover\:text-plum-700,
+:root[data-theme="dark"] .text-rose-700,
+:root[data-theme="dark"] .hover\:text-rose-700:hover,
+:root[data-theme="dark"] .group:hover .group-hover\:text-rose-700,
+:root[data-theme="dark"] .text-rose-800,
+:root[data-theme="dark"] .hover\:text-rose-800:hover,
+:root[data-theme="dark"] .group:hover .group-hover\:text-rose-800,
+:root[data-theme="dark"] .md\:text-plum-700 {
+  color: var(--color-accent-text);
+}
+:root[data-theme="dark"] .text-danger { color: #ff9b93; }
+:root[data-theme="dark"] .text-success { color: #72dfa9; }
+@media (prefers-color-scheme: dark) {
+:root:not([data-theme="light"]) {
+  --color-ivory: #140c10;
+  --color-ivory-deep: #22161c;
+  --color-surface: #1d1318;
+  --color-ink: #f6eaef;
+  --color-ink-soft: #c9b3bd;
+  --color-line: #3a2a32;
+  --color-rose-100: #3b1828;
+  --color-noir: #0b0609;
+  --color-on-ink: #170a10;
+  --color-accent-text: #f49ac0;
+  --color-sidebar: #181015;
+  --color-emerald-50: #0f2a20;
+  --color-emerald-100: #123526;
+  --color-emerald-700: #7fdcb0;
+  --color-emerald-800: #8fe4bc;
+  --color-red-50: #2f1214;
+  --color-red-100: #3d1518;
+  --color-red-200: #6b2a2e;
+  --color-red-700: #ff9b93;
+  --color-red-800: #ffaaa3;
+  --color-amber-50: #2b210b;
+  --color-amber-100: #36290d;
+  --color-amber-200: #5e4815;
+  --color-amber-300: #7a5d18;
+  --color-amber-700: #f2c96b;
+  --color-amber-800: #f5d27e;
+  --color-amber-900: #f8dc95;
+  --color-orange-100: #3a210f;
+  --color-orange-700: #ffb27a;
+  --color-orange-800: #ffbd8c;
+  --color-sky-100: #0f2638;
+  --color-sky-700: #8cc8f2;
+  --color-sky-800: #9dd2f6;
+  --color-stone-100: #2a2226;
+  --color-stone-200: #332a2f;
+  --color-stone-300: #463b41;
+  --color-stone-500: #b3a5ac;
+  --color-stone-600: #c4b7bd;
+  --color-stone-700: #d4c8ce;
+  --shadow-soft: 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 30px rgb(0 0 0 / 0.35);
+  color-scheme: dark;
+}
+:root:not([data-theme="light"]) .text-plum-600,
+:root:not([data-theme="light"]) .hover\:text-plum-600:hover,
+:root:not([data-theme="light"]) .group:hover .group-hover\:text-plum-600,
+:root:not([data-theme="light"]) .text-plum-700,
+:root:not([data-theme="light"]) .hover\:text-plum-700:hover,
+:root:not([data-theme="light"]) .group:hover .group-hover\:text-plum-700,
+:root:not([data-theme="light"]) .text-rose-700,
+:root:not([data-theme="light"]) .hover\:text-rose-700:hover,
+:root:not([data-theme="light"]) .group:hover .group-hover\:text-rose-700,
+:root:not([data-theme="light"]) .text-rose-800,
+:root:not([data-theme="light"]) .hover\:text-rose-800:hover,
+:root:not([data-theme="light"]) .group:hover .group-hover\:text-rose-800,
+:root:not([data-theme="light"]) .md\:text-plum-700 {
+  color: var(--color-accent-text);
+}
+:root:not([data-theme="light"]) .text-danger { color: #ff9b93; }
+:root:not([data-theme="light"]) .text-success { color: #72dfa9; }
+}
 }

@@ -146,7 +146,7 @@ export function DesignEditor() {
                   type="button"
                   onClick={() => set({ colors: { accent: c.accent, soft: c.soft } })}
                   aria-pressed={on}
-                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium ${on ? "border-ink ring-2 ring-ink/10" : "border-line bg-white"}`}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium ${on ? "border-ink ring-2 ring-ink/10" : "border-line bg-surface"}`}
                 >
                   <span className="flex -space-x-1.5" aria-hidden="true">
                     <span className="size-5 rounded-full border-2 border-white" style={{ background: c.accent }} />
@@ -160,7 +160,7 @@ export function DesignEditor() {
           <div className="mt-3 flex flex-wrap items-end gap-4">
             {(["accent", "soft"] as const).map((k) => (
               <label key={k} className="flex items-center gap-2 text-sm">
-                <input type="color" value={isHexColor(d.colors[k]) ? d.colors[k] : "#000000"} onChange={(e) => set({ colors: { ...d.colors, [k]: e.target.value } })} className="size-10 cursor-pointer rounded-lg border border-line bg-white p-0.5" />
+                <input type="color" value={isHexColor(d.colors[k]) ? d.colors[k] : "#000000"} onChange={(e) => set({ colors: { ...d.colors, [k]: e.target.value } })} className="size-10 cursor-pointer rounded-lg border border-line bg-surface p-0.5" />
                 {k === "accent" ? tr("Principale") : tr("Douce")}
                 <code className="text-xs text-ink-soft">{d.colors[k]}</code>
               </label>
@@ -190,7 +190,7 @@ export function DesignEditor() {
                   type="button"
                   onClick={() => set({ font: key })}
                   aria-pressed={on}
-                  className={`rounded-xl border p-3 text-start ${on ? "border-ink ring-2 ring-ink/10" : "border-line bg-white"}`}
+                  className={`rounded-xl border p-3 text-start ${on ? "border-ink ring-2 ring-ink/10" : "border-line bg-surface"}`}
                 >
                   <span className="block text-xs font-semibold text-ink-soft">{tr(f.label)}</span>
                   <span className="mt-1 block text-2xl italic" style={{ fontFamily: f.display ? `"${f.display}", serif` : '"Playfair Display", Georgia, serif' }}>
@@ -227,7 +227,7 @@ export function DesignEditor() {
         </div>
       </Card>
 
-      <div className="sticky bottom-3 z-10 flex items-center justify-end gap-3 rounded-xl border border-line bg-white/95 p-3 shadow-lg backdrop-blur">
+      <div className="sticky bottom-3 z-10 flex items-center justify-end gap-3 rounded-xl border border-line bg-surface/95 p-3 shadow-lg backdrop-blur">
         {dirty && <span className="text-sm text-ink-soft">{tr("Modifications non enregistrées")}</span>}
         <Button variant="primary" loading={save.isPending} disabled={!dirty || !colorOk} onClick={() => save.mutate(d)}>
           {tr("Enregistrer l'apparence")}
@@ -274,7 +274,7 @@ function SectionsCard({ d, set }: { d: DesignDTO; set: (p: Partial<DesignDTO>) =
                 setOver(null);
               }}
               onDragEnd={() => setOver(null)}
-              className={`flex items-center gap-2 rounded-xl border bg-white px-2.5 py-2 transition ${over === i ? "border-plum-600 bg-rose-100/40" : "border-line"} ${s.on ? "" : "opacity-55"}`}
+              className={`flex items-center gap-2 rounded-xl border bg-surface px-2.5 py-2 transition ${over === i ? "border-plum-600 bg-rose-100/40" : "border-line"} ${s.on ? "" : "opacity-55"}`}
             >
               <span className="cursor-grab select-none px-1 text-lg text-ink-soft" aria-hidden="true">⠿</span>
               <span className="w-6 text-center text-xs tabular-nums text-ink-soft">{i + 1}</span>

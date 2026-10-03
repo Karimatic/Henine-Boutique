@@ -98,7 +98,7 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
               <button
                 type="button"
                 onClick={() => setPhotos((list) => list.filter((_, j) => j !== i))}
-                className="absolute -end-1.5 -top-1.5 grid size-6 place-items-center rounded-full bg-ink text-xs text-white"
+                className="absolute -end-1.5 -top-1.5 grid size-6 place-items-center rounded-full bg-ink text-xs text-on-ink"
                 aria-label={t.plus.reviews.remove}
               >
                 ✕
@@ -133,7 +133,7 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
       </div>
       <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={setTurnstile} locale={locale} />
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-      <button type="submit" disabled={state === "sending"} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-ivory disabled:opacity-60">
+      <button type="submit" disabled={state === "sending"} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white disabled:opacity-60">
         {state === "sending" && <Spinner className="size-4" />}
         {R.send}
       </button>

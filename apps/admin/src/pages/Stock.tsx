@@ -52,7 +52,7 @@ function layout(p: StockProduct) {
 
 const avail = (v: StockVariant) => v.onHand - v.reserved;
 const tone = (v: StockVariant) =>
-  !v.active ? "border-line bg-stone-100 text-ink-soft" : avail(v) <= 0 ? "border-red-200 bg-red-50 text-red-800" : avail(v) <= v.low ? "border-amber-200 bg-amber-50 text-amber-800" : "border-line bg-white";
+  !v.active ? "border-line bg-stone-100 text-ink-soft" : avail(v) <= 0 ? "border-red-200 bg-red-50 text-red-800" : avail(v) <= v.low ? "border-amber-200 bg-amber-50 text-amber-800" : "border-line bg-surface";
 
 /**
  * The size × colour table of a product. `mode`:
@@ -129,7 +129,7 @@ export function StockMatrix({
                         value={values?.[v.id] ?? ""}
                         onChange={(e) => onChange?.(v.id, e.target.value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x660)).replace(/[^0-9]/g, ""))}
                         className={`h-11 w-full min-w-14 rounded-lg border text-center text-base font-semibold tabular-nums outline-none focus:border-plum-600 focus:ring-2 focus:ring-plum-600/15 ${
-                          values?.[v.id] ? "border-plum-600 bg-rose-100/50" : "border-line bg-white"
+                          values?.[v.id] ? "border-plum-600 bg-rose-100/50" : "border-line bg-surface"
                         }`}
                       />
                     </td>
@@ -255,7 +255,7 @@ function ProductStockCard({ p, editable }: { p: StockProduct; editable: boolean 
     setEditing(true);
   };
   return (
-    <li className={`rounded-xl border bg-white p-4 transition ${editing ? "border-plum-600 shadow-[0_8px_24px_-12px_rgb(106_12_54/0.35)]" : "border-line"}`}>
+    <li className={`rounded-xl border bg-surface p-4 transition ${editing ? "border-plum-600 shadow-[0_8px_24px_-12px_rgb(106_12_54/0.35)]" : "border-line"}`}>
       <div className="mb-3 flex items-center gap-3">
         {p.image ? <img src={p.image} alt="" className="h-14 w-11 shrink-0 rounded-lg object-cover" /> : <span className="grid h-14 w-11 shrink-0 place-items-center rounded-lg bg-rose-100 text-xl">👗</span>}
         <div className="min-w-0 flex-1">
@@ -344,7 +344,7 @@ export function ReceptionPage() {
         title={tr("📥 Nouvelle réception")}
         subtitle={tr("Une livraison est arrivée : ajoutez les produits, tapez les quantités reçues, puis un seul bouton met tout en stock.")}
       />
-      <div className="mb-4 rounded-xl border border-line bg-white p-4">
+      <div className="mb-4 rounded-xl border border-line bg-surface p-4">
         <SearchBox value={q} onChange={setQ} placeholder={tr("Ajouter un produit : tapez son nom…")} />
         {q && (
           <ul className="grid gap-2 sm:grid-cols-2">
@@ -374,7 +374,7 @@ export function ReceptionPage() {
       ) : (
         <ul className="space-y-3">
           {picked.map((p) => (
-            <li key={p.id} className="rounded-xl border border-line bg-white p-4">
+            <li key={p.id} className="rounded-xl border border-line bg-surface p-4">
               <div className="mb-3 flex items-center gap-3">
                 {p.image ? <img src={p.image} alt="" className="h-12 w-9 rounded-md object-cover" /> : <span className="grid h-12 w-9 place-items-center rounded-md bg-rose-100">👗</span>}
                 <p className="min-w-0 flex-1 truncate font-semibold">{p.name}</p>
@@ -397,7 +397,7 @@ export function ReceptionPage() {
       <div className="mt-4">
         <TextField label={tr("Note (fournisseur, facture…)")} value={note} maxLength={200} onChange={(e) => setNote(e.target.value)} />
       </div>
-      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-white/95 p-3 backdrop-blur md:bottom-0 md:ps-[15rem]">
+      <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-surface/95 p-3 backdrop-blur md:bottom-0 md:ps-[15rem]">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-1 md:px-8">
           <p className="text-sm">
             <b className="text-lg tabular-nums">{pieces}</b> {tr("pièce(s) à ajouter")}

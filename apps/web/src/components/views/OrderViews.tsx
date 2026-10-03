@@ -29,7 +29,7 @@ export function ThankYouView() {
       <div className="mx-auto mb-5 grid size-16 place-items-center rounded-full bg-rose-100 text-3xl">🌸</div>
       <h1 className="heading-display text-3xl">{t.thanks.title}</h1>
       <p className="mt-3 text-ink-soft">{t.thanks.text}</p>
-      <div className="mt-6 rounded-card border border-line bg-white/70 p-5">
+      <div className="mt-6 rounded-card border border-line bg-surface/70 p-5">
         <p className="text-sm text-ink-soft">{t.thanks.code}</p>
         <p className="mt-1 font-mono text-2xl font-bold tracking-wider text-plum-700" dir="ltr">{params.code}</p>
         {order && (
@@ -39,7 +39,7 @@ export function ThankYouView() {
         )}
       </div>
       <div className="mt-6 grid gap-3">
-        <a href={href(`/suivi?c=${params.code}&t=${encodeURIComponent(params.token)}`)} className="grid h-12 place-items-center rounded-full bg-plum-600 font-semibold text-ivory">
+        <a href={href(`/suivi?c=${params.code}&t=${encodeURIComponent(params.token)}`)} className="grid h-12 place-items-center rounded-full bg-plum-600 font-semibold text-white">
           {t.thanks.trackLink}
         </a>
         <a href={wa} target="_blank" rel="noopener noreferrer" className="grid h-12 place-items-center rounded-full bg-[#25D366] font-semibold text-white">
@@ -91,7 +91,7 @@ function Timeline({ o }: { o: TrackedOrderDTO }) {
             <li key={s} className="relative" aria-current={active ? "step" : undefined}>
               <span
                 aria-hidden="true"
-                className={`absolute -start-9 top-0 grid size-7 place-items-center rounded-full border-2 text-xs font-bold ${done ? "border-plum-600 bg-plum-600 text-ivory" : "border-line bg-ivory text-ink-soft"} ${active ? "ring-4 ring-plum-600/15" : ""}`}
+                className={`absolute -start-9 top-0 grid size-7 place-items-center rounded-full border-2 text-xs font-bold ${done ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-ivory text-ink-soft"} ${active ? "ring-4 ring-plum-600/15" : ""}`}
               >
                 {done ? "✓" : i + 1}
               </span>
@@ -137,10 +137,10 @@ function SelfService({ o, token, onChanged }: { o: TrackedOrderDTO; token: strin
       <p className="mt-1 text-sm text-ink-soft">{C.text}</p>
       {mode === "idle" && (
         <div className="mt-3 flex flex-wrap gap-2">
-          <button type="button" onClick={() => setMode("edit")} className="h-11 rounded-full bg-plum-600 px-5 text-sm font-semibold text-ivory">
+          <button type="button" onClick={() => setMode("edit")} className="h-11 rounded-full bg-plum-600 px-5 text-sm font-semibold text-white">
             {C.edit}
           </button>
-          <button type="button" onClick={() => setMode("cancel")} className="h-11 rounded-full border border-ink/15 bg-white px-5 text-sm font-semibold text-danger">
+          <button type="button" onClick={() => setMode("cancel")} className="h-11 rounded-full border border-ink/15 bg-surface px-5 text-sm font-semibold text-danger">
             {C.cancel}
           </button>
         </div>
@@ -162,7 +162,7 @@ function SelfService({ o, token, onChanged }: { o: TrackedOrderDTO; token: strin
             <input className={`${inputCls} mt-1`} value={note} maxLength={300} onChange={(e) => setNote(e.target.value)} />
           </label>
           <div className="flex flex-wrap gap-2">
-            <button type="submit" disabled={busy || address.trim().length < 3} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-5 text-sm font-semibold text-ivory disabled:opacity-50">
+            <button type="submit" disabled={busy || address.trim().length < 3} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-5 text-sm font-semibold text-white disabled:opacity-50">
               {busy && <Spinner className="size-4" />}
               {C.save}
             </button>
@@ -173,7 +173,7 @@ function SelfService({ o, token, onChanged }: { o: TrackedOrderDTO; token: strin
         </form>
       )}
       {mode === "cancel" && (
-        <div className="mt-3 space-y-3 rounded-2xl bg-white p-3">
+        <div className="mt-3 space-y-3 rounded-2xl bg-surface p-3">
           <p className="font-semibold">{C.cancelTitle}</p>
           <label className="block text-sm font-medium">
             {C.reason}
@@ -190,7 +190,7 @@ function SelfService({ o, token, onChanged }: { o: TrackedOrderDTO; token: strin
               {busy && <Spinner className="size-4" />}
               {C.confirmCancel}
             </button>
-            <button type="button" onClick={() => setMode("idle")} className="h-11 rounded-full border border-ink/15 bg-white px-5 text-sm font-semibold">
+            <button type="button" onClick={() => setMode("idle")} className="h-11 rounded-full border border-ink/15 bg-surface px-5 text-sm font-semibold">
               {C.keep}
             </button>
           </div>
@@ -220,7 +220,7 @@ function OrderCard({ o: initial, token }: { o: TrackedOrderDTO; token?: string }
   const settled = o.status === "livree" || closed;
 
   return (
-    <article className="overflow-hidden rounded-card border border-line bg-white/70">
+    <article className="overflow-hidden rounded-card border border-line bg-surface/70">
       <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-ivory-deep/60 px-5 py-4">
         <div>
           <p className="font-mono text-lg font-bold tracking-wide text-plum-700" dir="ltr">
@@ -420,7 +420,7 @@ export function TrackView() {
       </div>
 
       {/* with a private link open, the phone lookup folds away under "track another order" */}
-      <details open={!linkOrder} className="group my-6 rounded-card border border-line bg-white/60">
+      <details open={!linkOrder} className="group my-6 rounded-card border border-line bg-surface/60">
         <summary className={`cursor-pointer list-none px-5 py-4 text-sm font-semibold text-plum-700 ${linkOrder ? "" : "hidden"}`}>{t.trackPlus.other}</summary>
         <form onSubmit={lookup} className="space-y-3 p-5">
         <p className="text-sm text-ink-soft">{t.track.text}</p>
@@ -431,7 +431,7 @@ export function TrackView() {
         <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={setToken} locale={locale} />
         {state === "invalid" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
         {state === "error" && <ErrorBox />}
-        <button type="submit" disabled={state === "loading"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-ivory">
+        <button type="submit" disabled={state === "loading"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white">
           {state === "loading" && <Spinner className="size-4" />}
           {t.track.search}
         </button>

@@ -182,10 +182,10 @@ function QuickActions({ toConfirm }: { toConfirm: number }) {
             to={a.to}
             search={a.search ?? {}}
             className={`group flex items-center gap-3 rounded-2xl border p-3.5 transition hover:-translate-y-0.5 hover:shadow-[0_12px_28px_-12px_rgb(106_12_54/0.35)] ${
-              a.strong ? "border-transparent bg-gradient-to-br from-plum-600 to-plum-700 text-white" : "border-line bg-white"
+              a.strong ? "border-transparent bg-gradient-to-br from-plum-600 to-plum-700 text-white" : "border-line bg-surface"
             }`}
           >
-            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${a.strong ? "bg-white/15" : "bg-ink text-white"}`}>
+            <span className={`grid size-10 shrink-0 place-items-center rounded-xl ${a.strong ? "bg-white/15" : "bg-ink text-on-ink"}`}>
               <a.icon className="size-5" strokeWidth={2} />
             </span>
             <span className="min-w-0">
@@ -205,7 +205,7 @@ function MiniBars({ values, faded = false }: { values: number[]; faded?: boolean
     <svg width="72" height="44" viewBox="0 0 72 44" aria-hidden="true" className="shrink-0">
       {values.map((v, i) => {
         const h = Math.max(3, (v / max) * 42);
-        return <rect key={i} x={i * 15 + 6} y={44 - h} width="9" height={h} rx="2" fill={faded ? "rgb(194 37 95 / 0.15)" : "var(--color-plum-600)"} />;
+        return <rect key={i} x={i * 15 + 6} y={44 - h} width="9" height={h} rx="2" fill={faded ? "rgb(194 37 95 / 0.15)" : "var(--color-chart)"} />;
       })}
     </svg>
   );
@@ -257,7 +257,7 @@ function ProductInsight({ p }: { p: DashboardData["topProduct"] }) {
 function DeliveryDonut({ m }: { m: Period }) {
   const inProgress = Math.max(0, m.orders - m.delivered - m.returned);
   const parts = [
-    { v: m.delivered, color: "var(--color-plum-600)", label: tr("Livrées") },
+    { v: m.delivered, color: "var(--color-chart)", label: tr("Livrées") },
     { v: inProgress, color: "rgb(194 37 95 / 0.55)", label: tr("En cours") },
     { v: m.returned, color: "rgb(194 37 95 / 0.18)", label: tr("Retours") },
   ];

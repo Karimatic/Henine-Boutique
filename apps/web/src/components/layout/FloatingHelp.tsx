@@ -45,7 +45,7 @@ export function FloatingHelp() {
           type="button"
           onClick={() => setOpen(true)}
           aria-label={t.plus.assistant.open}
-          className="lift flex h-11 items-center gap-1.5 rounded-full bg-white px-3.5 text-sm font-semibold text-plum-700 shadow-[0_8px_24px_-8px_rgb(23_10_16/0.35)] ring-1 ring-line"
+          className="lift flex h-11 items-center gap-1.5 rounded-full bg-surface px-3.5 text-sm font-semibold text-plum-700 shadow-[0_8px_24px_-8px_rgb(23_10_16/0.35)] ring-1 ring-line"
         >
           <span aria-hidden="true">✨</span>
           <span className="hidden sm:inline">{t.plus.assistant.open}</span>
@@ -111,7 +111,7 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
   const wa = whatsappLink(site.data?.contact.whatsapp, t.plus.whatsapp.hello);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 backdrop-blur-[2px] md:items-center" role="dialog" aria-modal="true" aria-label={A.title} onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-noir/40 backdrop-blur-[2px] md:items-center" role="dialog" aria-modal="true" aria-label={A.title} onClick={onClose}>
       <div className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-[1.75rem] bg-ivory shadow-2xl md:rounded-[1.75rem]" onClick={(e) => e.stopPropagation()}>
         <header className="flex items-center justify-between gap-3 bg-gradient-to-br from-plum-600 to-plum-700 px-5 py-4 text-white">
           <div>
@@ -124,11 +124,11 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
         </header>
 
         <div className="flex-1 space-y-4 overflow-y-auto p-4" aria-live="polite">
-          <p className="rounded-2xl rounded-ss-sm bg-white p-3.5 text-sm leading-relaxed shadow-sm">{A.intro}</p>
+          <p className="rounded-2xl rounded-ss-sm bg-surface p-3.5 text-sm leading-relaxed shadow-sm">{A.intro}</p>
           {turns.length === 0 && (
             <div className="flex flex-wrap gap-2">
               {A.examples.map((ex) => (
-                <button key={ex} type="button" onClick={() => ask(ex)} className="rounded-full border border-plum-600/30 bg-white px-3.5 py-2 text-start text-sm text-plum-700">
+                <button key={ex} type="button" onClick={() => ask(ex)} className="rounded-full border border-plum-600/30 bg-surface px-3.5 py-2 text-start text-sm text-plum-700">
                   {ex}
                 </button>
               ))}
@@ -136,7 +136,7 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
           )}
           {turns.map((turn, i) => (
             <div key={i} className="space-y-2.5">
-              <p className="ms-auto w-fit max-w-[85%] rounded-2xl rounded-se-sm bg-ink px-3.5 py-2.5 text-sm text-white">{turn.q}</p>
+              <p className="ms-auto w-fit max-w-[85%] rounded-2xl rounded-se-sm bg-ink px-3.5 py-2.5 text-sm text-on-ink">{turn.q}</p>
               {turn.error && <p className="text-sm text-danger">{t.common.error}</p>}
               {turn.reply && (
                 <div className="space-y-2.5">
@@ -154,7 +154,7 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
                   <ul className="space-y-2">
                     {turn.reply.products.map((p) => (
                       <li key={p.id}>
-                        <a href={href(`/produit/${p.slug}`)} className="flex gap-3 rounded-2xl bg-white p-2.5 shadow-sm ring-1 ring-line transition hover:ring-plum-600/40">
+                        <a href={href(`/produit/${p.slug}`)} className="flex gap-3 rounded-2xl bg-surface p-2.5 shadow-sm ring-1 ring-line transition hover:ring-plum-600/40">
                           <ProductImage image={p.image} alt="" category={p.categorySlug} color={p.colors[0]} sizes="80px" className="aspect-[4/5] w-18 shrink-0 rounded-xl" />
                           <span className="min-w-0 flex-1">
                             <span className="line-clamp-1 font-semibold">{ar ? p.nameAr : p.nameFr}</span>
@@ -190,7 +190,7 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
         </div>
 
         <form
-          className="flex gap-2 border-t border-line bg-white p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+          className="flex gap-2 border-t border-line bg-surface p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
           onSubmit={(e) => {
             e.preventDefault();
             void ask(q);

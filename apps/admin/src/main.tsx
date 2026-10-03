@@ -4,12 +4,15 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { ApiError } from "./api";
 import { applyLangToDocument } from "./i18n";
+import { applyColorMode } from "./lib/colorMode";
 import { router } from "./router";
 import { ToastProvider } from "./ui";
 import "./styles.css";
 
 // French or Arabic (right to left), as chosen in Paramètres → Mon compte
 applyLangToDocument();
+// light / dark as chosen on this device (auto = the phone's setting, handled by CSS)
+applyColorMode();
 
 const queryClient = new QueryClient({
   defaultOptions: {

@@ -44,7 +44,7 @@ export function DeliveryEstimate() {
   const fmt = (d: Date) => d.toLocaleDateString(dateLocale(locale), { weekday: "short", day: "numeric", month: "short" });
 
   return (
-    <section className="rounded-2xl border border-line bg-white p-4">
+    <section className="rounded-2xl border border-line bg-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 font-semibold">
           <span aria-hidden="true">🚚</span> {D.title}

@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect } from "react";
-import { DEFAULT_DESIGN, fontStylesheet, fontVars, themeVars } from "@henine/shared";
+import { DEFAULT_DESIGN, fontStylesheet, fontVars, themeVars, themeVarsDark } from "@henine/shared";
+import { DESIGN_KEY as KEY } from "@/lib/boot";
 import { useDesign } from "@/lib/site";
 
-const KEY = "henine.design.v1";
+const rules = (vars: Record<string, string>) => Object.entries(vars).map(([k, v]) => `${k}:${v}`).join(";");
 
 /**
- * Colours and fonts chosen in Admin → Page d'accueil → Apparence, applied as CSS variables
- * (every pink/plum shade of the store follows them). Remembered on the phone so the next
- * page paints with them straight away (see THEME_BOOT).
+ * Colours and fonts chosen in Admin → Page d'accueil → Apparence, as a small stylesheet
+ * (light values, and their dark-mode versions). Remembered on the phone so the next page
+ * paints with them straight away (see THEME_BOOT).
  */
 export function ThemeStyle() {
   const design = useDesign();
@@ -17,12 +18,22 @@ export function ThemeStyle() {
   const font = design.font;
   useEffect(() => {
     const isDefault = accent.toLowerCase() === DEFAULT_DESIGN.colors.accent && soft.toLowerCase() === DEFAULT_DESIGN.colors.soft;
-    const vars = { ...(isDefault ? {} : themeVars({ accent, soft })), ...fontVars(font) };
-    const root = document.documentElement.style;
-    for (const k of Object.keys(themeVars(DEFAULT_DESIGN.colors)).concat(Object.keys(fontVars("elegant")))) {
-      if (!(k in vars)) root.removeProperty(k);
+    const fonts = fontVars(font);
+    let css = Object.keys(fonts).length ? `:root:root{${rules(fonts)}}` : "";
+    if (!isDefault) {
+      const dark = rules(themeVarsDark({ accent, soft }));
+      css +=
+        `:root:root{${rules(themeVars({ accent, soft }))}}` +
+        `@media screen{:root:root[data-theme="dark"]{${dark}}@media (prefers-color-scheme: dark){:root:root:not([data-theme="light"]){${dark}}}}`;
     }
-    for (const [k, v] of Object.entries(vars)) root.setProperty(k, v);
+    let style = document.getElementById("henine-theme");
+    if (css) {
+      if (!style) {
+        style = Object.assign(document.createElement("style"), { id: "henine-theme" });
+        document.head.appendChild(style);
+      }
+      if (style.textContent !== css) style.textContent = css;
+    } else style?.remove();
     const href = fontStylesheet(font);
     let link = document.getElementById("henine-font") as HTMLLinkElement | null;
     if (href) {
@@ -33,13 +44,11 @@ export function ThemeStyle() {
       if (link.href !== href) link.href = href;
     } else link?.remove();
     try {
-      localStorage.setItem(KEY, JSON.stringify({ vars, font: href }));
+      localStorage.setItem(KEY, JSON.stringify({ css, font: href }));
+      localStorage.removeItem("henine.design.v1");
     } catch {
       /* private mode */
     }
   }, [accent, soft, font]);
   return null;
 }
-
-/** Inline in <head>: the remembered theme before the first paint (no flash of the default colours). */
-export const THEME_BOOT = `try{var d=JSON.parse(localStorage.getItem("${KEY}")||"null");if(d){var s=document.documentElement.style;for(var k in d.vars)s.setProperty(k,d.vars[k]);if(d.font){var l=document.createElement("link");l.id="henine-font";l.rel="stylesheet";l.href=d.font;document.head.appendChild(l)}}}catch(e){}`;

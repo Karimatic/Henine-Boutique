@@ -98,7 +98,7 @@ export function Picker<V extends string | number>({
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 md:items-center" onClick={close}>
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-noir/40 md:items-center" onClick={close}>
           <div
             role="dialog"
             aria-modal="true"

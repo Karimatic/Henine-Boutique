@@ -2,6 +2,7 @@
 
 import { useLocale } from "@/lib/locale";
 import { Blossom, InstagramIcon } from "@/components/ui/icons";
+import { ColorModeSwitch } from "./ColorModeSwitch";
 import { WhatsAppIcon } from "./FloatingHelp";
 import { useDesign, useSite, whatsappLink } from "@/lib/site";
 import { LanguageSwitch } from "./LanguageSwitch";
@@ -38,12 +39,12 @@ export function SiteFooter() {
     [href("/liens"), t.footer.links],
   ];
   return (
-    <footer className="mt-8 bg-ink text-white">
+    <footer className="mt-8 bg-noir text-white">
       <div className="mx-auto max-w-6xl px-4 pb-8 pt-10">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-2.5">
             {design.logo ? (
-              <img src={design.logo} alt="Henine Boutique" className="h-12 w-auto max-w-[12rem] rounded-lg bg-white/95 object-contain p-1.5" />
+              <img src={design.logo} alt="Henine Boutique" className="h-12 w-auto max-w-[12rem] rounded-lg bg-surface/95 object-contain p-1.5" />
             ) : (
               <>
                 <Blossom size={30} />
@@ -86,11 +87,14 @@ export function SiteFooter() {
             ))}
           </ul>
         </nav>
-        <div className="mt-8 flex items-center justify-between gap-3 border-t border-white/10 pt-5">
+        <div className="mt-8 flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-5">
           <p className="text-xs text-white/50">
             © {new Date().getFullYear()} Henine Boutique · {t.footer.rights}
           </p>
-          <LanguageSwitch className="inline-flex" />
+          <div className="flex flex-wrap items-center gap-2 pe-14 md:pe-0">
+            <ColorModeSwitch tone="dark" />
+            <LanguageSwitch className="inline-flex" />
+          </div>
         </div>
       </div>
     </footer>

@@ -20,7 +20,7 @@ function AuthLayout({ title, subtitle, children }: { title: string; subtitle?: R
         <div className="absolute start-1/2 top-1/2 size-[46rem] -translate-x-1/2 -translate-y-1/2 rounded-full border border-plum-600/5" />
       </div>
       <div className="relative w-full max-w-md">
-        <div className="rounded-xl border border-line/70 bg-white/90 p-6 shadow-[0_10px_40px_-12px_rgb(157_23_77/0.25)] backdrop-blur sm:p-8">
+        <div className="rounded-xl border border-line/70 bg-surface/90 p-6 shadow-[0_10px_40px_-12px_rgb(157_23_77/0.25)] backdrop-blur sm:p-8">
           <Wordmark size="lg" subtitle={tr("Administration")} className="mb-7" />
           <h1 className="font-display text-2xl font-semibold">{title}</h1>
           {subtitle && <p className="mt-1.5 text-sm text-ink-soft">{subtitle}</p>}

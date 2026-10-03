@@ -4,8 +4,8 @@ import { isNewArrival, type ProductCardDTO } from "@henine/shared";
 import { useLocale } from "@/lib/locale";
 
 const TONE: Record<string, string> = {
-  bestseller: "bg-plum-700 text-ivory",
-  trending: "bg-rose-700 text-ivory",
+  bestseller: "bg-plum-700 text-white",
+  trending: "bg-rose-700 text-white",
   popular: "bg-ivory/90 text-plum-700",
   new: "bg-ivory/90 text-plum-700",
   pick: "bg-gold/90 text-white",

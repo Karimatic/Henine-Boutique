@@ -20,7 +20,7 @@ export function BottomNav() {
     { to: "/panier", label: t.nav.cart, Icon: BagIcon, match: (p: string) => p.startsWith("/panier") || p.startsWith("/commande") },
   ];
   return (
-    <nav aria-label="Navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-white/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgb(23_10_16/0.06)] backdrop-blur md:hidden">
+    <nav aria-label="Navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-surface/95 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_24px_rgb(23_10_16/0.06)] backdrop-blur md:hidden">
       <ul className="grid grid-cols-5">
         {items.map(({ to, label, Icon, match }) => {
           const active = path !== "" && match(path);
@@ -31,7 +31,7 @@ export function BottomNav() {
                 aria-current={active ? "page" : undefined}
                 className={`relative flex h-16 flex-col items-center justify-center gap-1 text-[11px] font-medium transition ${active ? "text-ink" : "text-ink-soft"}`}
               >
-                <span className={`grid h-7 w-12 place-items-center rounded-full transition ${active ? "bg-ink text-white" : ""}`}>
+                <span className={`grid h-7 w-12 place-items-center rounded-full transition ${active ? "bg-ink text-on-ink" : ""}`}>
                   <Icon size={20} />
                 </span>
                 {label}

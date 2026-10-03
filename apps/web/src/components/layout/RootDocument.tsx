@@ -11,7 +11,8 @@ import { InstallPrompt } from "./InstallPrompt";
 import { SiteFooter } from "./SiteFooter";
 import { SiteHeader } from "./SiteHeader";
 import { SplashScreen } from "./SplashScreen";
-import { THEME_BOOT, ThemeStyle } from "./ThemeStyle";
+import { ThemeStyle } from "./ThemeStyle";
+import { MODE_BOOT, THEME_BOOT } from "@/lib/boot";
 import "@/styles/globals.css";
 
 /** Shared <html> shell for the Arabic (/, main) and French (/fr) root layouts. */
@@ -21,7 +22,8 @@ export function RootDocument({ locale, children }: { locale: Locale; children: R
     <html lang={locale} dir={dirOf(locale)} className={fonts} suppressHydrationWarning>
       <head>
         {/* the store's colours and fonts (Admin → Apparence) before the first paint */}
-        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT }} />
+        {/* light / dark choice and the store's colours before the first paint (no flash) */}
+        <script dangerouslySetInnerHTML={{ __html: MODE_BOOT + THEME_BOOT }} />
       </head>
       <body className="flex min-h-dvh flex-col pb-[calc(4rem+env(safe-area-inset-bottom))] md:pb-0">
         <noscript>
@@ -31,7 +33,7 @@ export function RootDocument({ locale, children }: { locale: Locale; children: R
         <LocaleProvider locale={locale}>
           <a
             href="#main"
-            className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-ink focus:px-4 focus:py-2 focus:text-ivory"
+            className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-noir focus:px-4 focus:py-2 focus:text-white"
           >
             {getDictionary(locale).skip}
           </a>

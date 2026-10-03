@@ -293,7 +293,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
               return (
                 <label
                   key={type}
-                  className={`flex cursor-pointer flex-col rounded-2xl border-2 p-3 transition ${deliveryType === type ? "border-ink bg-white" : "border-line bg-white"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
+                  className={`flex cursor-pointer flex-col rounded-2xl border-2 p-3 transition ${deliveryType === type ? "border-ink bg-surface" : "border-line bg-surface"} ${disabled ? "cursor-not-allowed opacity-50" : ""}`}
                 >
                   <input type="radio" name="delivery" value={type} className="sr-only" checked={deliveryType === type} disabled={disabled} onChange={() => setDeliveryType(type)} />
                   <span className="text-sm font-semibold">{type === "domicile" ? L.home : L.desk}</span>
@@ -328,7 +328,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
 
 
       {/* Summary */}
-      <aside className={compact ? "space-y-3" : "h-fit space-y-4 rounded-card border border-line bg-white/70 p-5 lg:sticky lg:top-24"}>
+      <aside className={compact ? "space-y-3" : "h-fit space-y-4 rounded-card border border-line bg-surface/70 p-5 lg:sticky lg:top-24"}>
         {!compact && <h2 className="text-lg font-semibold">{L.summary}</h2>}
         {!compact && quote && (
           <ul className="space-y-3">
@@ -363,7 +363,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
           </button>
         )}
         {quote?.points && quote.points.usable > 0 && (
-          <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 text-sm transition ${usePoints ? "border-plum-600 bg-rose-100/60" : "border-line bg-white"}`}>
+          <label className={`flex cursor-pointer items-start gap-3 rounded-2xl border p-3 text-sm transition ${usePoints ? "border-plum-600 bg-rose-100/60" : "border-line bg-surface"}`}>
             <input type="checkbox" className="mt-0.5 size-5 shrink-0 accent-plum-600" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} />
             <span>
               <span className="block font-semibold">
@@ -422,7 +422,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
 
       {/* phones: the total and the confirm button stay in reach while filling the form */}
       {!compact && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-white/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
+        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-surface/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1 leading-tight">
               <p className="text-xs text-ink-soft">{L.total} · {L.cod}</p>
