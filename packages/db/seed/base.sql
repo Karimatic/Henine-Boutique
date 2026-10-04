@@ -13,7 +13,7 @@ ON CONFLICT(key) DO UPDATE SET name = excluded.name, permissions = excluded.perm
 INSERT OR IGNORE INTO settings (key, value) VALUES
 ('store', '{"name":"Henine Boutique","tagline_fr":"L''élégance & la qualité au meilleur prix","tagline_ar":"الأناقة والجودة بأفضل سعر","city_fr":"Boumerdès","city_ar":"بومرداس","wilaya":35,"hours_fr":"Ouvert 7j/7","hours_ar":"مفتوح 7/7","currency":"DZD"}'),
 ('contact', '{"phone":null,"whatsapp":null,"instagram":"https://www.instagram.com/henine.boutique/","tiktok":null,"facebook":null,"maps":null,"address_fr":"Boumerdès","address_ar":"بومرداس"}'),
-('hero', '{"eyebrow_fr":"Nouvelle collection","eyebrow_ar":"تشكيلة جديدة","title_fr":"L’élégance & la qualité au meilleur prix","title_ar":"الأناقة والجودة بأفضل سعر","subtitle_fr":"Robes, lingerie et pyjamas choisis avec soin, livrés partout en Algérie.","subtitle_ar":"فساتين، ملابس داخلية وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر."}'),
+('hero', '{"eyebrow_fr":"Nouvelle collection","eyebrow_ar":"تشكيلة جديدة","title_fr":"L’élégance & la qualité au meilleur prix","title_ar":"الأناقة والجودة بأفضل سعر","subtitle_fr":"Robes, djebbas et pyjamas choisis avec soin, livrés partout en Algérie.","subtitle_ar":"فساتين، جبات وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر."}'),
 ('notifications', '{"telegram_new_order":true,"telegram_status_change":true,"telegram_low_stock":true,"telegram_review":true,"telegram_contact":true,"trust_group_members":true}'),
 ('announcement', '{"active":true,"messages_fr":["🚚 Livraison dans les 69 wilayas","💵 Paiement à la livraison","🔄 Échange possible","🌸 Boutique à Boumerdès · 7j/7"],"messages_ar":["🚚 التوصيل إلى 69 ولاية","💵 الدفع عند الاستلام","🔄 إمكانية التبديل","🌸 محلنا في بومرداس · 7/7"]}'),
 ('checkout', '{"cod":true,"express_on_product":true,"require_turnstile":true,"max_orders_per_phone_per_hour":3,"free_shipping_over":null,"desk_enabled":true}'),
@@ -36,5 +36,5 @@ INSERT OR IGNORE INTO message_templates (key, channel, body_fr, body_ar) VALUES
 
 INSERT OR IGNORE INTO categories (slug, name_fr, name_ar, sort) VALUES
 ('robes', 'Robes', 'فساتين', 1),
-('lingerie', 'Lingerie', 'ملابس داخلية', 2),
+('djebba', 'Djebba', 'جبة', 2),
 ('pyjamas', 'Pyjamas', 'بيجامات', 3);

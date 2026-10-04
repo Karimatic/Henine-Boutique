@@ -6,7 +6,7 @@
  *
  * Usage: node packages/db/scripts/build-demo-seed.mjs
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -60,18 +60,18 @@ const PRODUCTS = [
     sizes: ["M", "L", "XL", "XXL"], colors: ["lavande", "rose"], stock: () => 8,
   },
   {
-    slug: "ensemble-dentelle-rose", cat: "lingerie", fr: "Ensemble dentelle Rose", ar: "طقم دانتيل روز",
-    price: 2900, compare: 3500, cost: 1200, tags: ["nouveaute"],
-    descFr: "Ensemble soutien-gorge + culotte en **dentelle délicate**. Livré dans un emballage discret.",
-    descAr: "طقم حمالة صدر + سروال داخلي من **الدانتيل الرقيق**. يصلك في تغليف سري.",
-    sizes: ["S", "M", "L"], colors: ["rose", "noir"], stock: () => 5,
-  },
-  {
-    slug: "nuisette-soie-amira", cat: "lingerie", fr: "Nuisette Amira", ar: "قميص نوم أميرة",
+    slug: "nuisette-soie-amira", cat: "pyjamas", fr: "Nuisette Amira", ar: "قميص نوم أميرة",
     price: 2500, compare: null, cost: 1000, tags: [],
     descFr: "Nuisette **satinée** à fines bretelles réglables, bordure en dentelle.",
     descAr: "قميص نوم **ساتان** بحمالات رفيعة قابلة للتعديل وحواف من الدانتيل.",
     sizes: ["S", "M", "L"], colors: ["bordeaux", "champagne"], stock: () => 2,
+  },
+  {
+    slug: "djebba-brodee-lilia", cat: "djebba", fr: "Djebba brodée Lilia", ar: "جبة مطرزة ليليا",
+    price: 5200, compare: 6000, cost: 2800, tags: ["nouveaute"],
+    descFr: "Djebba longue et fluide, **broderie au col et aux manches**, coupe ample et confortable.\n\n- Tissu léger, agréable à porter toute la journée\n- Idéale pour la maison, les visites et les fêtes\n- Lavage délicat à 30°",
+    descAr: "جبة طويلة وانسيابية، **تطريز على الياقة والأكمام**، قصة واسعة ومريحة.\n\n- قماش خفيف ومريح طوال اليوم\n- مثالية للبيت والزيارات والمناسبات\n- غسيل لطيف على 30 درجة",
+    sizes: ["M", "L", "XL", "XXL"], colors: ["bordeaux", "champagne"], stock: (s) => (s === "XXL" ? 2 : 4),
   },
 ];
 
@@ -122,21 +122,10 @@ lines.push(
   `INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (3, 3, 'نسرين', 5, 'بيجامة رائعة وناعمة جدا، شكرا Henine', 1, 'approved', ${now - 86400_000 * 5});`,
 );
 
-// Content pages
-const PAGES = [
-  ["livraison-retours", "Livraison & retours", "التوصيل والإرجاع",
-    "## Livraison\n\nNous livrons dans les **69 wilayas** avec ZR Express, à domicile ou en bureau (stop-desk).\n\n- Délai : 1 à 7 jours selon la wilaya\n- Paiement à la livraison\n\n## Échange\n\nTaille pas parfaite ? Contactez-nous sous 48 h après réception pour un échange.",
-    "## التوصيل\n\nنوصل إلى **69 ولاية** مع ZR Express، إلى المنزل أو إلى المكتب.\n\n- المدة: من 1 إلى 7 أيام حسب الولاية\n- الدفع عند الاستلام\n\n## التبديل\n\nالمقاس غير مناسب؟ اتصلي بنا خلال 48 ساعة من الاستلام للتبديل."],
-  ["cgv", "Conditions générales de vente", "الشروط العامة للبيع",
-    "## Commandes\n\nToute commande est confirmée par téléphone avant expédition.\n\n## Prix\n\nLes prix sont indiqués en dinars algériens (DA), frais de livraison en plus.",
-    "## الطلبات\n\nيتم تأكيد كل طلب عبر الهاتف قبل الشحن.\n\n## الأسعار\n\nالأسعار بالدينار الجزائري، مصاريف التوصيل إضافية."],
-  ["confidentialite", "Politique de confidentialité", "سياسة الخصوصية",
-    "Vos données (nom, téléphone, adresse) servent uniquement à traiter et livrer votre commande, conformément à la loi 18-07 sur la protection des données personnelles.",
-    "تُستخدم بياناتك (الاسم، الهاتف، العنوان) فقط لمعالجة طلبك وتوصيله، وفقا للقانون 18-07 المتعلق بحماية المعطيات الشخصية."],
-  ["a-propos", "À propos", "من نحن",
-    "Henine Boutique, c'est **l'élégance et la qualité au meilleur prix**. Notre boutique vous accueille à Boumerdès 7j/7.",
-    "Henine Boutique هي **الأناقة والجودة بأفضل سعر**. محلنا في بومرداس يستقبلكم 7 أيام في الأسبوع."],
-];
+// Content pages (full texts, also used for production: data/pages.json)
+const PAGES = JSON.parse(readFileSync(join(dirname(fileURLToPath(import.meta.url)), "../data/pages.json"), "utf8")).map((p) => [
+  p.slug, p.titleFr, p.titleAr, p.bodyFr, p.bodyAr,
+]);
 PAGES.forEach(([slug, tFr, tAr, bFr, bAr], i) =>
   lines.push(`INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (${i + 1}, ${q(slug)}, ${q(tFr)}, ${q(tAr)}, ${q(bFr)}, ${q(bAr)}, 1);`),
 );
@@ -146,7 +135,7 @@ const LINKS = [
   ["bio", null, "🛍️ Voir la boutique", "🛍️ تصفحي المتجر", "/", "shop"],
   ["bio", null, "📦 Suivre ma commande", "📦 تتبع طلبي", "/suivi", "package"],
   ["bio", null, "📸 Instagram", "📸 إنستغرام", "https://www.instagram.com/henine.boutique/", "instagram"],
-  ["bio", null, "📍 Nous contacter", "📍 اتصلي بنا", "/contact", "pin"],
+  ["bio", null, "📍 Nous contacter", "📍 تواصلي معنا", "/contact", "pin"],
   ["short", "insta", "Instagram bio", "Instagram bio", "/?utm_source=instagram&utm_medium=bio", null],
 ];
 LINKS.forEach(([kind, slug, lFr, lAr, target, icon], i) =>

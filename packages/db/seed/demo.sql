@@ -8,7 +8,7 @@ INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, des
 
 - قماش ناعم وخفيف
 - انسدال أنيق، مثالي للمناسبات
-- غسيل لطيف على 30 درجة', 'published', (SELECT id FROM categories WHERE slug = 'robes'), '["nouveaute","best-seller"]', 4900, 6500, 2600, 0, 1790797903693, 1790797903693);
+- غسيل لطيف على 30 درجة', 'published', (SELECT id FROM categories WHERE slug = 'robes'), '["nouveaute","best-seller"]', 4900, 6500, 2600, 0, 1791139196895, 1791139196895);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (1, 1, 'taille', 'Taille', 'المقاس', 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (1, 1, 'S', 'S', NULL, 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (2, 1, 'M', 'M', NULL, 1);
@@ -30,7 +30,7 @@ INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (10, 1, 'NOUR-EMERAUDE-M', '[2,7]', 3, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (11, 1, 'NOUR-EMERAUDE-L', '[3,7]', 3, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (12, 1, 'NOUR-EMERAUDE-XL', '[4,7]', 0, 0, 2, 1);
-INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (2, 'robe-fleurie-yasmine', 'Robe fleurie Yasmine', 'فستان مزهر ياسمين', 'Robe midi à **imprimé fleuri**, manches bouffantes et col carré. Parfaite pour le printemps.', 'فستان متوسط الطول **بطبعة زهور**، أكمام منفوخة وياقة مربعة. مثالي للربيع.', 'published', (SELECT id FROM categories WHERE slug = 'robes'), '["nouveaute"]', 3900, NULL, 2000, 1, 1790794303693, 1790797903693);
+INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (2, 'robe-fleurie-yasmine', 'Robe fleurie Yasmine', 'فستان مزهر ياسمين', 'Robe midi à **imprimé fleuri**, manches bouffantes et col carré. Parfaite pour le printemps.', 'فستان متوسط الطول **بطبعة زهور**، أكمام منفوخة وياقة مربعة. مثالي للربيع.', 'published', (SELECT id FROM categories WHERE slug = 'robes'), '["nouveaute"]', 3900, NULL, 2000, 1, 1791135596895, 1791139196895);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (3, 2, 'taille', 'Taille', 'المقاس', 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (8, 3, 'S', 'S', NULL, 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (9, 3, 'M', 'M', NULL, 1);
@@ -44,7 +44,7 @@ INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (16, 2, 'YASMINE-CIEL-S', '[8,12]', 4, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (17, 2, 'YASMINE-CIEL-M', '[9,12]', 4, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (18, 2, 'YASMINE-CIEL-L', '[10,12]', 4, 0, 2, 1);
-INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (3, 'pyjama-satin-lina', 'Pyjama satin Lina', 'بيجامة ساتان لينا', 'Ensemble chemise + pantalon en **satin**, passepoil contrasté. Confort et élégance pour vos nuits.', 'طقم قميص + سروال من **الساتان** بحواف متباينة. راحة وأناقة لليالي.', 'published', (SELECT id FROM categories WHERE slug = 'pyjamas'), '["best-seller"]', 3500, 4200, 1700, 2, 1790790703693, 1790797903693);
+INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (3, 'pyjama-satin-lina', 'Pyjama satin Lina', 'بيجامة ساتان لينا', 'Ensemble chemise + pantalon en **satin**, passepoil contrasté. Confort et élégance pour vos nuits.', 'طقم قميص + سروال من **الساتان** بحواف متباينة. راحة وأناقة لليالي.', 'published', (SELECT id FROM categories WHERE slug = 'pyjamas'), '["best-seller"]', 3500, 4200, 1700, 2, 1791131996895, 1791139196895);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (5, 3, 'taille', 'Taille', 'المقاس', 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (13, 5, 'M', 'M', NULL, 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (14, 5, 'L', 'L', NULL, 1);
@@ -58,7 +58,7 @@ INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (22, 3, 'LINA-BORDEAUX-M', '[13,17]', 5, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (23, 3, 'LINA-BORDEAUX-L', '[14,17]', 5, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (24, 3, 'LINA-BORDEAUX-XL', '[15,17]', 1, 0, 2, 1);
-INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (4, 'pyjama-coton-doux', 'Pyjama coton Doux', 'بيجامة قطن ناعمة', 'Pyjama 100 % coton, **ultra doux**, pantalon à taille élastique.', 'بيجامة قطن 100%، **ناعمة جدا**، سروال بخصر مطاطي.', 'published', (SELECT id FROM categories WHERE slug = 'pyjamas'), '[]', 2800, NULL, 1300, 3, 1790787103693, 1790797903693);
+INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (4, 'pyjama-coton-doux', 'Pyjama coton Doux', 'بيجامة قطن ناعمة', 'Pyjama 100 % coton, **ultra doux**, pantalon à taille élastique.', 'بيجامة قطن 100%، **ناعمة جدا**، سروال بخصر مطاطي.', 'published', (SELECT id FROM categories WHERE slug = 'pyjamas'), '[]', 2800, NULL, 1300, 3, 1791128396895, 1791139196895);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (7, 4, 'taille', 'Taille', 'المقاس', 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (18, 7, 'M', 'M', NULL, 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (19, 7, 'L', 'L', NULL, 1);
@@ -75,75 +75,292 @@ INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (30, 4, 'DOUX-ROSE-L', '[19,23]', 8, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (31, 4, 'DOUX-ROSE-XL', '[20,23]', 8, 0, 2, 1);
 INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (32, 4, 'DOUX-ROSE-XXL', '[21,23]', 8, 0, 2, 1);
-INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (5, 'ensemble-dentelle-rose', 'Ensemble dentelle Rose', 'طقم دانتيل روز', 'Ensemble soutien-gorge + culotte en **dentelle délicate**. Livré dans un emballage discret.', 'طقم حمالة صدر + سروال داخلي من **الدانتيل الرقيق**. يصلك في تغليف سري.', 'published', (SELECT id FROM categories WHERE slug = 'lingerie'), '["nouveaute"]', 2900, 3500, 1200, 4, 1790783503693, 1790797903693);
+INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (5, 'nuisette-soie-amira', 'Nuisette Amira', 'قميص نوم أميرة', 'Nuisette **satinée** à fines bretelles réglables, bordure en dentelle.', 'قميص نوم **ساتان** بحمالات رفيعة قابلة للتعديل وحواف من الدانتيل.', 'published', (SELECT id FROM categories WHERE slug = 'pyjamas'), '[]', 2500, NULL, 1000, 4, 1791124796895, 1791139196895);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (9, 5, 'taille', 'Taille', 'المقاس', 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (24, 9, 'S', 'S', NULL, 0);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (25, 9, 'M', 'M', NULL, 1);
 INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (26, 9, 'L', 'L', NULL, 2);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (10, 5, 'couleur', 'Couleur', 'اللون', 1);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (27, 10, 'Rose poudré', 'وردي فاتح', '#e8b4bc', 0);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (28, 10, 'Noir', 'أسود', '#1f1a1c', 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (33, 5, 'ROSE-ROSE-S', '[24,27]', 5, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (34, 5, 'ROSE-ROSE-M', '[25,27]', 5, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (35, 5, 'ROSE-ROSE-L', '[26,27]', 5, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (36, 5, 'ROSE-NOIR-S', '[24,28]', 5, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (37, 5, 'ROSE-NOIR-M', '[25,28]', 5, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (38, 5, 'ROSE-NOIR-L', '[26,28]', 5, 0, 2, 1);
-INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (6, 'nuisette-soie-amira', 'Nuisette Amira', 'قميص نوم أميرة', 'Nuisette **satinée** à fines bretelles réglables, bordure en dentelle.', 'قميص نوم **ساتان** بحمالات رفيعة قابلة للتعديل وحواف من الدانتيل.', 'published', (SELECT id FROM categories WHERE slug = 'lingerie'), '[]', 2500, NULL, 1000, 5, 1790779903693, 1790797903693);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (27, 10, 'Bordeaux', 'خمري', '#6d1f33', 0);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (28, 10, 'Champagne', 'شمبانيا', '#e9d3b0', 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (33, 5, 'AMIRA-BORDEAUX-S', '[24,27]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (34, 5, 'AMIRA-BORDEAUX-M', '[25,27]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (35, 5, 'AMIRA-BORDEAUX-L', '[26,27]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (36, 5, 'AMIRA-CHAMPAGNE-S', '[24,28]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (37, 5, 'AMIRA-CHAMPAGNE-M', '[25,28]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (38, 5, 'AMIRA-CHAMPAGNE-L', '[26,28]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO products (id, slug, name_fr, name_ar, description_fr, description_ar, status, category_id, tags, price, compare_at_price, cost_price, sort, created_at, updated_at) VALUES (6, 'djebba-brodee-lilia', 'Djebba brodée Lilia', 'جبة مطرزة ليليا', 'Djebba longue et fluide, **broderie au col et aux manches**, coupe ample et confortable.
+
+- Tissu léger, agréable à porter toute la journée
+- Idéale pour la maison, les visites et les fêtes
+- Lavage délicat à 30°', 'جبة طويلة وانسيابية، **تطريز على الياقة والأكمام**، قصة واسعة ومريحة.
+
+- قماش خفيف ومريح طوال اليوم
+- مثالية للبيت والزيارات والمناسبات
+- غسيل لطيف على 30 درجة', 'published', (SELECT id FROM categories WHERE slug = 'djebba'), '["nouveaute"]', 5200, 6000, 2800, 5, 1791121196895, 1791139196895);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (11, 6, 'taille', 'Taille', 'المقاس', 0);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (29, 11, 'S', 'S', NULL, 0);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (30, 11, 'M', 'M', NULL, 1);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (31, 11, 'L', 'L', NULL, 2);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (29, 11, 'M', 'M', NULL, 0);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (30, 11, 'L', 'L', NULL, 1);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (31, 11, 'XL', 'XL', NULL, 2);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (32, 11, 'XXL', 'XXL', NULL, 3);
 INSERT OR REPLACE INTO product_options (id, product_id, kind, name_fr, name_ar, sort) VALUES (12, 6, 'couleur', 'Couleur', 'اللون', 1);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (32, 12, 'Bordeaux', 'خمري', '#6d1f33', 0);
-INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (33, 12, 'Champagne', 'شمبانيا', '#e9d3b0', 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (39, 6, 'AMIRA-BORDEAUX-S', '[29,32]', 2, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (40, 6, 'AMIRA-BORDEAUX-M', '[30,32]', 2, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (41, 6, 'AMIRA-BORDEAUX-L', '[31,32]', 2, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (42, 6, 'AMIRA-CHAMPAGNE-S', '[29,33]', 2, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (43, 6, 'AMIRA-CHAMPAGNE-M', '[30,33]', 2, 0, 2, 1);
-INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (44, 6, 'AMIRA-CHAMPAGNE-L', '[31,33]', 2, 0, 2, 1);
-INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (1, 1, 'Amina', 5, 'Magnifique robe, le satin est de très bonne qualité. Livraison rapide à Alger !', 1, 'approved', 1790538703693);
-INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (2, 1, 'Sara', 4, 'Très jolie, taille un peu grand. Je conseille de prendre une taille en dessous.', 1, 'approved', 1790106703693);
-INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (3, 3, 'نسرين', 5, 'بيجامة رائعة وناعمة جدا، شكرا Henine', 1, 'approved', 1790365903693);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (33, 12, 'Bordeaux', 'خمري', '#6d1f33', 0);
+INSERT OR REPLACE INTO option_values (id, option_id, label_fr, label_ar, hex, sort) VALUES (34, 12, 'Champagne', 'شمبانيا', '#e9d3b0', 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (39, 6, 'LILIA-BORDEAUX-M', '[29,33]', 4, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (40, 6, 'LILIA-BORDEAUX-L', '[30,33]', 4, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (41, 6, 'LILIA-BORDEAUX-XL', '[31,33]', 4, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (42, 6, 'LILIA-BORDEAUX-XXL', '[32,33]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (43, 6, 'LILIA-CHAMPAGNE-M', '[29,34]', 4, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (44, 6, 'LILIA-CHAMPAGNE-L', '[30,34]', 4, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (45, 6, 'LILIA-CHAMPAGNE-XL', '[31,34]', 4, 0, 2, 1);
+INSERT OR REPLACE INTO variants (id, product_id, sku, option_value_ids, stock_on_hand, stock_reserved, low_stock_threshold, is_active) VALUES (46, 6, 'LILIA-CHAMPAGNE-XXL', '[32,34]', 2, 0, 2, 1);
+INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (1, 1, 'Amina', 5, 'Magnifique robe, le satin est de très bonne qualité. Livraison rapide à Alger !', 1, 'approved', 1790879996895);
+INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (2, 1, 'Sara', 4, 'Très jolie, taille un peu grand. Je conseille de prendre une taille en dessous.', 1, 'approved', 1790447996895);
+INSERT OR REPLACE INTO reviews (id, product_id, name, rating, text, verified, status, created_at) VALUES (3, 3, 'نسرين', 5, 'بيجامة رائعة وناعمة جدا، شكرا Henine', 1, 'approved', 1790707196895);
 INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (1, 'livraison-retours', 'Livraison & retours', 'التوصيل والإرجاع', '## Livraison
 
-Nous livrons dans les **69 wilayas** avec ZR Express, à domicile ou en bureau (stop-desk).
+Nous livrons dans les **69 wilayas** d''Algérie avec notre partenaire **ZR Express**.
 
-- Délai : 1 à 7 jours selon la wilaya
-- Paiement à la livraison
+- **À domicile** : le livreur vous apporte le colis à l''adresse indiquée.
+- **Au bureau (stop-desk)** : vous récupérez le colis au bureau ZR Express le plus proche, souvent moins cher.
+- Le prix de la livraison dépend de votre wilaya et de votre commune : il s''affiche avant de valider la commande.
+
+## Délais
+
+- **1 à 3 jours** dans les wilayas du Nord
+- **Jusqu''à 7 jours** dans les wilayas du Sud
+
+Le délai commence après la confirmation de votre commande par téléphone.
+
+## Paiement
+
+Vous payez **en espèces à la réception** du colis, sans carte bancaire. Aucun paiement n''est demandé en ligne.
+
+## Confirmation et suivi
+
+- Après votre commande, notre équipe vous appelle pour la confirmer avant l''expédition. Merci de garder votre téléphone à portée de main.
+- Suivez votre colis sur la page [Suivi de commande](/fr/suivi) avec votre numéro de téléphone, ou avec le lien privé reçu après la commande.
+- Tant que la commande n''est pas confirmée, vous pouvez **modifier votre adresse ou annuler** depuis ce lien.
 
 ## Échange
 
-Taille pas parfaite ? Contactez-nous sous 48 h après réception pour un échange.', '## التوصيل
+La taille ne vous va pas ? **Contactez-nous dans les 48 h** suivant la réception et nous trouvons une solution ensemble.
 
-نوصل إلى **69 ولاية** مع ZR Express، إلى المنزل أو إلى المكتب.
+- L''article doit être **non porté, non lavé**, avec ses étiquettes et dans son emballage d''origine.
+- Pour des raisons d''hygiène, les pyjamas et vêtements de nuit déballés et portés ne peuvent pas être échangés.
+- En cas d''article défectueux ou d''erreur de notre part, l''échange est **à nos frais**.
 
-- المدة: من 1 إلى 7 أيام حسب الولاية
-- الدفع عند الاستلام
+## Notre boutique
+
+Vous pouvez aussi essayer et acheter sur place, dans notre boutique à **Dellys (Laqhaoui, à côté du tribunal)**, ouverte **7j/7**. Voir [l''adresse et les horaires](/fr/boutique).', '## التوصيل
+
+نوصل إلى **69 ولاية** في الجزائر مع شريكنا **ZR Express**.
+
+- **إلى المنزل**: يوصل لك المندوب الطرد إلى العنوان الذي تحددينه.
+- **إلى المكتب (Stop-desk)**: تستلمين الطرد من أقرب مكتب ZR Express، وغالبًا بسعر أقل.
+- سعر التوصيل حسب ولايتك وبلديتك، ويظهر لك قبل تأكيد الطلب.
+
+## مدة التوصيل
+
+- **من 1 إلى 3 أيام** في ولايات الشمال
+- **حتى 7 أيام** في ولايات الجنوب
+
+تبدأ المدة بعد تأكيد طلبك عبر الهاتف.
+
+## الدفع
+
+تدفعين **نقدًا عند استلام** الطرد، بدون بطاقة بنكية. لا نطلب أي دفع عبر الإنترنت.
+
+## التأكيد والتتبع
+
+- بعد طلبك، يتصل بك فريقنا لتأكيده قبل الشحن. من فضلك أبقي هاتفك قريبًا منك.
+- تتبعي طردك من صفحة [تتبع طلباتي](/suivi) برقم هاتفك، أو بالرابط الخاص الذي يصلك بعد الطلب.
+- ما دام الطلب لم يُؤكَّد بعد، يمكنك **تعديل العنوان أو إلغاء الطلب** من هذا الرابط.
 
 ## التبديل
 
-المقاس غير مناسب؟ اتصلي بنا خلال 48 ساعة من الاستلام للتبديل.', 1);
-INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (2, 'cgv', 'Conditions générales de vente', 'الشروط العامة للبيع', '## Commandes
+المقاس غير مناسب؟ **تواصلي معنا خلال 48 ساعة** من الاستلام وسنجد الحل معًا.
 
-Toute commande est confirmée par téléphone avant expédition.
+- يجب أن تكون القطعة **غير ملبوسة وغير مغسولة**، بملصقاتها وفي تغليفها الأصلي.
+- لأسباب صحية، لا يمكن تبديل البيجامات وملابس النوم بعد فتحها ولبسها.
+- إذا كانت القطعة معيبة أو أخطأنا في طلبك، يكون التبديل **على حسابنا**.
 
-## Prix
+## محلنا
 
-Les prix sont indiqués en dinars algériens (DA), frais de livraison en plus.', '## الطلبات
+يمكنك أيضًا القياس والشراء مباشرة في محلنا في **دلس (لقهاوي، بجانب المحكمة)**، المفتوح **7 أيام في الأسبوع**. شاهدي [العنوان وأوقات العمل](/boutique).', 1);
+INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (2, 'cgv', 'Conditions générales de vente', 'الشروط العامة للبيع', '## 1. Objet
 
-يتم تأكيد كل طلب عبر الهاتف قبل الشحن.
+Ces conditions s''appliquent à toutes les commandes passées sur le site Henine Boutique. Passer commande signifie les accepter.
 
-## الأسعار
+## 2. Produits
 
-الأسعار بالدينار الجزائري، مصاريف التوصيل إضافية.', 1);
-INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (3, 'confidentialite', 'Politique de confidentialité', 'سياسة الخصوصية', 'Vos données (nom, téléphone, adresse) servent uniquement à traiter et livrer votre commande, conformément à la loi 18-07 sur la protection des données personnelles.', 'تُستخدم بياناتك (الاسم، الهاتف، العنوان) فقط لمعالجة طلبك وتوصيله، وفقا للقانون 18-07 المتعلق بحماية المعطيات الشخصية.', 1);
-INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (4, 'a-propos', 'À propos', 'من نحن', 'Henine Boutique, c''est **l''élégance et la qualité au meilleur prix**. Notre boutique vous accueille à Boumerdès 7j/7.', 'Henine Boutique هي **الأناقة والجودة بأفضل سعر**. محلنا في بومرداس يستقبلكم 7 أيام في الأسبوع.', 1);
+Nous décrivons nos articles le plus fidèlement possible (photos, matière, tailles). De légères différences de couleur peuvent exister selon l''écran. Les disponibilités sont indiquées en temps réel ; si un article venait à manquer après votre commande, nous vous prévenons par téléphone.
+
+## 3. Prix
+
+- Les prix sont affichés en **dinars algériens (DA)**.
+- Les **frais de livraison** s''ajoutent au prix des articles ; ils sont indiqués avant la validation de la commande.
+- Les codes promo et promotions s''appliquent selon leurs conditions et leur durée.
+
+## 4. Commande
+
+- Vous commandez **sans créer de compte**, avec votre nom, votre numéro de téléphone et votre adresse.
+- Chaque commande est **confirmée par téléphone** avant l''expédition. Une commande que nous ne parvenons pas à confirmer après plusieurs appels peut être annulée.
+- Vous pouvez annuler ou modifier votre adresse tant que la commande n''est pas confirmée, depuis votre lien de suivi.
+- Nous pouvons refuser une commande en cas de données manifestement fausses ou d''abus répétés.
+
+## 5. Paiement
+
+Le paiement se fait **en espèces à la livraison**, au livreur ou au bureau de retrait.
+
+## 6. Livraison
+
+La livraison est assurée par ZR Express dans les 69 wilayas, à domicile ou en bureau. Délais et détails : voir [Livraison & retours](/fr/p/livraison-retours).
+
+## 7. Échanges
+
+Un échange est possible dans les **48 h** suivant la réception, selon les conditions de la page [Livraison & retours](/fr/p/livraison-retours).
+
+## 8. Données personnelles
+
+Vos informations servent uniquement à traiter votre commande : voir la [Politique de confidentialité](/fr/p/confidentialite).
+
+## 9. Contact
+
+Pour toute question : la page [Contact](/fr/contact), ou notre boutique à Dellys. Ces conditions sont soumises au droit algérien.', '## 1. الموضوع
+
+تنطبق هذه الشروط على كل الطلبات عبر موقع Henine Boutique. إتمام الطلب يعني الموافقة عليها.
+
+## 2. المنتجات
+
+نصف قطعنا بأكبر دقة ممكنة (الصور، القماش، المقاسات). قد يوجد فرق بسيط في اللون حسب الشاشة. التوفر يظهر مباشرة؛ وإذا نفدت قطعة بعد طلبك، نخبرك عبر الهاتف.
+
+## 3. الأسعار
+
+- الأسعار معروضة **بالدينار الجزائري (دج)**.
+- **مصاريف التوصيل** تضاف إلى سعر القطع، وتظهر قبل تأكيد الطلب.
+- تُطبَّق أكواد التخفيض والعروض حسب شروطها ومدتها.
+
+## 4. الطلب
+
+- تطلبين **بدون إنشاء حساب**، باسمك ورقم هاتفك وعنوانك.
+- كل طلب **يُؤكَّد عبر الهاتف** قبل الشحن. قد يُلغى الطلب إذا تعذر تأكيده بعد عدة مكالمات.
+- يمكنك إلغاء الطلب أو تعديل العنوان ما دام لم يُؤكَّد، من رابط التتبع الخاص بك.
+- يمكننا رفض طلب إذا كانت المعلومات خاطئة بشكل واضح أو في حالة التكرار المسيء.
+
+## 5. الدفع
+
+يكون الدفع **نقدًا عند الاستلام**، للمندوب أو في مكتب الاستلام.
+
+## 6. التوصيل
+
+يتم التوصيل مع ZR Express إلى 69 ولاية، إلى المنزل أو إلى المكتب. المدة والتفاصيل في صفحة [التوصيل والإرجاع](/p/livraison-retours).
+
+## 7. التبديل
+
+التبديل ممكن خلال **48 ساعة** من الاستلام، حسب شروط صفحة [التوصيل والإرجاع](/p/livraison-retours).
+
+## 8. المعطيات الشخصية
+
+تُستعمل معلوماتك فقط لمعالجة طلبك: راجعي [سياسة الخصوصية](/p/confidentialite).
+
+## 9. التواصل
+
+لأي سؤال: صفحة [تواصلي معنا](/contact)، أو محلنا في دلس. تخضع هذه الشروط للقانون الجزائري.', 1);
+INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (3, 'confidentialite', 'Politique de confidentialité', 'سياسة الخصوصية', 'Henine Boutique protège vos données conformément à la **loi 18-07** relative à la protection des personnes physiques dans le traitement des données à caractère personnel.
+
+## Ce que nous collectons
+
+- **Pour une commande** : nom, numéro de téléphone, wilaya, commune, adresse et votre éventuelle note.
+- **Commande non terminée** : si vous saisissez votre numéro au moment de commander sans finaliser, nous le gardons **30 jours** pour pouvoir vous recontacter, puis il est supprimé.
+- **Avis et messages** : ce que vous écrivez dans un avis ou via la page Contact.
+- **Sécurité** : une empreinte anonymisée de votre adresse IP, pour bloquer les fausses commandes, effacée après **90 jours**.
+
+## À quoi elles servent
+
+- Confirmer votre commande par téléphone, la préparer et la livrer.
+- Vous informer du suivi de votre colis et répondre à vos messages.
+- Lutter contre les fausses commandes et les abus.
+
+Nous ne vendons et ne louons jamais vos données.
+
+## Qui y a accès
+
+- Notre équipe, pour traiter votre commande.
+- **ZR Express**, notre transporteur : uniquement le nom, le téléphone et l''adresse nécessaires à la livraison.
+- Notre hébergeur technique (Cloudflare), qui stocke le site et ses données de façon sécurisée.
+
+## Sur votre téléphone
+
+Votre panier, vos favoris et vos préférences (langue, mode sombre) sont enregistrés **sur votre propre téléphone**, pas chez nous. Les notifications (retour en stock, nouveautés) ne sont envoyées que si vous les acceptez, et vous pouvez les couper à tout moment.
+
+## Vos droits
+
+Vous pouvez demander à **consulter, corriger ou supprimer** vos données en nous écrivant depuis la page [Contact](/fr/contact).', 'تحمي Henine Boutique معطياتك وفقًا **للقانون 18-07** المتعلق بحماية الأشخاص الطبيعيين في مجال معالجة المعطيات ذات الطابع الشخصي.
+
+## ما الذي نجمعه
+
+- **عند الطلب**: الاسم، رقم الهاتف، الولاية، البلدية، العنوان وملاحظتك إن وُجدت.
+- **طلب لم يكتمل**: إذا كتبتِ رقمك أثناء الطلب دون إتمامه، نحتفظ به **30 يومًا** لنتمكن من التواصل معك، ثم يُحذف.
+- **الآراء والرسائل**: ما تكتبينه في رأي أو عبر صفحة التواصل.
+- **الأمان**: بصمة مجهولة لعنوان IP الخاص بك لمنع الطلبات الوهمية، تُحذف بعد **90 يومًا**.
+
+## لماذا نستعملها
+
+- لتأكيد طلبك عبر الهاتف وتحضيره وتوصيله.
+- لإعلامك بتتبع طردك والرد على رسائلك.
+- لمحاربة الطلبات الوهمية والاستعمال المسيء.
+
+لا نبيع معطياتك ولا نؤجرها أبدًا.
+
+## من يطّلع عليها
+
+- فريقنا، لمعالجة طلبك.
+- **ZR Express**، شركة التوصيل: فقط الاسم والهاتف والعنوان اللازمة للتوصيل.
+- مزود الاستضافة التقني (Cloudflare)، الذي يحفظ الموقع ومعطياته بشكل آمن.
+
+## على هاتفك
+
+سلتك ومفضلتك وتفضيلاتك (اللغة، الوضع الداكن) محفوظة **على هاتفك أنتِ**، وليس عندنا. الإشعارات (عودة قطعة إلى المخزون، الجديد) لا تُرسل إلا إذا وافقتِ عليها، ويمكنك إيقافها في أي وقت.
+
+## حقوقك
+
+يمكنك طلب **الاطلاع على معطياتك أو تصحيحها أو حذفها** بمراسلتنا من صفحة [تواصلي معنا](/contact).', 1);
+INSERT OR REPLACE INTO pages (id, slug, title_fr, title_ar, body_fr, body_ar, is_active) VALUES (4, 'a-propos', 'À propos', 'من نحن', '## Henine Boutique
+
+**L''élégance et la qualité au meilleur prix.** Henine Boutique, c''est une boutique de mode féminine née à Dellys, dans la wilaya de Boumerdès : robes, djebbas et pyjamas choisis pour leur tombé, leur confort et leurs finitions.
+
+## Notre promesse
+
+- **Des pièces choisies une à une**, de belles matières à des prix justes.
+- **Commander simplement** : sans compte, paiement à la livraison.
+- **Partout en Algérie** : livraison dans les 69 wilayas, à domicile ou en bureau.
+- **Une vraie équipe** qui vous appelle pour confirmer votre commande et vous conseiller sur la taille.
+
+## Venez nous voir
+
+Notre boutique vous accueille **7j/7** à **Dellys (Laqhaoui, à côté du tribunal)**. Venez essayer vos pièces préférées : [adresse et horaires](/fr/boutique).
+
+Suivez nos nouveautés et nos essayages en vidéo sur Instagram.', '## Henine Boutique
+
+**الأناقة والجودة بأفضل سعر.** Henine Boutique محل أزياء نسائية وُلد في دلس، ولاية بومرداس: فساتين، جبات وبيجامات نختارها لانسدالها وراحتها وجودة تفاصيلها.
+
+## وعدنا
+
+- **قطع نختارها واحدة واحدة**، بأقمشة جميلة وأسعار معقولة.
+- **طلب سهل**: بدون حساب، والدفع عند الاستلام.
+- **في كل الجزائر**: توصيل إلى 69 ولاية، إلى المنزل أو إلى المكتب.
+- **فريق حقيقي** يتصل بك لتأكيد طلبك وينصحك في اختيار المقاس.
+
+## زوري محلنا
+
+محلنا يستقبلك **7 أيام في الأسبوع** في **دلس (لقهاوي، بجانب المحكمة)**. تعالي وقيسي قطعك المفضلة: [العنوان وأوقات العمل](/boutique).
+
+تابعي جديدنا وقياساتنا بالفيديو على إنستغرام.', 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (1, 'bio', NULL, '🛍️ Voir la boutique', '🛍️ تصفحي المتجر', '/', 'shop', 0, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (2, 'bio', NULL, '📦 Suivre ma commande', '📦 تتبع طلبي', '/suivi', 'package', 1, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (3, 'bio', NULL, '📸 Instagram', '📸 إنستغرام', 'https://www.instagram.com/henine.boutique/', 'instagram', 2, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (4, 'bio', NULL, '📍 Nous contacter', '📍 تواصلي معنا', '/contact', 'pin', 3, 1);
 INSERT OR REPLACE INTO links (id, kind, slug, label_fr, label_ar, target, icon, sort, is_active) VALUES (5, 'short', 'insta', 'Instagram bio', 'Instagram bio', '/?utm_source=instagram&utm_medium=bio', NULL, 4, 1);
 INSERT OR IGNORE INTO coupons (code, type, value, min_subtotal, is_active) VALUES ('BIENVENUE10', 'percent', 10, 3000, 1);
-INSERT OR REPLACE INTO settings (key, value) VALUES ('catalog_version', '1790797903693');
+INSERT OR REPLACE INTO settings (key, value) VALUES ('catalog_version', '1791139196895');
