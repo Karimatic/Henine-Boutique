@@ -40,7 +40,7 @@ export function SiteMenu() {
       document.body.style.overflow = prev;
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function close() {
     setOpen(false);

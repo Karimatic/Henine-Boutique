@@ -15,10 +15,11 @@ import { useLocale } from "@/lib/locale";
  * whose clock is off, so everyone sees the same launch moment. No polling, no websockets.
  */
 export function useCountdown(target: number | null, serverNow?: number) {
-  const offset = useRef(serverNow != null ? serverNow - Date.now() : 0);
-  const [now, setNow] = useState(() => Date.now() + offset.current);
+  const offset = useRef(0);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (serverNow != null) offset.current = serverNow - Date.now();
+    setNow(Date.now() + offset.current);
   }, [serverNow]);
   useEffect(() => {
     if (!target) return;
@@ -26,7 +27,7 @@ export function useCountdown(target: number | null, serverNow?: number) {
     return () => clearInterval(id);
   }, [target]);
   const left = target ? Math.max(0, target - now) : 0;
-  return { left, done: !target || left === 0 };
+  return { left, done: !target || left === 0, now };
 }
 
 export function Countdown({ left, large = false }: { left: number; large?: boolean }) {
@@ -55,8 +56,8 @@ export function Countdown({ left, large = false }: { left: number; large?: boole
 
 export function DropBanner({ drop }: { drop: DropTeaserDTO }) {
   const { t, ar, href } = useLocale();
-  const { left, done } = useCountdown(drop.startsAt);
-  const ended = drop.endsAt != null && drop.endsAt <= Date.now();
+  const { left, done, now } = useCountdown(drop.startsAt);
+  const ended = drop.endsAt != null && drop.endsAt <= now;
   if (ended) return null;
   const name = ar ? drop.nameAr : drop.nameFr;
   return (
@@ -91,7 +92,7 @@ export function CollectionView() {
   const { data, error, reload } = useApi<CollectionDTO>(slug && slug !== "_" ? `/collections/${encodeURIComponent(slug)}` : null);
   const [fresh, setFresh] = useState<CollectionDTO | null>(null);
   const c = fresh ?? data;
-  const { left, done } = useCountdown(c && !c.launched ? c.startsAt : null, c?.now);
+  const { left, done, now } = useCountdown(c && !c.launched ? c.startsAt : null, c?.now);
 
   // at launch time, fetch the unlocked collection once (bypassing the browser cache;
   // the edge cache already has a new key for it, so this stays cheap during a rush)
@@ -121,7 +122,7 @@ export function CollectionView() {
   const name = ar ? c.nameAr : c.nameFr;
   const description = ar ? c.descriptionAr : c.descriptionFr;
   const upcoming = !c.launched && !done;
-  const ended = c.endsAt != null && c.endsAt <= Date.now();
+  const ended = c.endsAt != null && c.endsAt <= now;
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-12 pt-6">

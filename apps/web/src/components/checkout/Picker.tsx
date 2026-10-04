@@ -66,7 +66,7 @@ export function Picker<V extends string | number>({
       clearTimeout(id);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [open]);
 
   function close() {
     setOpen(false);
@@ -89,7 +89,7 @@ export function Picker<V extends string | number>({
         disabled={disabled}
         aria-haspopup="dialog"
         aria-expanded={open}
-        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? `${id}-error` : undefined}
         onClick={() => setOpen(true)}
         className={`${inputCls} flex items-center justify-between gap-2 text-start disabled:cursor-not-allowed disabled:opacity-60 ${invalid ? "border-danger focus:border-danger" : ""}`}
       >

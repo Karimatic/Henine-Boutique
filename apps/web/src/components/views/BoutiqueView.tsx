@@ -37,7 +37,9 @@ export function BoutiqueView() {
   const contact = site.data?.contact;
   const q = encodeURIComponent(b.mapQuery || b.addressFr);
   const wa = whatsappLink(contact?.whatsapp, t.plus.whatsapp.hello);
-  const today = new Date(Date.now() + 3600_000).getUTCDay();
+  // today's row (Algiers time), on the phone only: the page itself is built in advance
+  const [today, setToday] = useState<number | null>(null);
+  useEffect(() => setToday(new Date(Date.now() + 3600_000).getUTCDay()), []);
   const address = ar ? b.addressAr || b.addressFr : b.addressFr || b.addressAr;
   const note = ar ? b.noteAr || b.noteFr : b.noteFr || b.noteAr;
   // Saturday first: the Algerian week

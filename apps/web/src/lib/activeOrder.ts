@@ -2,7 +2,7 @@
 
 import type { TrackedOrderDTO } from "@henine/shared";
 import { useApi } from "./api";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ordersStore, useSavedOrders } from "./stores";
 
 const DONE = new Set(["livree", "retour_recu", "annulee", "doublon", "fausse"]);
@@ -13,7 +13,8 @@ const DONE = new Set(["livree", "retour_recu", "annulee", "doublon", "fausse"]);
  */
 export function useActiveOrder(): { code: string; status: string; link: string } | null {
   const latest = useSavedOrders()[0];
-  const recent = latest && Date.now() - latest.createdAt <= 30 * 86400_000;
+  const [now] = useState(Date.now);
+  const recent = latest && now - latest.createdAt <= 30 * 86400_000;
   const { data, error } = useApi<TrackedOrderDTO>(recent ? `/track/${latest.code}?t=${encodeURIComponent(latest.token)}` : null);
   // the order no longer exists (deleted by the shop): forget it on this phone
   useEffect(() => {

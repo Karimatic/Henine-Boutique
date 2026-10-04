@@ -61,7 +61,7 @@ function ProductSkeleton() {
 }
 
 function ProductDetail({ p }: { p: ProductDetailDTO }) {
-  const { t, ar, href, locale } = useLocale();
+  const { t, ar, href } = useLocale();
   const favorites = useFavorites();
   const site = useApi<SiteConfigDTO>("/site");
   const name = ar ? p.nameAr : p.nameFr;

@@ -165,7 +165,7 @@ export function CheckoutView() {
 /* ───────── Categories ───────── */
 
 export function CategoriesView() {
-  const { t, href, ar } = useLocale();
+  const { t } = useLocale();
   const { data, error, reload } = useApi<CategoryDTO[]>("/categories");
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   return (

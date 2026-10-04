@@ -209,7 +209,12 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
       {extra}
     </label>
   );
-  const err = (k: string) => fieldErrors[k] && <p className="mt-1 text-sm text-danger">{fieldErrors[k]}</p>;
+  const err = (k: string) =>
+    fieldErrors[k] && (
+      <p id={`f-${k}-error`} className="mt-1 text-sm text-danger">
+        {fieldErrors[k]}
+      </p>
+    );
   const invalid = (k: string) => (fieldErrors[k] ? "border-danger focus:border-danger" : "");
 
   return (

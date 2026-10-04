@@ -156,7 +156,19 @@ function previewHead(c: Context<AppEnv>, path: string, ar: boolean, m: PreviewMe
   return [
     ...tags.map(([k, v]) => `<meta property="${k}" content="${esc(v)}">`),
     `<meta name="twitter:card" content="${m.image ? "summary_large_image" : "summary"}">`,
-    `<link rel="canonical" href="${esc(canonical)}">`,
+    linkTags(c, path),
+  ].join("");
+}
+
+/** Canonical address + the Arabic / French versions of the same page (hreflang). */
+function linkTags(c: Context<AppEnv>, path: string): string {
+  const bare = path.replace(/^\/fr(?=\/)/, "");
+  const abs = (p: string) => esc(new URL(p, c.env.PUBLIC_ORIGIN).toString());
+  return [
+    `<link rel="canonical" href="${abs(path)}">`,
+    `<link rel="alternate" hreflang="ar" href="${abs(bare)}">`,
+    `<link rel="alternate" hreflang="fr" href="${abs(`/fr${bare}`)}">`,
+    `<link rel="alternate" hreflang="x-default" href="${abs(bare)}">`,
   ].join("");
 }
 
@@ -165,7 +177,14 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
   const direct = await c.env.ASSETS.fetch(new Request(url, c.req.raw));
   if (direct.status !== 404 || slug === "_") return direct;
   const res = await c.env.ASSETS.fetch(new Request(new URL(`${prefix}/${section}/_`, url), { headers: c.req.raw.headers }));
-  if ((section !== "produit" && section !== "collection") || !res.ok) return new Response(res.body, res);
+  if (!res.ok) return new Response(res.body, res);
+  if (section !== "produit" && section !== "collection") {
+    // categories and info pages: their own canonical (the shell is shared by every slug)
+    return new HTMLRewriter()
+      .on('link[rel="canonical"], link[rel="alternate"][hreflang]', { element: (el) => void el.remove() })
+      .on("head", { element: (el) => void el.append(linkTags(c, url.pathname), { html: true }) })
+      .transform(new Response(res.body, res));
+  }
 
   const ar = prefix === ""; // Arabic is served at the root, French under /fr
   let meta: PreviewMeta | null = null;
@@ -205,7 +224,7 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
   return new HTMLRewriter()
     .on("title", { element: (el) => void el.setInnerContent(title) })
     .on('meta[name="description"]', { element: (el) => void el.setAttribute("content", meta.description) })
-    .on('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"]', { element: (el) => void el.remove() })
+    .on('meta[property^="og:"], meta[name^="twitter:"], link[rel="canonical"], link[rel="alternate"][hreflang]', { element: (el) => void el.remove() })
     .on("head", { element: (el) => void el.append(head, { html: true }) })
     .transform(new Response(res.body, res));
 }

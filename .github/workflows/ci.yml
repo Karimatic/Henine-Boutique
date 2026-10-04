@@ -50,6 +50,8 @@ jobs:
       - run: npm run build
         env:
           NEXT_PUBLIC_SITE_URL: ${{ vars.PUBLIC_ORIGIN }}
+          # refuse to deploy pages whose canonical links point to localhost
+          REQUIRE_SITE_URL: "1"
       - name: Apply D1 migrations
         run: npx wrangler d1 migrations apply henine-db --remote
         working-directory: apps/worker

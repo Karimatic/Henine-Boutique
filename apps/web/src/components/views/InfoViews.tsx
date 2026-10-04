@@ -12,7 +12,7 @@ import { Turnstile } from "@/lib/turnstile";
 /* ───────── Contact ───────── */
 
 export function ContactView() {
-  const { t, ar, locale } = useLocale();
+  const { t, locale } = useLocale();
   const site = useApi<SiteConfigDTO>("/site");
   const [form, setForm] = useState({ name: "", phone: "", subject: "", message: "" });
   const [token, setToken] = useState("");
