@@ -3,13 +3,13 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { cleanText, PERMISSIONS, ROLE_PRESETS } from "@henine/shared";
+import { cleanText, hasPermission, PERMISSIONS, ROLE_PRESETS, type Permission } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { isDev } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { checkPassword, devEcho, hashPassword, passwordKeyValid } from "../../lib/auth";
 import { decryptSecret, encryptSecret, maskSecret, randomToken } from "../../lib/crypto";
-import { body, HttpError, intParam } from "../../lib/http";
+import { body, HttpError, intParam, rateLimit } from "../../lib/http";
 import { mailLayout, mailProvider, sendMail } from "../../lib/mail";
 import { mediaUrl, variantLabels } from "../../lib/catalog";
 import { algiersDayStart, CANCELLED_SQL, periodStats } from "../../lib/orders";
@@ -379,6 +379,26 @@ async function assertNotLastOwner(env: AppEnv["Bindings"], memberId: number) {
   if (!owners?.n) throw new HttpError(409, "last_owner");
 }
 
+/**
+ * An account given « Équipe » rights that is not the owner can manage the team, but never
+ * climb to the owner's level: no owner role, no changes to an owner's account, and no rights
+ * it does not hold itself.
+ */
+async function assertCanManage(
+  c: Parameters<typeof body>[0],
+  targetId: number | null,
+  grant: { role?: string; permissions?: readonly string[] } = {},
+) {
+  const me = c.get("member");
+  if (me.role === "owner") return;
+  const wanted = grant.role ? (ROLE_PRESETS[grant.role]?.permissions ?? ["*"]) : (grant.permissions ?? []);
+  if (wanted.some((p) => p === "*" || !hasPermission(me.permissions, p as Permission))) throw new HttpError(403, "owner_only");
+  if (targetId != null) {
+    const target = await c.env.DB.prepare("SELECT r.key FROM team_members m JOIN roles r ON r.id = m.role_id WHERE m.id = ?").bind(targetId).first<{ key: string }>();
+    if (target?.key === "owner") throw new HttpError(403, "owner_only");
+  }
+}
+
 systemRoutes.put("/team/:id/permissions", requirePermission("team.manage"), async (c) => {
   const id = intParam(c, "id");
   const { permissions } = await body(c, z.object({ permissions: permissionList }));
@@ -386,6 +406,7 @@ systemRoutes.put("/team/:id/permissions", requirePermission("team.manage"), asyn
   if (id === me.id) throw new HttpError(409, "cannot_demote_self");
   const exists = await c.env.DB.prepare("SELECT id FROM team_members WHERE id = ?").bind(id).first();
   if (!exists) throw new HttpError(404, "not_found");
+  await assertCanManage(c, id, { permissions });
   await assertNotLastOwner(c.env, id);
   await c.env.DB.batch([...customRoleStmts(c.env, id, permissions), auditStmt(c.env, actorOf(me), "permissions", "team_member", id, { permissions })]);
   return c.json({ ok: true });
@@ -414,6 +435,7 @@ systemRoutes.post("/team", requirePermission("team.manage"), async (c) => {
       permissions: permissionList.optional(),
     }),
   );
+  await assertCanManage(c, null, input.role === "custom" ? { permissions: input.permissions ?? [] } : { role: input.role });
   const role = await c.env.DB.prepare("SELECT id FROM roles WHERE key = ?").bind(input.role === "custom" ? "readonly" : input.role).first<{ id: number }>();
   if (!role) throw new HttpError(422, "unknown_role");
   let member: { id: number } | null;
@@ -436,6 +458,7 @@ systemRoutes.post("/team/:id/invite", requirePermission("team.manage"), async (c
   const id = intParam(c, "id");
   const m = await c.env.DB.prepare("SELECT email, name FROM team_members WHERE id = ?").bind(id).first<{ email: string; name: string }>();
   if (!m) throw new HttpError(404, "not_found");
+  await assertCanManage(c, id);
   return c.json(await sendInvite(c, id, m.email, m.name));
 });
 
@@ -453,6 +476,7 @@ systemRoutes.patch("/team/:id", requirePermission("team.manage"), async (c) => {
   );
   const me = c.get("member");
   if (id === me.id && (input.isActive === false || (input.role && input.role !== me.role))) throw new HttpError(409, "cannot_demote_self");
+  if (id !== me.id) await assertCanManage(c, id, { role: input.role });
   if (input.isActive === false || (input.role && input.role !== "owner")) {
     // never leave the shop without an active owner
     const owners = await c.env.DB.prepare(
@@ -563,6 +587,7 @@ systemRoutes.delete("/team/:id", requireOwner, async (c) => {
 
 systemRoutes.delete("/team/:id/sessions", requirePermission("team.manage"), async (c) => {
   const id = intParam(c, "id");
+  if (id !== c.get("member").id) await assertCanManage(c, id);
   await c.env.DB.batch([c.env.DB.prepare("DELETE FROM admin_sessions WHERE member_id = ?").bind(id), auditStmt(c.env, actorOf(c.get("member")), "revoke_sessions", "team_member", id)]);
   return c.json({ ok: true });
 });
@@ -581,6 +606,8 @@ systemRoutes.get("/account", async (c) => {
 
 systemRoutes.post("/account/password", async (c) => {
   const m = c.get("member");
+  // the current password is checked here too: same brute-force limit as the login
+  await rateLimit(c.env.RL_AUTH, `password:${m.id}`);
   const input = await body(c, z.object({ currentKey: z.string().refine(passwordKeyValid), newKey: z.string().refine(passwordKeyValid) }));
   const row = await c.env.DB.prepare("SELECT password_hash, password_salt FROM team_members WHERE id = ?").bind(m.id).first<{ password_hash: string | null; password_salt: string | null }>();
   if (!(await checkPassword(c.env, input.currentKey, row?.password_hash ?? null, row?.password_salt ?? null))) throw new HttpError(403, "wrong_password");

@@ -5,6 +5,7 @@ import {
   formatDA,
   formatDzPhone,
   isOrderCode,
+  isSafeLink,
   localePath,
   maskDzPhone,
   newOrderCode,
@@ -130,5 +131,14 @@ describe("createOrderInput", () => {
     const r = createOrderInput.parse({ ...base, total: 1, lines: [{ variantId: 1, qty: 1, price: 1 }] });
     expect("total" in r).toBe(false);
     expect("price" in r.lines[0]!).toBe(false);
+  });
+});
+
+describe("isSafeLink", () => {
+  it("accepts site pages and https addresses", () => {
+    for (const l of ["/boutique", "/fr/c/robes?x=1", "https://wa.me/213555000000", "https://www.instagram.com/henine"]) expect(isSafeLink(l)).toBe(true);
+  });
+  it("refuses other websites in disguise and other schemes", () => {
+    for (const l of ["//evil.example", "/\\evil.example", "http://evil.example", "javascript:alert(1)", "data:text/html,x", "https://", " /x"]) expect(isSafeLink(l)).toBe(false);
   });
 });

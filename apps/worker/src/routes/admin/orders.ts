@@ -81,7 +81,8 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     annule: ["annulee", "doublon", "fausse"],
     retours: ["retour", "retour_recu"],
   };
-  const attn = attention ? attentionSql(Date.now())[attention] : undefined;
+  const attentions = attentionSql(Date.now());
+  const attn = attention && Object.hasOwn(attentions, attention) ? attentions[attention] : undefined;
   if (attn) where.push(attn);
   else if (groups[status]) {
     where.push(`o.status IN (${groups[status]!.map(() => "?").join(",")})`);

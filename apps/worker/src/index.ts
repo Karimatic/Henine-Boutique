@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import { formatDA, imageUrl, type ImageRef } from "@henine/shared";
+import { formatDA, imageUrl, isSafeLink, type ImageRef } from "@henine/shared";
 import type { AppEnv } from "./env";
 import { recordError } from "./lib/audit";
 import { getCollection, getProductDetail } from "./lib/catalog";
@@ -8,13 +8,14 @@ import { metaFeedCsv, productJsonLd, robotsTxt, sitemapXml } from "./lib/seo";
 import { getSettings } from "./lib/settings";
 import { HttpError } from "./lib/http";
 import { handleUpdate, verifyWebhookSecret } from "./lib/telegram";
-import { adminDocumentHeaders, apiHeaders, sameOriginWrites } from "./middleware/security";
+import { adminDocumentHeaders, apiHeaders, httpsOnly, sameOriginWrites } from "./middleware/security";
 import { adminRoutes } from "./routes/admin/index";
 import { authRoutes } from "./routes/auth";
 import { publicRoutes } from "./routes/public";
 import { scheduled } from "./scheduled";
 
 const app = new Hono<AppEnv>();
+app.use("*", httpsOnly);
 
 /* ─── API ─── */
 const api = new Hono<AppEnv>();
@@ -105,7 +106,7 @@ app.get("/l/:slug", async (c) => {
   const row = await c.env.DB.prepare("SELECT id, target FROM links WHERE kind = 'short' AND slug = ? AND is_active = 1")
     .bind(c.req.param("slug").toLowerCase())
     .first<{ id: number; target: string }>();
-  if (!row) return c.redirect("/", 302);
+  if (!row || !isSafeLink(row.target)) return c.redirect("/", 302);
   c.executionCtx.waitUntil(c.env.DB.prepare("UPDATE links SET clicks = clicks + 1 WHERE id = ?").bind(row.id).run());
   return c.redirect(row.target, 302);
 });

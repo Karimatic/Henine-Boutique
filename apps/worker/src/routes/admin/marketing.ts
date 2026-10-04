@@ -3,7 +3,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { cleanText, DEFAULT_DESIGN, HOME_SECTIONS, isHexColor, slugify, type DesignDTO } from "@henine/shared";
+import { cleanText, DEFAULT_DESIGN, HOME_SECTIONS, isHexColor, isSafeLink, slugify, type DesignDTO } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { mediaUrl, parseFlashConfig, reviewPhotos, variantLabels } from "../../lib/catalog";
@@ -352,7 +352,7 @@ const linkInput = z.object({
     .string()
     .trim()
     .max(500)
-    .refine((t) => t.startsWith("/") || /^https:\/\//.test(t) || /^https:\/\/wa\.me\//.test(t), "target_invalid"),
+    .refine(isSafeLink, "target_invalid"),
   icon: z.string().trim().max(20).nullable().optional(),
   sort: z.number().int().min(0).max(1000).default(0),
   isActive: z.boolean().default(true),
@@ -647,7 +647,7 @@ const designInput = z.object({
         titleAr: cleanText(80).default(""),
         subtitleFr: cleanText(140).default(""),
         subtitleAr: cleanText(140).default(""),
-        link: z.string().trim().max(300).refine((l) => l === "" || l.startsWith("/") || /^https:\/\//.test(l), "link"),
+        link: z.string().trim().max(300).refine((l) => l === "" || isSafeLink(l), "link"),
       }),
     )
     .max(6),

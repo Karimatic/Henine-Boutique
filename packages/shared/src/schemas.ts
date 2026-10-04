@@ -14,6 +14,12 @@ export const dzPhone = z
     return p;
   });
 
+/**
+ * A link the shop may send visitors to: a page of the site ("/…") or an https address.
+ * Never "//other-site" or "/\other-site" (browsers read those as another website).
+ */
+export const isSafeLink = (t: string): boolean => /^https:\/\/[^\s]+$/i.test(t) || /^\/(?![/\\])\S*$/.test(t);
+
 export const cleanText = (max: number) =>
   z
     .string()

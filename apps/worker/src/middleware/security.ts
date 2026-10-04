@@ -1,5 +1,6 @@
 import type { MiddlewareHandler } from "hono";
 import type { AppEnv } from "../env";
+import { isDev } from "../env";
 
 const BASE_HEADERS: Record<string, string> = {
   "Strict-Transport-Security": "max-age=63072000; includeSubDomains; preload",
@@ -7,6 +8,16 @@ const BASE_HEADERS: Record<string, string> = {
   "Referrer-Policy": "strict-origin-when-cross-origin",
   "Cross-Origin-Opener-Policy": "same-origin",
   "X-Frame-Options": "DENY",
+};
+
+/** Production never answers over plain http: the same address in https instead. */
+export const httpsOnly: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const url = new URL(c.req.url);
+  if (url.protocol === "http:" && !isDev(c.env)) {
+    url.protocol = "https:";
+    return c.redirect(url.toString(), 301);
+  }
+  return next();
 };
 
 /** API responses: JSON only, never framed, never cached unless a route opts in. */
