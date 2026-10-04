@@ -74,7 +74,7 @@ publicRoutes.get("/site", (c) =>
       announcement: { active: s.announcement.active },
       contact: {
         phone: s.contact.phone, whatsapp: s.contact.whatsapp, instagram: s.contact.instagram, tiktok: s.contact.tiktok,
-        facebook: s.contact.facebook, maps: s.contact.maps,
+        facebook: s.contact.facebook, maps: s.contact.maps, followers: s.contact.followers,
       },
       // quick order on the product page: always on
       checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: true, deskEnabled: s.checkout.desk_enabled },

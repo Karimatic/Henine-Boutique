@@ -55,8 +55,8 @@ export function ActivityToast() {
   return (
     <div
       role="status"
-      className={`pointer-events-none fixed start-3 z-30 flex md:bottom-6 md:start-6 ${
-        lifted ? "bottom-[calc(8.9rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.9rem+env(safe-area-inset-bottom))]"
+      className={`follow-nav pointer-events-none fixed start-3 z-30 flex md:bottom-6 md:start-6 ${
+        lifted ? "bottom-[calc(var(--nav-h)+4.9rem+env(safe-area-inset-bottom))]" : "bottom-[calc(var(--nav-h)+0.9rem+env(safe-area-inset-bottom))]"
       }`}
     >
       <a

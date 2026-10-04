@@ -186,6 +186,17 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
       .transform(new Response(res.body, res));
   }
 
+  // The finished page is kept at the edge: one product query per version of the catalogue and
+  // of the page itself (a deploy changes the shell's ETag), instead of one per visit.
+  const { catalog_version: v, drop_times: drops } = await getSettings(c.env, ["catalog_version", "drop_times"]);
+  const key = new URL(url.pathname, url);
+  const build = (res.headers.get("ETag") ?? "").replace(/[^\w-]/g, "");
+  key.searchParams.set("__v", `${v}.${drops.filter((t) => t <= Date.now()).length}.${build}`);
+  return cached(new Request(key), c.executionCtx, 300, () => previewPage(c, res, prefix, section, slug, url));
+}
+
+/** Product / collection page: the shell with the item's title, link previews and structured data. */
+async function previewPage(c: Context<AppEnv>, res: Response, prefix: string, section: string, slug: string, url: URL): Promise<Response> {
   const ar = prefix === ""; // Arabic is served at the root, French under /fr
   let meta: PreviewMeta | null = null;
   let structured = "";

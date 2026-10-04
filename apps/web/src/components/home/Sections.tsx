@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { InstagramIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
+import { useSite } from "@/lib/site";
 import { useStoreTexts } from "@/lib/storeTexts";
 
 /** Fades/slides its children in when they scroll into view (once). */
@@ -52,7 +53,10 @@ export function SectionHead({ title, href, link }: { title: string; href?: strin
 /** The Instagram block: the follow card with the shop's photos inside it. */
 export function InstagramCard({ children }: { children?: React.ReactNode }) {
   const { t } = useLocale();
-  const href = "https://www.instagram.com/henine.boutique/";
+  const contact = useSite().data?.contact;
+  const href = contact?.instagram || "https://www.instagram.com/henine.boutique/";
+  // follower count as written in Admin → Contact (no chip when it's empty)
+  const stats: [string, string][] = [...(contact?.followers ? [[contact.followers, t.instagram.followers] as [string, string]] : []), ...t.instagram.stats];
   return (
     <section className="mx-auto max-w-6xl px-4 py-10">
       <Reveal>
@@ -67,7 +71,7 @@ export function InstagramCard({ children }: { children?: React.ReactNode }) {
               <h2 className="heading-display mt-1 text-2xl md:text-3xl">{t.instagram.heading}</h2>
               <p className="mt-2 max-w-xl text-sm leading-relaxed text-ink-soft">{t.instagram.text}</p>
               <ul className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
-                {t.instagram.stats.map(([value, label]) => (
+                {stats.map(([value, label]) => (
                   <li key={label} className="rounded-full border border-line bg-ivory-deep/70 px-3 py-1.5 text-xs">
                     <b className="font-semibold text-plum-700" dir="ltr">{value}</b> <span className="text-ink-soft">{label}</span>
                   </li>

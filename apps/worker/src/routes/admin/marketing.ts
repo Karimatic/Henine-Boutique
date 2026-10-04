@@ -415,6 +415,7 @@ marketingRoutes.put("/contact/settings", requirePermission("marketing.edit"), as
     z.object({
       contact: z.object({
         phone: cleanText(20).nullable(), whatsapp: cleanText(20).nullable(), instagram: optUrl, tiktok: optUrl, facebook: optUrl, maps: optUrl,
+        followers: cleanText(12).nullable().optional(),
       }),
     }),
   );

@@ -1,7 +1,6 @@
 import { dirOf, type Locale } from "@henine/shared";
 import { getDictionary } from "@/lib/dictionary";
 import { arabicDisplay, arabicSans, dmSans, playfair } from "@/lib/fonts";
-import { LocaleProvider } from "@/lib/locale";
 import { ActivityToast } from "./ActivityToast";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { BottomNav } from "./BottomNav";
@@ -15,8 +14,19 @@ import { ThemeStyle } from "./ThemeStyle";
 import { MODE_BOOT, THEME_BOOT } from "@/lib/boot";
 import "@/styles/globals.css";
 
-/** Shared <html> shell for the Arabic (/, main) and French (/fr) root layouts. */
-export function RootDocument({ locale, children }: { locale: Locale; children: React.ReactNode }) {
+/**
+ * Shared <html> shell for the Arabic (/, main) and French (/fr) root layouts. Each layout
+ * passes its own language provider, so a page only downloads its own language's texts.
+ */
+export function RootDocument({
+  locale,
+  Provider,
+  children,
+}: {
+  locale: Locale;
+  Provider: React.ComponentType<{ children: React.ReactNode }>;
+  children: React.ReactNode;
+}) {
   const fonts = [playfair.variable, dmSans.variable, arabicSans.variable, arabicDisplay.variable].join(" ");
   return (
     <html lang={locale} dir={dirOf(locale)} className={fonts} suppressHydrationWarning>
@@ -30,7 +40,7 @@ export function RootDocument({ locale, children }: { locale: Locale; children: R
           <style>{".reveal{opacity:1!important;transform:none!important}"}</style>
         </noscript>
         <SplashScreen />
-        <LocaleProvider locale={locale}>
+        <Provider>
           <a
             href="#main"
             className="sr-only focus:not-sr-only focus:fixed focus:start-3 focus:top-3 focus:z-50 focus:rounded-lg focus:bg-noir focus:px-4 focus:py-2 focus:text-white"
@@ -49,7 +59,7 @@ export function RootDocument({ locale, children }: { locale: Locale; children: R
           <InstallPrompt />
           <ThemeStyle />
           <ErrorReporter />
-        </LocaleProvider>
+        </Provider>
       </body>
     </html>
   );

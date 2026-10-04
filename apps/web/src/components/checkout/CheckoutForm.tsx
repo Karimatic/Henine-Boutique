@@ -433,7 +433,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
 
       {/* phones: the total and the confirm button stay in reach while filling the form */}
       {!compact && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-surface/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
+        <div className="follow-nav fixed inset-x-0 bottom-[calc(var(--nav-h)+env(safe-area-inset-bottom))] z-30 border-t border-line/80 bg-surface/95 px-3 py-2.5 shadow-[0_-8px_24px_rgb(23_10_16/0.08)] backdrop-blur md:hidden">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1 leading-tight">
               <p className="text-xs text-ink-soft">{L.total} · {L.cod}</p>

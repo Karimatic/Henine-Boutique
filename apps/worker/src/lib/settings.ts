@@ -10,6 +10,8 @@ export interface Settings {
   contact: {
     phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null;
     facebook: string | null; maps: string | null; address_fr: string | null; address_ar: string | null;
+    /** Instagram follower count shown on the home page ("+89K"); hidden when empty. */
+    followers: string | null;
   };
   announcement: { active: boolean; messages_fr: string[]; messages_ar: string[] };
   hero: { eyebrow_fr: string; eyebrow_ar: string; title_fr: string; title_ar: string; subtitle_fr: string; subtitle_ar: string };
@@ -52,7 +54,7 @@ export const DEFAULTS: Settings = {
   },
   contact: {
     phone: null, whatsapp: null, instagram: "https://www.instagram.com/henine.boutique/", tiktok: null,
-    facebook: null, maps: null, address_fr: "Boumerdès", address_ar: "بومرداس",
+    facebook: null, maps: null, address_fr: "Boumerdès", address_ar: "بومرداس", followers: "+89K",
   },
   announcement: {
     active: true,

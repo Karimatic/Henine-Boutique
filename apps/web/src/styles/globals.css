@@ -551,3 +551,15 @@
 @media (prefers-reduced-motion: reduce) {
   .assistant-fab::after, .assistant-spark { animation: none; }
 }
+
+/* Height of the phone's bottom tab bar: 0 while it is tucked away (scrolling down), so the
+   buy bar and the floating buttons slide down with it. */
+:root {
+  --nav-h: 4rem;
+}
+:root[data-nav="hidden"] {
+  --nav-h: 0rem;
+}
+.follow-nav {
+  transition: bottom 0.3s ease;
+}

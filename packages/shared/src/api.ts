@@ -214,7 +214,11 @@ export interface CollectionDTO extends DropTeaserDTO {
 export interface SiteConfigDTO {
   store: { name: string };
   announcement: { active: boolean };
-  contact: { phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null };
+  contact: {
+    phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null;
+    /** Instagram follower count as the shop writes it ("+89K"); null = not shown */
+    followers: string | null;
+  };
   checkout: { freeShippingOver: number | null; expressOnProduct: boolean; deskEnabled: boolean };
   turnstileSiteKey: string;
   maintenance: { active: boolean };

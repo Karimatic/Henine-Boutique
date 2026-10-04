@@ -120,7 +120,7 @@ export function OutfitView() {
 
       {/* the total and the button stay at hand */}
       {chosen.length > 0 && (
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-30 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:bottom-0">
+        <div className="follow-nav fixed inset-x-0 bottom-[calc(var(--nav-h)+env(safe-area-inset-bottom))] z-30 border-t border-line bg-surface/95 px-4 py-3 backdrop-blur md:bottom-0">
           <div className="mx-auto flex max-w-6xl items-center gap-3">
             <div className="min-w-0 flex-1 leading-tight">
               <p className="text-xs text-ink-soft">{O.total} · {chosen.length}</p>

@@ -57,8 +57,8 @@ export function FloatingHelp() {
   return (
     <>
       <div
-        className={`fixed end-3 z-30 flex flex-col items-end gap-2.5 md:bottom-6 md:end-6 ${
-          onProduct ? "bottom-[calc(8.75rem+env(safe-area-inset-bottom))]" : "bottom-[calc(4.75rem+env(safe-area-inset-bottom))]"
+        className={`follow-nav fixed end-3 z-30 flex flex-col items-end gap-2.5 md:bottom-6 md:end-6 ${
+          onProduct ? "bottom-[calc(var(--nav-h)+4.75rem+env(safe-area-inset-bottom))]" : "bottom-[calc(var(--nav-h)+0.75rem+env(safe-area-inset-bottom))]"
         }`}
       >
         {hint && (
@@ -80,7 +80,7 @@ export function FloatingHelp() {
             setOpen(true);
           }}
           aria-label={t.plus.assistant.open}
-          className="assistant-fab lift relative flex h-12 items-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-rose-500 via-plum-600 to-plum-700 ps-1.5 pe-4 text-sm font-semibold text-white shadow-[0_12px_30px_-8px_rgb(142_16_72/0.7)] ring-2 ring-white/80"
+          className={`assistant-fab lift relative flex h-12 items-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-rose-500 via-plum-600 to-plum-700 ps-1.5 text-sm ${onProduct ? "pe-1.5 md:pe-4" : "pe-4"} font-semibold text-white shadow-[0_12px_30px_-8px_rgb(142_16_72/0.7)] ring-2 ring-white/80`}
         >
           <span className="grid size-9 place-items-center rounded-full bg-white/20" aria-hidden="true">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="assistant-spark">
@@ -88,7 +88,8 @@ export function FloatingHelp() {
               <path d="M19 14c.3 2 1 2.7 3 3-2 .3-2.7 1-3 3-.3-2-1-2.7-3-3 2-.3 2.7-1 3-3Z" opacity=".8" />
             </svg>
           </span>
-          <span className="whitespace-nowrap">{t.plus.assistant.short}</span>
+          {/* on a product page's phone layout: the icon only, the page needs the room */}
+          <span className={`whitespace-nowrap ${onProduct ? "max-md:hidden" : ""}`}>{t.plus.assistant.short}</span>
         </button>
         {wa && (
           <a

@@ -842,6 +842,7 @@ interface Message {
 
 export interface ContactSettings {
   phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null;
+  followers: string | null;
 }
 
 export function ContactPage() {
@@ -894,6 +895,7 @@ export function ContactSettingsCard({ contact }: { contact: ContactSettings }) {
         {field("tiktok", "TikTok (https://…)")}
         {field("facebook", "Facebook (https://…)")}
         {field("maps", "Google Maps (https://…)")}
+        {field("followers", tr("Abonnés Instagram (ex. +89K, vide = masqué)"), { maxLength: 12 })}
       </div>
       <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate(undefined)}>{tr("Enregistrer")}</Button>
     </Card>
