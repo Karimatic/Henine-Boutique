@@ -13,7 +13,7 @@ import type { Env } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { decryptSecret, encryptSecret } from "../../lib/crypto";
 import { body, HttpError } from "../../lib/http";
-import { getSetting, setSetting } from "../../lib/settings";
+import { bumpCatalogStmt, getSetting, setSetting, setSettingStmt } from "../../lib/settings";
 import { actorOf, requirePermission } from "../../middleware/access";
 
 export const instagramRoutes = new Hono<AppEnv>();
@@ -64,20 +64,24 @@ instagramRoutes.get("/integrations/instagram", requirePermission("products.edit"
 
 instagramRoutes.post("/integrations/instagram", requirePermission("integrations.manage"), async (c) => {
   const { token } = await body(c, z.object({ token: z.string().trim().min(40).max(600).regex(/^[A-Za-z0-9_|-]+$/, "token_format") }));
-  const me = await graph<{ user_id?: string; id?: string; username: string; media_count?: number }>("/me", token, { fields: "user_id,username,media_count" });
+  const me = await graph<{ user_id?: string; id?: string; username: string; media_count?: number; followers_count?: number }>("/me", token, {
+    fields: "user_id,username,media_count,followers_count",
+  });
   await setSetting(c.env, "instagram", {
     token_enc: await encryptSecret(c.env.SETTINGS_KEY, token),
     username: me.username,
     user_id: String(me.user_id ?? me.id ?? ""),
     refreshed_at: Date.now(),
+    followers: me.followers_count ?? null,
+    followers_at: me.followers_count != null ? Date.now() : null,
   });
-  await auditStmt(c.env, actorOf(c.get("member")), "update", "integration", "instagram").run();
+  await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "update", "integration", "instagram"), bumpCatalogStmt(c.env)]);
   return c.json({ username: me.username, mediaCount: me.media_count ?? null });
 });
 
 instagramRoutes.delete("/integrations/instagram", requirePermission("integrations.manage"), async (c) => {
-  await setSetting(c.env, "instagram", { token_enc: null, username: null, user_id: null, refreshed_at: null });
-  await auditStmt(c.env, actorOf(c.get("member")), "delete", "integration", "instagram").run();
+  await setSetting(c.env, "instagram", { token_enc: null, username: null, user_id: null, refreshed_at: null, followers: null, followers_at: null });
+  await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "delete", "integration", "instagram"), bumpCatalogStmt(c.env)]);
   return c.json({ ok: true });
 });
 
@@ -131,6 +135,19 @@ instagramRoutes.get("/instagram/image", requirePermission("products.edit"), asyn
     headers: { "Content-Type": type, "Cache-Control": "private, max-age=3600", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox" },
   });
 });
+
+/** Daily cron: the account's real follower count, for the home page's Instagram card. */
+export async function syncInstagramFollowers(env: Env): Promise<void> {
+  const ig = await getSetting(env, "instagram");
+  const token = await decryptSecret(env.SETTINGS_KEY, ig.token_enc);
+  if (!token) return;
+  const me = await graph<{ followers_count?: number }>("/me", token, { fields: "followers_count" });
+  if (me.followers_count == null || me.followers_count === ig.followers) return;
+  await env.DB.batch([
+    setSettingStmt(env, "instagram", { ...ig, followers: me.followers_count, followers_at: Date.now() }),
+    bumpCatalogStmt(env),
+  ]);
+}
 
 /** Daily cron: long-lived tokens last 60 days; refreshing weekly keeps the connection alive. */
 export async function refreshInstagramToken(env: Env): Promise<void> {

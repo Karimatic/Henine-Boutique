@@ -4,7 +4,7 @@ import { recordError } from "./lib/audit";
 import { algiersDate, algiersDayStart, periodStats } from "./lib/orders";
 import { processOutbox, sendTelegramText } from "./lib/telegram";
 import { sendCampaignBatch, sendRestockPushes } from "./lib/webpush";
-import { refreshInstagramToken } from "./routes/admin/instagram";
+import { refreshInstagramToken, syncInstagramFollowers } from "./routes/admin/instagram";
 
 /**
  * Cron dispatcher (3 triggers on the free plan, see wrangler.jsonc).
@@ -28,6 +28,7 @@ export async function scheduled(controller: ScheduledController, env: Env, ctx: 
       run("daily_report", dailyReport(env));
       run("purge", purgeExpired(env));
       run("instagram_token", refreshInstagramToken(env));
+      run("instagram_followers", syncInstagramFollowers(env));
       break;
   }
 }

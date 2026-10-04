@@ -5,6 +5,12 @@
 @import "@fontsource/playfair-display/latin-700.css";
 @import "@fontsource/playfair-display/latin-600-italic.css";
 @import "@fontsource/playfair-display/latin-700-italic.css";
+/* Arabic: the store's own faces (Tajawal for text, El Messiri for headings), Arabic letters only */
+@import "@fontsource/tajawal/arabic-400.css";
+@import "@fontsource/tajawal/arabic-500.css";
+@import "@fontsource/tajawal/arabic-700.css";
+@import "@fontsource/el-messiri/arabic-600.css";
+@import "@fontsource/el-messiri/arabic-700.css";
 
 /*
  * Look of the shadcn "admincn" template (calm white/grey ground, white cards with hairline
@@ -12,13 +18,13 @@
  * template's black becomes the store's deep pink, plus the store's fonts and blossom.
  */
 @theme {
-  --color-ivory: #fcfafb;
-  --color-ivory-deep: #f4eff1;
+  --color-ivory: #fffbfc; /* same grounds and hairlines as the store */
+  --color-ivory-deep: #f8eef2;
   --color-sidebar: #faf7f8;
   /* same "bold luxury" palette as the store: near-black plum ink, deep raspberry accent */
   --color-ink: #170a10;
   --color-ink-soft: #5c4852;
-  --color-line: #ebe0e5;
+  --color-line: #ecdde4;
   --color-plum-600: #8e1048;
   --color-plum-700: #6a0c36;
   --color-rose-100: #fbe4ec;
@@ -196,9 +202,13 @@
   }
 }
 
-/* Arabic admin: Arabic letters in the system's Arabic font, arrows pointing the other way */
+/* Arabic admin: Arabic letters in the store's fonts (Latin ones stay DM Sans / Playfair),
+   arrows pointing the other way */
+html[lang="ar"] {
+  --font-display: "El Messiri", "Playfair Display", Georgia, serif;
+}
 html[lang="ar"] body {
-  font-family: "DM Sans Variable", "Segoe UI", Tahoma, "Noto Sans Arabic", "Geeza Pro", system-ui, sans-serif;
+  font-family: "Tajawal", "DM Sans Variable", "Segoe UI", Tahoma, system-ui, sans-serif;
 }
 [dir="rtl"] svg.lucide-chevron-right,
 [dir="rtl"] svg.lucide-chevron-left,

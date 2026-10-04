@@ -7,7 +7,7 @@
  */
 import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -28,28 +28,56 @@ for (const entry of readdirSync(dist)) rmSync(join(dist, entry), { recursive: tr
 cpSync(web, dist, { recursive: true });
 cpSync(admin, join(dist, "admin"), { recursive: true });
 
-// Static-asset headers. /api and /admin documents get their headers from the Worker.
-// Storefront CSP: scripts only from the site itself and Cloudflare Turnstile, data only sent back
-// to the site itself, frames only for Turnstile and the shop's Google Maps card.
-// The header allows inline scripts (one header for every page), and each page then narrows it
-// with its own <meta> policy listing the sha256 of exactly its inline scripts (see below):
-// browsers enforce both, so only the page's own inline scripts can run.
-const csp = [
-  "default-src 'self'",
-  "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "img-src 'self' data: blob: https:",
-  "media-src 'self' blob: https:",
-  "connect-src 'self'",
-  "frame-src https://challenges.cloudflare.com https://www.google.com",
-  "worker-src 'self'",
-  "manifest-src 'self'",
-  "object-src 'none'",
-  "base-uri 'none'",
-  "form-action 'self'",
-  "frame-ancestors 'none'",
-].join("; ");
+// Storefront CSP: scripts only from the site itself, Cloudflare Turnstile and the page's own
+// inline scripts (Next's page data, the theme and splash boot scripts), each allowed by its
+// sha256, never 'unsafe-inline'. Data only goes back to the site itself; frames only for
+// Turnstile and the shop's Google Maps card; every font is self-hosted.
+const SCRIPT_SRC = "script-src 'self' https://challenges.cloudflare.com";
+const pagePolicy = (hashes) =>
+  [
+    "default-src 'self'",
+    [SCRIPT_SRC, ...hashes].join(" "),
+    "style-src 'self' 'unsafe-inline'",
+    "font-src 'self' data:",
+    "img-src 'self' data: blob: https:",
+    "media-src 'self' blob: https:",
+    "connect-src 'self'",
+    "frame-src https://challenges.cloudflare.com https://www.google.com",
+    "worker-src 'self'",
+    "manifest-src 'self'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+  ].join("; ");
+
+// Each page: its own policy as a header (rule per page in _headers) and, for the pages served
+// at other addresses (404), the same script policy as a <meta> right after <meta charset>.
+const htmlFiles = (dir) =>
+  readdirSync(dir).flatMap((name) => {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) return name === "admin" && dir === dist ? [] : htmlFiles(p);
+    return name.endsWith(".html") ? [p] : [];
+  });
+const pageRules = [];
+for (const file of htmlFiles(dist)) {
+  const html = readFileSync(file, "utf8");
+  const hashes = new Set();
+  for (const m of html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)) {
+    hashes.add(`'sha256-${createHash("sha256").update(m[1], "utf8").digest("base64")}'`);
+  }
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${[SCRIPT_SRC, ...hashes].join(" ")}"/>`;
+  const charset = /<meta charSet="utf-8"\/?>/i;
+  const out = charset.test(html) ? html.replace(charset, (c) => c + meta) : html.replace(/<head[^>]*>/i, (h) => h + meta);
+  if (out === html) throw new Error(`no <head> in ${file}`);
+  writeFileSync(file, out);
+  // dist/fr/boutique.html → /fr/boutique, dist/index.html → /
+  const route = "/" + relative(dist, file).replace(/\\/g, "/").replace(/\.html$/, "").replace(/(^|\/)index$/, "");
+  if (!/(^|\/)(404|_not-found)$/.test(route)) pageRules.push(`${route}\n  Content-Security-Policy: ${pagePolicy(hashes)}`);
+}
+
+// Headers for every static file; the page rules above add each page's full policy.
+// This shared policy restricts no scripts (the page policy does), so the two combine cleanly.
 const security = [
   "  Strict-Transport-Security: max-age=63072000; includeSubDomains; preload",
   "  X-Content-Type-Options: nosniff",
@@ -57,7 +85,7 @@ const security = [
   "  Cross-Origin-Opener-Policy: same-origin",
   "  X-Frame-Options: DENY",
   "  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()",
-  `  Content-Security-Policy: ${csp}`,
+  "  Content-Security-Policy: frame-ancestors 'none'; base-uri 'none'; object-src 'none'; form-action 'self'",
 ].join("\n");
 
 writeFileSync(
@@ -70,33 +98,11 @@ ${security}
 
 /admin/assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+${pageRules.join("\n\n")}
 `,
 );
-
-// Per-page script policy: the sha256 of each inline <script> (Next's page data, the theme and
-// splash boot scripts), placed right after <meta charset>, before any script runs.
-const SCRIPT_SRC = "script-src 'self' https://challenges.cloudflare.com";
-const htmlFiles = (dir) =>
-  readdirSync(dir).flatMap((name) => {
-    const p = join(dir, name);
-    if (statSync(p).isDirectory()) return name === "admin" && dir === dist ? [] : htmlFiles(p);
-    return name.endsWith(".html") ? [p] : [];
-  });
-let pages = 0;
-for (const file of htmlFiles(dist)) {
-  const html = readFileSync(file, "utf8");
-  const hashes = new Set();
-  for (const m of html.matchAll(/<script(?![^>]*\ssrc=)[^>]*>([\s\S]*?)<\/script>/g)) {
-    hashes.add(`'sha256-${createHash("sha256").update(m[1], "utf8").digest("base64")}'`);
-  }
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${[SCRIPT_SRC, ...hashes].join(" ")}"/>`;
-  const charset = /<meta charSet="utf-8"\/?>/i;
-  const out = charset.test(html) ? html.replace(charset, (c) => c + meta) : html.replace(/<head[^>]*>/i, (h) => h + meta);
-  if (out === html) throw new Error(`no <head> in ${file}`);
-  writeFileSync(file, out);
-  pages++;
-}
-console.log(`✓ script hashes on ${pages} pages`);
+console.log(`✓ script policies for ${pageRules.length} pages`);
 
 // Canonical / hreflang links must carry the real public address, never the local one.
 const canonical = /<link rel="canonical" href="([^"]+)"/.exec(readFileSync(join(dist, "index.html"), "utf8"))?.[1] ?? "";

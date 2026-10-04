@@ -895,7 +895,7 @@ export function ContactSettingsCard({ contact }: { contact: ContactSettings }) {
         {field("tiktok", "TikTok (https://…)")}
         {field("facebook", "Facebook (https://…)")}
         {field("maps", "Google Maps (https://…)")}
-        {field("followers", tr("Abonnés Instagram (ex. +89K, vide = masqué)"), { maxLength: 12 })}
+        {field("followers", tr("Abonnés Instagram (ex. +89K, vide = masqué)"), { maxLength: 12, hint: tr("Remplacé par le vrai nombre (mis à jour chaque jour) quand Instagram est connecté dans Paramètres → Connexions.") })}
       </div>
       <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate(undefined)}>{tr("Enregistrer")}</Button>
     </Card>

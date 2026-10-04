@@ -31,7 +31,11 @@ export interface Settings {
   };
   integrations: { zr_id_enc: string | null; zr_token_enc: string | null; meta_pixel_id: string | null; tiktok_pixel_id: string | null };
   /** Instagram API (product photos from the shop's posts); token encrypted */
-  instagram: { token_enc: string | null; username: string | null; user_id: string | null; refreshed_at: number | null };
+  instagram: {
+    token_enc: string | null; username: string | null; user_id: string | null; refreshed_at: number | null;
+    /** live follower count from the Instagram API (daily), shown on the home page */
+    followers?: number | null; followers_at?: number | null;
+  };
   /** Home page FAQ (Admin → Marketing → Page d’accueil) */
   faq: { q_fr: string; a_fr: string; q_ar: string; a_ar: string }[];
   "shipping.prices_verified": boolean;

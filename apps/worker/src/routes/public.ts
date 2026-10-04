@@ -10,6 +10,7 @@ import {
   clientErrorInput,
   contactInput,
   createOrderInput,
+  formatFollowers,
   maskDzPhone,
   pushSubscribeInput,
   quoteInput,
@@ -64,7 +65,7 @@ publicRoutes.get("/health", async (c) => {
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
     const [s, drop, flash, experiments] = await Promise.all([
-      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design", "boutique"]),
+      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design", "boutique", "instagram"]),
       featuredDrop(c.env),
       activeFlash(c.env),
       runningExperiments(c),
@@ -74,7 +75,9 @@ publicRoutes.get("/site", (c) =>
       announcement: { active: s.announcement.active },
       contact: {
         phone: s.contact.phone, whatsapp: s.contact.whatsapp, instagram: s.contact.instagram, tiktok: s.contact.tiktok,
-        facebook: s.contact.facebook, maps: s.contact.maps, followers: s.contact.followers,
+        facebook: s.contact.facebook, maps: s.contact.maps,
+        // the real count when Instagram is connected (daily), otherwise what the shop wrote
+        followers: s.instagram.followers != null ? formatFollowers(s.instagram.followers) : s.contact.followers,
       },
       // quick order on the product page: always on
       checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: true, deskEnabled: s.checkout.desk_enabled },

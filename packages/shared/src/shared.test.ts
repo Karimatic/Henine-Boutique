@@ -3,6 +3,7 @@ import {
   canTransition,
   createOrderInput,
   formatDA,
+  formatFollowers,
   formatDzPhone,
   isOrderCode,
   isSafeLink,
@@ -140,5 +141,15 @@ describe("isSafeLink", () => {
   });
   it("refuses other websites in disguise and other schemes", () => {
     for (const l of ["//evil.example", "/\\evil.example", "http://evil.example", "javascript:alert(1)", "data:text/html,x", "https://", " /x"]) expect(isSafeLink(l)).toBe(false);
+  });
+});
+
+describe("formatFollowers", () => {
+  it("rounds down to K / M", () => {
+    expect(formatFollowers(640)).toBe("640");
+    expect(formatFollowers(89_345)).toBe("+89K");
+    expect(formatFollowers(1_000)).toBe("+1K");
+    expect(formatFollowers(1_250_000)).toBe("+1.2M");
+    expect(formatFollowers(2_000_000)).toBe("+2M");
   });
 });

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect } from "react";
-import { DEFAULT_DESIGN, fontStylesheet, fontVars, themeVars, themeVarsDark } from "@henine/shared";
+import { DEFAULT_DESIGN, themeVars, themeVarsDark } from "@henine/shared";
+import { presetFontVars } from "@/lib/fontPresets";
 import { DESIGN_KEY as KEY } from "@/lib/boot";
 import { useDesign } from "@/lib/site";
 
@@ -18,7 +19,7 @@ export function ThemeStyle() {
   const font = design.font;
   useEffect(() => {
     const isDefault = accent.toLowerCase() === DEFAULT_DESIGN.colors.accent && soft.toLowerCase() === DEFAULT_DESIGN.colors.soft;
-    const fonts = fontVars(font);
+    const fonts = presetFontVars(font);
     let css = Object.keys(fonts).length ? `:root:root{${rules(fonts)}}` : "";
     if (!isDefault) {
       const dark = rules(themeVarsDark({ accent, soft }));
@@ -34,18 +35,10 @@ export function ThemeStyle() {
       }
       if (style.textContent !== css) style.textContent = css;
     } else style?.remove();
-    const href = fontStylesheet(font);
-    let link = document.getElementById("henine-font") as HTMLLinkElement | null;
-    if (href) {
-      if (!link) {
-        link = Object.assign(document.createElement("link"), { id: "henine-font", rel: "stylesheet" });
-        document.head.appendChild(link);
-      }
-      if (link.href !== href) link.href = href;
-    } else link?.remove();
     try {
-      localStorage.setItem(KEY, JSON.stringify({ css, font: href }));
+      localStorage.setItem(KEY, JSON.stringify({ css }));
       localStorage.removeItem("henine.design.v1");
+      localStorage.removeItem("henine.design.v2"); // older format with a Google Fonts link
     } catch {
       /* private mode */
     }

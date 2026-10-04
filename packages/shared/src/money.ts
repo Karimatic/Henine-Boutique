@@ -20,3 +20,13 @@ export function percentOff(price: DA, compareAt: DA | null | undefined): number 
   if (!compareAt || compareAt <= price) return null;
   return Math.round(((compareAt - price) / compareAt) * 100);
 }
+
+/**
+ * A follower count as shown on the home page: 89 345 → "+89K", 1 250 000 → "+1.2M",
+ * 640 → "640" (rounded down: "+" means "at least").
+ */
+export function formatFollowers(n: number): string {
+  if (n >= 1_000_000) return `+${(Math.floor(n / 100_000) / 10).toString()}M`;
+  if (n >= 1_000) return `+${Math.floor(n / 1_000)}K`;
+  return String(Math.max(0, Math.floor(n)));
+}

@@ -1,6 +1,6 @@
 import { dirOf, type Locale } from "@henine/shared";
 import { getDictionary } from "@/lib/dictionary";
-import { arabicDisplay, arabicSans, dmSans, playfair } from "@/lib/fonts";
+import { arabicDisplay, arabicSans, dmSans, playfair, presetFontVariables } from "@/lib/fonts";
 import { ActivityToast } from "./ActivityToast";
 import { AnnouncementBar } from "./AnnouncementBar";
 import { BottomNav } from "./BottomNav";
@@ -27,7 +27,7 @@ export function RootDocument({
   Provider: React.ComponentType<{ children: React.ReactNode }>;
   children: React.ReactNode;
 }) {
-  const fonts = [playfair.variable, dmSans.variable, arabicSans.variable, arabicDisplay.variable].join(" ");
+  const fonts = [playfair.variable, dmSans.variable, arabicSans.variable, arabicDisplay.variable, presetFontVariables].join(" ");
   return (
     <html lang={locale} dir={dirOf(locale)} className={fonts} suppressHydrationWarning>
       <head>
