@@ -88,6 +88,7 @@ const MESSAGES: Record<string, string> = {
   email_taken: "Cet email est déjà dans l'équipe.",
   last_owner: "Il faut garder au moins une propriétaire active.",
   cannot_demote_self: "Vous ne pouvez pas modifier votre propre rôle.",
+  owner_only: "Réservé à la propriétaire (ni son compte, ni des droits que vous n'avez pas).",
   wrong_password: "Mot de passe actuel incorrect.",
   telegram_token_rejected: "Telegram a refusé ce token.",
   telegram_token_missing: "Enregistrez d'abord le token du bot.",

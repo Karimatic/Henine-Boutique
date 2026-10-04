@@ -1450,5 +1450,6 @@ export const AR: Record<string, string> = {
   "✨ Une nouvelle version de l'administration est disponible.": "✨ نسخة جديدة من لوحة الإدارة متوفرة.",
   "Cette page n'a pas pu s'afficher": "تعذّر عرض هذه الصفحة",
   "Recharger": "إعادة التحميل",
+  "Réservé à la propriétaire (ni son compte, ni des droits que vous n'avez pas).": "خاص بالمالكة (لا يمكن تعديل حسابها ولا منح صلاحيات لا تملكينها).",
   "Rechargez la page. Si le problème revient, envoyez une capture de ce message.": "أعيدي تحميل الصفحة. إذا تكررت المشكلة، أرسلي صورة لهذه الرسالة.",
 };
