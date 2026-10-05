@@ -11,6 +11,7 @@ import { useColorMode } from "./lib/colorMode";
 import { UpdateBar } from "./lib/update";
 import { LiveProvider, SoundUnlock, useLive } from "./lib/live";
 import { AlertsBell } from "./lib/alerts";
+import { GlobalSearch } from "./lib/search";
 import { tr } from "./i18n";
 
 export function useMe() {
@@ -286,8 +287,14 @@ export function Shell() {
                 <Menu className="size-5 md:hidden" />
               </button>
               <span className="hidden h-4 w-px bg-line sm:block" aria-hidden="true" />
+              {/* narrow phones: the flower only, so the buttons on the other side keep their room */}
               <Link to="/" className="md:hidden" aria-label={tr("Tableau de bord")}>
-                <Wordmark size="sm" />
+                <span className="min-[480px]:hidden">
+                  <Wordmark size="sm" iconOnly />
+                </span>
+                <span className="hidden min-[480px]:block">
+                  <Wordmark size="sm" />
+                </span>
               </Link>
               <ol className="hidden min-w-0 items-center gap-1.5 text-sm sm:flex" aria-label={tr("Fil d'Ariane")}>
                 {crumbs.map((c, i) => (
@@ -298,7 +305,9 @@ export function Shell() {
                 ))}
               </ol>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
+            {/* phones: the shop link is in the profile menu, the light / dark switch in Mon compte */}
+            <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+              <GlobalSearch groups={groups} permissions={me.data.permissions} />
               <SoundUnlock />
               {canOrders && <AlertsBell />}
               <DarkToggle />
@@ -308,7 +317,7 @@ export function Shell() {
                 rel="noreferrer"
                 title={tr("Voir la boutique")}
                 aria-label={tr("Voir la boutique")}
-                className="grid size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700"
+                className="hidden size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700 sm:grid"
               >
                 <Store className="size-5" strokeWidth={1.8} />
               </a>
@@ -427,7 +436,7 @@ function DarkToggle() {
       onClick={() => setMode(dark ? "light" : "dark")}
       title={label}
       aria-label={label}
-      className="grid size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700"
+      className="hidden size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700 sm:grid"
     >
       {dark ? <Sun className="size-5" strokeWidth={1.8} /> : <Moon className="size-5" strokeWidth={1.8} />}
     </button>

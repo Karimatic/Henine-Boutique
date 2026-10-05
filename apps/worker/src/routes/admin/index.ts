@@ -7,6 +7,7 @@ import { instagramRoutes } from "./instagram";
 import { marketingRoutes } from "./marketing";
 import { operationRoutes } from "./operations";
 import { orderRoutes } from "./orders";
+import { searchRoutes } from "./search";
 import { systemRoutes } from "./system";
 
 export const adminRoutes = new Hono<AppEnv>();
@@ -19,3 +20,4 @@ adminRoutes.route("/", orderRoutes);
 adminRoutes.route("/", marketingRoutes);
 adminRoutes.route("/", instagramRoutes);
 adminRoutes.route("/", insightRoutes);
+adminRoutes.route("/", searchRoutes);

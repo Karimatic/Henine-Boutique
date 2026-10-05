@@ -1,5 +1,6 @@
 import { formatDzPhone, OUTCOME_REASON_LABEL, type CustomerSegment, type OutcomeReason, type RiskAssessment, type RiskLevel } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, date, telLink, waLink } from "../lib/format";
@@ -41,7 +42,11 @@ const SEGMENTS = [
 export function CustomersPage() {
   const [segment, setSegment] = useState("all");
   const [q, setQ] = useState("");
-  const [open, setOpen] = useState<number | null>(null);
+  // ?c=12 opens that customer (link from the search bar)
+  const navigate = useNavigate();
+  const search = useSearch({ strict: false }) as { c?: number };
+  const open = search.c ?? null;
+  const setOpen = (id: number | null) => void navigate({ to: "/clients", search: (s: Record<string, unknown>) => ({ ...s, c: id ?? undefined }) });
   const list = useQuery({
     queryKey: ["customers", segment, q],
     queryFn: () => api<{ counts: Record<string, number>; rows: CustomerRow[] }>(`/customers?segment=${segment}&q=${encodeURIComponent(q)}`),
