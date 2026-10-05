@@ -2,25 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { BagIcon, Blossom, GridIcon, HeartIcon, PackageIcon, PinIcon, SearchIcon, SparkleIcon, TagIcon } from "@/components/ui/icons";
-import { useActiveOrder } from "@/lib/activeOrder";
 import { useLocale } from "@/lib/locale";
 import { useDesign } from "@/lib/site";
 import { cartCount, useCart, useFavorites } from "@/lib/stores";
 import { LanguageSwitch } from "./LanguageSwitch";
 import { SiteMenu } from "./SiteMenu";
-
-/** "📦 Ma commande : Expédiée" (computers; on phones the "Suivi" tab of the bottom bar shows it). */
-function OrderPill() {
-  const { t, href } = useLocale();
-  const order = useActiveOrder();
-  if (!order) return null;
-  return (
-    <a href={href(order.link)} className="hidden items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-semibold text-plum-700 md:flex">
-      <PackageIcon size={15} />
-      {t.status[order.status]}
-    </a>
-  );
-}
 
 export function SiteHeader() {
   const { t, href } = useLocale();
@@ -52,7 +38,6 @@ export function SiteHeader() {
         <TopNav inline />
 
         <div className="flex shrink-0 items-center gap-0.5">
-          <OrderPill />
           <LanguageSwitch className="me-0.5" />
           {/* phones: search lives in the ☰ menu */}
           <a href={href("/recherche")} className="hidden size-11 place-items-center rounded-full hover:bg-rose-100 md:grid" aria-label={t.nav.search}>
