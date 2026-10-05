@@ -17,9 +17,10 @@ import {
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { resolveAlertStmt } from "../../lib/alerts";
-import { variantLabels } from "../../lib/catalog";
+import { mediaUrl, variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
 import { LIVE_TAG, liveConnect } from "../../lib/live";
+import { putAudio } from "../../lib/media";
 import { quote } from "../../lib/orders";
 import { dailyReport, dayOf, dayStartOf } from "../../lib/reports";
 import { getSettings, setSettingStmt } from "../../lib/settings";
@@ -389,7 +390,31 @@ operationRoutes.get("/reports/daily", requirePermission("stats.view"), async (c)
 
 /* ───────────── Settings: SLA + packaging cost ───────────── */
 
-operationRoutes.get("/operations/settings", requirePermission("orders.view"), async (c) => c.json((await getSettings(c.env, ["operations"])).operations));
+operationRoutes.get("/operations/settings", requirePermission("orders.view"), async (c) => {
+  const { operations } = await getSettings(c.env, ["operations"]);
+  return c.json({ ...operations, soundUrl: operations.sound ? mediaUrl(c.env, operations.sound) : null });
+});
+
+/** The shop's own new-order sound: one file for the whole team (replaces the built-in chime). */
+operationRoutes.post("/operations/sound", requirePermission("orders.edit"), async (c) => {
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("file");
+  if (!(file instanceof File)) throw new HttpError(400, "file_required");
+  const key = await putAudio(c.env, "sounds/order", file);
+  const { operations } = await getSettings(c.env, ["operations"]);
+  const next = { ...operations, sound: key };
+  await c.env.DB.batch([setSettingStmt(c.env, "operations", next), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "operations.sound", { sound: key })]);
+  if (operations.sound) c.executionCtx.waitUntil(c.env.MEDIA.delete(operations.sound).catch(() => undefined));
+  return c.json({ soundUrl: mediaUrl(c.env, key) });
+});
+
+operationRoutes.delete("/operations/sound", requirePermission("orders.edit"), async (c) => {
+  const { operations } = await getSettings(c.env, ["operations"]);
+  if (!operations.sound) return c.json({ soundUrl: null });
+  await c.env.DB.batch([setSettingStmt(c.env, "operations", { ...operations, sound: null }), auditStmt(c.env, actorOf(c.get("member")), "delete", "settings", "operations.sound", null)]);
+  c.executionCtx.waitUntil(c.env.MEDIA.delete(operations.sound).catch(() => undefined));
+  return c.json({ soundUrl: null });
+});
 
 operationRoutes.put("/operations/settings", requirePermission("orders.edit"), async (c) => {
   const minutes = z.number().int().min(5).max(30 * 24 * 60);
@@ -403,7 +428,7 @@ operationRoutes.put("/operations/settings", requirePermission("orders.edit"), as
   const { operations } = await getSettings(c.env, ["operations"]);
   // the packaging cost feeds the profit: only for those who see costs
   const canCost = hasPermission(c.get("member").permissions, "cost.view");
-  const next = { sla: input.sla, packaging_cost: canCost && input.packagingCost != null ? input.packagingCost : operations.packaging_cost };
+  const next = { ...operations, sla: input.sla, packaging_cost: canCost && input.packagingCost != null ? input.packagingCost : operations.packaging_cost };
   await c.env.DB.batch([setSettingStmt(c.env, "operations", next), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "operations", next)]);
   return c.json(next);
 });

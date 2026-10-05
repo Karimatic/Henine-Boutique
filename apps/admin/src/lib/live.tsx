@@ -16,6 +16,8 @@ import { da } from "./format";
 /* ── Device preferences (Paramètres → Notifications) ── */
 
 export const SOUNDS = {
+  // the file sent in Paramètres → Alertes (same for the whole team); the chime until there is one
+  boutique: { label: "Son de la boutique", notes: [] },
   // the "announcement" chime (rising do-mi-sol-do, bell tone with a little echo), 1.5 s
   annonce: { label: "Annonce (carillon 1,5 s)", notes: [] },
   chime: { label: "Carillon", notes: [[880, 0, 0.18], [1318.5, 0.16, 0.32]] },
@@ -36,7 +38,7 @@ export interface SoundPrefs {
 }
 
 const PREFS_KEY = "henine.admin.orderAlerts";
-export const DEFAULT_PREFS: SoundPrefs = { sound: true, volume: 0.8, tone: "annonce", flash: true, browser: false };
+export const DEFAULT_PREFS: SoundPrefs = { sound: true, volume: 0.8, tone: "boutique", flash: true, browser: false };
 
 export function loadPrefs(): SoundPrefs {
   try {
@@ -131,9 +133,41 @@ function playChime(c: AudioContext, volume: number) {
   return true;
 }
 
+/* ── The shop's own sound (an audio file), played 1.5 s at most with a short fade ── */
+
+const SHOP_SOUND_MAX = 1.5;
+let shopSound: HTMLAudioElement | null = null;
+let shopSoundUrl: string | null = null;
+let fadeTimer: ReturnType<typeof setInterval> | undefined;
+
+export function setShopSound(url: string | null) {
+  if (url === shopSoundUrl) return;
+  shopSoundUrl = url;
+  shopSound = url ? Object.assign(new Audio(url), { preload: "auto" }) : null;
+}
+
+function playShopSound(a: HTMLAudioElement, volume: number, c: AudioContext) {
+  clearInterval(fadeTimer);
+  a.pause();
+  a.currentTime = 0;
+  a.volume = Math.min(1, Math.max(0, volume));
+  // a file that can't play (deleted, blocked) still rings: the chime instead
+  void a.play().catch(() => playChime(c, volume));
+  const started = performance.now();
+  fadeTimer = setInterval(() => {
+    const t = (performance.now() - started) / 1000;
+    if (t >= SHOP_SOUND_MAX) {
+      a.pause();
+      clearInterval(fadeTimer);
+    } else if (t > SHOP_SOUND_MAX - 0.3) a.volume = Math.max(0, (volume * (SHOP_SOUND_MAX - t)) / 0.3);
+  }, 30);
+  return true;
+}
+
 export function playTone(tone: SoundKey, volume: number) {
   const c = ctx();
   if (!c || c.state !== "running") return false;
+  if (tone === "boutique") return shopSound ? playShopSound(shopSound, volume, c) : playChime(c, volume);
   if (tone === "annonce") return playChime(c, volume);
   const t0 = c.currentTime + 0.02;
   for (const [freq, start, dur] of SOUNDS[tone].notes as readonly (readonly [number, number, number])[]) {
@@ -226,6 +260,11 @@ export const useLive = () => useContext(Ctx);
 
 export function LiveProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const qc = useQueryClient();
+  // the shop's own new-order sound, if one was sent
+  const ops = useQuery({ queryKey: ["operations-settings"], queryFn: () => api<{ soundUrl: string | null }>("/operations/settings"), enabled, staleTime: 5 * 60_000 });
+  useEffect(() => {
+    if (ops.data) setShopSound(ops.data.soundUrl ?? null);
+  }, [ops.data]);
   const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
   const [cards, setCards] = useState<Card[]>([]);

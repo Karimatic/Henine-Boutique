@@ -69,7 +69,7 @@ app.get("/media/*", async (c) => {
     headers.set("Content-Length", String(obj.size));
     return new Response(obj.body, { headers });
   }
-  if (!/^[a-z0-9/_-]+\.(webp|jpg)$/i.test(key)) return c.notFound();
+  if (!/^[a-z0-9/_-]+\.(webp|jpg|mp3|ogg|wav|m4a)$/i.test(key)) return c.notFound();
   const cache = caches.default;
   const hit = await cache.match(c.req.raw);
   if (hit) return hit;

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { tr } from "../i18n";
 
 /*
@@ -14,12 +14,32 @@ function useHover() {
   return { i, set: setI, clear: () => setI(null) };
 }
 
+/** Width of the chart's box in pixels, so the drawing is 1:1 and the tooltip lands on the point. */
+function useWidth(fallback = 640) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(fallback);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => e && setW(Math.max(240, Math.round(e.contentRect.width))));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, w] as const;
+}
+
+/**
+ * Next to the point under the pointer (x, y in % of the chart): above it, or below it near the
+ * top so it never covers the card title; kept inside the chart at both ends.
+ */
 function Tooltip({ x, y, children }: { x: number; y: number; children: ReactNode }) {
+  const below = y < 35;
+  const tx = x < 18 ? "0%" : x > 82 ? "-100%" : "-50%";
   return (
     <div
       role="status"
-      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs shadow-lg"
-      style={{ left: `${x}%`, top: `${y}%`, marginTop: -8 }}
+      className="pointer-events-none absolute z-10 whitespace-nowrap rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs shadow-lg"
+      style={{ left: `${x}%`, top: `${y}%`, transform: `translate(${tx}, ${below ? "12px" : "calc(-100% - 12px)"})` }}
     >
       {children}
     </div>
@@ -38,16 +58,18 @@ export function TrendChart({
 }) {
   const hover = useHover();
   const ref = useRef<SVGSVGElement>(null);
-  const W = 640;
+  const [box, W] = useWidth();
   const H = height;
   const pad = { l: 44, r: 12, t: 14, b: 24 };
   const max = Math.max(1, ...points.map((p) => p.value));
-  const nice = niceMax(max);
+  // small counts: an even top so the middle line is a whole number (0 · 3 · 6, not 0 · 3 · 5)
+  const nice = max <= 10 ? Math.ceil(niceMax(max) / 2) * 2 : niceMax(max);
   const x = (i: number) => pad.l + (points.length <= 1 ? 0 : (i * (W - pad.l - pad.r)) / (points.length - 1));
   const y = (v: number) => H - pad.b - ((H - pad.t - pad.b) * v) / nice;
   const line = points.map((p, i) => `${i ? "L" : "M"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
   const area = points.length ? `${line} L${x(points.length - 1)},${H - pad.b} L${x(0)},${H - pad.b} Z` : "";
-  const ticks = [0, 0.5, 1].map((f) => f * nice);
+  // no "1, 1, 0" axis: a middle line only when its label differs from the others
+  const ticks = [0, 0.5, 1].map((f) => f * nice).filter((t, i, all) => all.findIndex((u) => axisFormat(u) === axisFormat(t)) === i);
   const xTicks = points.length > 2 ? [0, Math.floor((points.length - 1) / 2), points.length - 1] : points.map((_, i) => i);
   const gradId = `g-${label.replace(/\W/g, "")}`;
 
@@ -61,7 +83,7 @@ export function TrendChart({
 
   const h = hover.i != null ? points[hover.i] : null;
   return (
-    <div className="relative" dir="ltr">
+    <div ref={box} className="relative" dir="ltr">
       <svg
         ref={ref}
         viewBox={`0 0 ${W} ${H}`}

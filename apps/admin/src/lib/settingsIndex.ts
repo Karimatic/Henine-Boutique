@@ -27,7 +27,7 @@ export const SETTINGS_INDEX: { tab: TabKey; find: string; label: string; words: 
   { tab: "commandes", find: "Livraison au bureau (stop-desk)", label: tr("Livraison au bureau (stop-desk)"), words: "bureau stop desk livraison relais مكتب توصيل" },
   { tab: "commandes", find: "Livraison offerte", label: tr("Livraison offerte"), words: "livraison gratuite offerte franco توصيل مجاني" },
   { tab: "commandes", find: "Protection contre les fausses commandes", label: tr("Protection contre les fausses commandes"), words: "fausses commandes limite spam protection طلبات وهمية حماية" },
-  { tab: "alertes", find: "🔔 Nouvelles commandes", label: tr("Son et notifications des nouvelles commandes"), words: "son sonnerie volume notification alerte nouvelle commande صوت تنبيه إشعار رنة" },
+  { tab: "alertes", find: "🔔 Nouvelles commandes", label: tr("Son et notifications des nouvelles commandes"), words: "son sonnerie volume notification alerte nouvelle commande fichier mp3 personnalisé صوت تنبيه إشعار رنة ملف" },
   { tab: "alertes", find: "⏰ Délais de traitement (SLA)", label: tr("Délais de traitement (retards)"), words: "délai retard sla temps confirmation préparation expédition آجال تأخير" },
   { tab: "alertes", find: "Coût d'emballage par colis", label: tr("Coût d'emballage (bénéfice)"), words: "emballage coût bénéfice profit تغليف تكلفة ربح" },
   { tab: "textes", find: "", label: tr("Textes de la boutique (accueil, FAQ, annonces)"), words: "texte accueil hero titre faq question message نصوص الأسئلة" },

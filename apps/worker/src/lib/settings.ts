@@ -25,7 +25,7 @@ export interface Settings {
   };
   loyalty: { enabled: boolean; points_per_100da: number; redeem_value_da: number; min_redeem: number; expiry_days: number };
   /** order handling: how long each step may take (SLA), packaging cost per parcel (real profit) */
-  operations: { sla: SlaSettings; packaging_cost: number };
+  operations: { sla: SlaSettings; packaging_cost: number; /** the shop's own new-order sound (R2 key), else the built-in chime */ sound?: string | null };
   maintenance: { active: boolean; message_fr: string; message_ar: string };
   notifications: {
     telegram_new_order: boolean; telegram_status_change: boolean; telegram_low_stock: boolean;
