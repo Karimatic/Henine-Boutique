@@ -41,7 +41,7 @@ export function HomePage() {
 
   const blocks: Record<HomeSectionKey, () => ReactNode> = {
     stories: () => (
-      <div className="pt-5">
+      <div className="pt-8">
         <Stories categories={categories.data} products={products} />
       </div>
     ),

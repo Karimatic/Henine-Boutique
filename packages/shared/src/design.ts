@@ -7,8 +7,8 @@
 /** Home page building blocks, in their default order. */
 export const HOME_SECTIONS = [
   "hero",
-  "stories",
   "promise",
+  "stories",
   "drop",
   "flash",
   "new",
@@ -26,7 +26,7 @@ export const HOME_SECTIONS = [
 export type HomeSectionKey = (typeof HOME_SECTIONS)[number];
 
 export const HOME_SECTION_LABEL: Record<HomeSectionKey, { fr: string; icon: string }> = {
-  stories: { fr: "Catégories (cercles)", icon: "⭕" },
+  stories: { fr: "Catégories (cartes)", icon: "🗂️" },
   hero: { fr: "Grande photo (hero)", icon: "🖼️" },
   promise: { fr: "Nos promesses", icon: "✅" },
   drop: { fr: "Lancement de collection", icon: "🚀" },

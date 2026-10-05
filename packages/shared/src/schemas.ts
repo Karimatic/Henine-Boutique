@@ -184,13 +184,6 @@ export const clientErrorInput = z.object({
   url: z.string().max(500).optional(),
 });
 
-/** A/B test step seen by a visitor (counted once per visitor and day by the page). */
-export const experimentEventInput = z.object({
-  id: z.number().int().positive(),
-  variant: z.enum(["a", "b"]),
-  event: z.enum(["seen", "product", "checkout", "order"]),
-});
-
 /** Shopping assistant: a free-text wish ("robe noire pour un mariage, moins de 8000 DA"). */
 export const assistantInput = z.object({
   q: z.string().trim().min(1).max(300),

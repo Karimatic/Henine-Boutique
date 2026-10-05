@@ -5,7 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { api, errorMessage, put } from "../api";
 import { da } from "../lib/format";
 import { useCan } from "../Shell";
-import { Badge, Button, ErrorState, inputCls, ListSkeleton, PageHeader, useToast } from "../ui";
+import { Badge, Button, ErrorState, inputCls, ListSkeleton, PageHeader, SearchBox, useToast } from "../ui";
 import { ContactSettingsCard, StoreTextsEditor, type ContactSettings, type Overrides } from "./Marketing";
 import { BoutiqueSettingsCard } from "./BoutiqueSettings";
 import { DesignEditor } from "./Design";
@@ -40,17 +40,119 @@ const TABS: { key: TabKey; label: string; icon: LucideIcon; perm: Parameters<Ret
   { key: "connexions", label: tr("Connexions"), icon: Plug, perm: "integrations.manage" },
 ];
 
+/**
+ * Every setting, findable by its name or a word about it (French, Arabic, Darija). `find` is
+ * the title shown on the page: the search opens its tab and highlights it.
+ */
+const SETTINGS_INDEX: { tab: TabKey; find: string; label: string; words: string }[] = [
+  { tab: "boutique", find: "Nom de la boutique", label: tr("Nom de la boutique"), words: "nom boutique magasin اسم المتجر المحل" },
+  { tab: "boutique", find: "Saison", label: tr("Saison (pyjamas d'été / d'hiver)"), words: "saison été hiver pyjama موسم صيف شتاء بيجامة" },
+  { tab: "boutique", find: "Bandeau d'annonces", label: tr("Bandeau d'annonces"), words: "bandeau annonce bannière message haut شريط إعلان" },
+  { tab: "boutique", find: "Mettre les commandes en pause", label: tr("Mettre les commandes en pause"), words: "pause vacances fermer maintenance inventaire عطلة إيقاف الطلبات" },
+  { tab: "commandes", find: "Livraison au bureau (stop-desk)", label: tr("Livraison au bureau (stop-desk)"), words: "bureau stop desk livraison relais مكتب توصيل" },
+  { tab: "commandes", find: "Livraison offerte", label: tr("Livraison offerte"), words: "livraison gratuite offerte franco توصيل مجاني" },
+  { tab: "commandes", find: "Protection contre les fausses commandes", label: tr("Protection contre les fausses commandes"), words: "fausses commandes limite spam protection طلبات وهمية حماية" },
+  { tab: "alertes", find: "🔔 Nouvelles commandes", label: tr("Son et notifications des nouvelles commandes"), words: "son sonnerie volume notification alerte nouvelle commande صوت تنبيه إشعار رنة" },
+  { tab: "alertes", find: "⏰ Délais de traitement (SLA)", label: tr("Délais de traitement (retards)"), words: "délai retard sla temps confirmation préparation expédition آجال تأخير" },
+  { tab: "alertes", find: "Coût d'emballage par colis", label: tr("Coût d'emballage (bénéfice)"), words: "emballage coût bénéfice profit تغليف تكلفة ربح" },
+  { tab: "textes", find: "", label: tr("Textes de la boutique (accueil, FAQ, annonces)"), words: "texte accueil hero titre faq question message نصوص الأسئلة" },
+  { tab: "contact", find: "Coordonnées affichées sur la boutique", label: tr("Téléphone, WhatsApp et réseaux"), words: "téléphone whatsapp instagram tiktok facebook maps abonnés contact هاتف واتساب انستغرام متابعين" },
+  { tab: "compte", find: "👤 Mon compte", label: tr("Mon compte et mot de passe"), words: "compte mot de passe password profil حسابي كلمة السر" },
+  { tab: "compte", find: "Appareils connectés", label: tr("Appareils connectés"), words: "appareils sessions déconnecter الأجهزة الجلسات" },
+  { tab: "compte", find: "🌐 Langue de l'administration", label: tr("Langue de l'administration"), words: "langue arabe français اللغة عربي فرنسي" },
+  { tab: "compte", find: "🌗 Apparence", label: tr("Mode sombre / clair"), words: "sombre clair nuit thème apparence dark الوضع الداكن المظهر" },
+  { tab: "connexions", find: "📱 Telegram : commandes dans le groupe de l'équipe", label: tr("Telegram"), words: "telegram bot groupe تيليغرام" },
+  { tab: "connexions", find: "✉️ Emails (codes de connexion, invitations)", label: tr("Emails"), words: "email mail code connexion invitation بريد" },
+  { tab: "connexions", find: "🚚 ZR Express", label: tr("ZR Express"), words: "zr express transporteur livraison suivi شركة التوصيل" },
+  { tab: "connexions", find: "📈 Pixels publicitaires", label: tr("Pixels publicitaires (Meta, TikTok)"), words: "pixel meta facebook tiktok publicité إعلانات" },
+  { tab: "connexions", find: "📸 Instagram : photos des produits depuis vos publications", label: tr("Instagram"), words: "instagram photos publications انستغرام صور" },
+];
+
+const fold = (v: string) =>
+  v
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[أإآ]/g, "ا")
+    .replace(/ة/g, "ه")
+    .replace(/ى/g, "ي");
+
+/** Search box: matching settings, one tap opens the right tab on that setting. */
+function SettingsSearch({ tabs, onPick }: { tabs: { key: TabKey; label: string }[]; onPick: (tab: TabKey, find: string) => void }) {
+  const [q, setQ] = useState("");
+  const allowed = new Set(tabs.map((t) => t.key));
+  const words = fold(q).split(/\s+/).filter(Boolean);
+  const hits = words.length
+    ? SETTINGS_INDEX.filter((e) => allowed.has(e.tab) && words.every((w) => fold(`${e.label} ${e.find} ${e.words}`).includes(w))).slice(0, 8)
+    : [];
+  const tabLabel = (k: TabKey) => tabs.find((t) => t.key === k)?.label ?? k;
+  return (
+    <div className="relative mb-4">
+      <SearchBox value={q} onChange={setQ} placeholder={tr("Rechercher un réglage : son, livraison, Telegram, mot de passe…")} />
+      {q.trim() && (
+        <ul className="absolute inset-x-0 top-full z-20 mt-1 overflow-hidden rounded-xl border border-line bg-surface shadow-xl" role="listbox" aria-label={tr("Réglages trouvés")}>
+          {hits.length === 0 ? (
+            <li className="px-4 py-3 text-sm text-ink-soft">{tr("Aucun réglage ne correspond.")}</li>
+          ) : (
+            hits.map((h) => (
+              <li key={h.tab + h.label}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={false}
+                  onClick={() => {
+                    setQ("");
+                    onPick(h.tab, h.find);
+                  }}
+                  className="flex w-full items-center justify-between gap-3 px-4 py-3 text-start text-sm hover:bg-rose-100/40"
+                >
+                  <span className="font-medium">{h.label}</span>
+                  <span className="shrink-0 text-xs text-ink-soft">{tabLabel(h.tab)}</span>
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Scrolls to the setting whose title is `find` and makes it glow for a moment. */
+function useFindSetting(find: string | undefined, tab: string) {
+  useEffect(() => {
+    if (!find) return;
+    const target = tr(find);
+    let tries = 0;
+    const id = setInterval(() => {
+      tries++;
+      const el = [...document.querySelectorAll("main h2, main h3, main legend, main label, main p, main span")].find(
+        (x) => (x.textContent ?? "").trim() === target || (x.textContent ?? "").trim() === find,
+      );
+      if (el || tries > 30) clearInterval(id);
+      if (!el) return;
+      const box = (el.closest(".grid.gap-3, section, [class*='rounded-xl']") as HTMLElement | null) ?? (el as HTMLElement);
+      box.scrollIntoView({ behavior: "smooth", block: "center" });
+      box.classList.add("ring-2", "ring-plum-600", "rounded-xl");
+      setTimeout(() => box.classList.remove("ring-2", "ring-plum-600"), 2200);
+    }, 100);
+    return () => clearInterval(id);
+  }, [find, tab]);
+}
+
 export function SettingsPage() {
   const can = useCan();
   const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as { tab?: string };
+  const search = useSearch({ strict: false }) as { tab?: string; find?: string };
   const tabs = TABS.filter((t) => can(t.perm));
   const tab = tabs.find((t) => t.key === search.tab)?.key ?? tabs[0]?.key ?? "compte";
   const setTab = (k: TabKey) => void navigate({ to: "/parametres", search: { tab: k } });
+  useFindSetting(search.find, tab);
 
   return (
     <div>
       <PageHeader group={tr("Système")} title={tr("Paramètres")} subtitle={tr("Tous les réglages de la boutique au même endroit. Les changements s'appliquent tout de suite sur la boutique.")} />
+      <SettingsSearch tabs={tabs} onPick={(k, find) => void navigate({ to: "/parametres", search: { tab: k, ...(find ? { find } : {}) } as never })} />
       <div className="-mx-4 mb-6 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0" role="tablist" aria-label={tr("Rubriques des paramètres")}>
         <div className="flex w-max gap-1">
           {tabs.map((t) => (
@@ -185,7 +287,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
   }
   const textsLink = (label: string) => (
     <button type="button" onClick={() => goTo("textes")} className="mt-2 text-sm font-semibold text-plum-600 hover:underline">
-      {label} →
+      {tr(label)} →
     </button>
   );
 

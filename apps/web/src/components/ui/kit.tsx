@@ -46,10 +46,10 @@ const SILHOUETTES: Record<string, string> = {
   pyjamas: "M40 12h40l16 10-8 14-8-4v30H40V32l-8 4-8-14 16-10Zm0 64h40l4 42H66l-6-30-6 30H36l4-42Z",
   // djebba: long dress with wide sleeves
   djebba: "M50 12h20l4 8 18 10-6 18-8-4c2 24 8 46 16 70H26c8-24 14-46 16-70l-8 4-6-18 18-10 4-8Z",
-  // nightie / lingerie
-  lingerie: "M46 14v16c-6 8-10 16-10 26 0 16 6 34 0 58h48c-6-24 0-42 0-58 0-10-4-18-10-26V14h-4v14c-4 3-8 4-10 4s-6-1-10-4V14h-4Z",
-  // lingerie set: bra + briefs
-  set: "M28 34c6-12 20-14 30-4h4c10-10 24-8 30 4l-4 14c-9 5-20 2-28-7-8 9-19 12-28 7Zm8 34h48l-6 22c-6 9-12 13-18 13s-12-4-18-13Z",
+  // nightwear: a long, covered nightgown with long sleeves and a round neck
+  lingerie: "M50 12c2 4 6 6 10 6s8-2 10-6l14 6 14 34-10 4-10-22c2 22 6 46 12 76H30c6-30 10-54 12-76l-10 22-10-4 14-34Z",
+  // lingerie & underwear: a discreet gift box with a ribbon (as the parcels are sent)
+  set: "M24 48h72v62H24Zm-4-14h80v14H20Zm36 0h8v76h-8ZM60 34c-8-14-26-18-26-6 0 6 12 8 26 6Zm0 0c8-14 26-18 26-6 0 6-12 8-26 6Z",
   // tracksuit: hoodie + joggers
   sport: "M44 10c4 6 8 8 16 8s12-2 16-8l18 10-6 26-10-4v22H42V42l-10 4-6-26Zm-2 64h36l6 46H68l-8-32-8 32H36Z",
 };

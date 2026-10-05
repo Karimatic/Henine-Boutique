@@ -238,23 +238,7 @@ export interface SiteConfigDTO {
   boutique: BoutiqueDTO;
   /** whose pyjamas come first right now (Paramètres → Boutique → Saison) */
   season: "summer" | "winter";
-  /** A/B tests running now (each visitor sees version a or b) */
-  experiments: ExperimentDTO[];
 }
-
-/** buy_label: the buy button's words · grid: product grid, 2 columns (a) or large cards (b) */
-export type ExperimentKind = "buy_label" | "grid";
-
-export interface ExperimentDTO {
-  id: number;
-  kind: ExperimentKind;
-  /** buy_label: { a: {fr, ar}, b: {fr, ar} } */
-  config: { a?: { fr?: string; ar?: string }; b?: { fr?: string; ar?: string } };
-}
-
-/** Steps counted for each version, in funnel order. */
-export const EXPERIMENT_EVENTS = ["seen", "product", "checkout", "order"] as const;
-export type ExperimentEvent = (typeof EXPERIMENT_EVENTS)[number];
 
 /** Shopping assistant answer: real products only, with why each one fits. */
 export interface AssistantReplyDTO {

@@ -458,8 +458,6 @@ interface WilayaRow {
 
 function DeliveryPrices() {
   const q = useQuery({ queryKey: ["wilayas-admin"], queryFn: () => api<{ rows: WilayaRow[]; verified: boolean }>("/content/wilayas") });
-  const [selected, setSelected] = useState<number[]>([]);
-  const [bulk, setBulk] = useState<{ home: number | null; desk: number | null; delay: string }>({ home: null, desk: null, delay: "" });
   const [filter, setFilter] = useState("");
   const save = useSave((body: Record<string, unknown>) => put("/content/wilayas", body), ["wilayas-admin"], tr("Tarifs mis à jour ✓"));
   if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
@@ -473,32 +471,12 @@ function DeliveryPrices() {
           <Button size="sm" className="ms-2 mt-2" onClick={() => save.mutate({ codes: [35], markVerified: true })}>{tr("Les tarifs sont vérifiés")}</Button>
         </div>
       )}
-      <Card title={tr("Modifier {0}", { 0: selected.length ? `${selected.length} wilaya(s) sélectionnée(s)` : "plusieurs wilayas à la fois" })}>
-        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
-          <NumberField label={tr("Domicile")} suffix={tr("DA")} value={bulk.home} onChange={(v) => setBulk({ ...bulk, home: v })} />
-          <NumberField label={tr("Bureau")} suffix={tr("DA")} value={bulk.desk} onChange={(v) => setBulk({ ...bulk, desk: v })} />
-          <TextField label={tr("Délai (jours)")} placeholder="2-3" value={bulk.delay} onChange={(e) => setBulk({ ...bulk, delay: e.target.value })} />
-          <Button
-            variant="primary"
-            disabled={!selected.length}
-            onClick={() =>
-              save.mutate(
-                { codes: selected, ...(bulk.home != null ? { homePrice: bulk.home } : {}), ...(bulk.desk != null ? { deskPrice: bulk.desk } : {}), ...(bulk.delay ? { delayDays: bulk.delay } : {}) },
-                { onSuccess: () => setSelected([]) },
-              )
-            }
-          >
-            {tr("Appliquer")}
-          </Button>
-        </div>
-      </Card>
       <input className={inputCls} placeholder={tr("Filtrer (ex : Alger, 16)…")} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={tr("Filtrer les wilayas")} />
       <div className="overflow-x-auto rounded-xl border border-line bg-surface">
         <table className="w-full min-w-[34rem] text-sm">
           <thead className="text-xs text-ink-soft">
             <tr className="border-b border-line">
-              <th className="w-10 px-3 py-2"><input type="checkbox" className="size-4 accent-plum-600" aria-label={tr("Tout sélectionner")} checked={selected.length === rows.length && rows.length > 0} onChange={(e) => setSelected(e.target.checked ? rows.map((r) => r.code) : [])} /></th>
-              <th className="py-2 text-start font-medium">{tr("Wilaya")}</th>
+              <th className="px-3 py-2 text-start font-medium">{tr("Wilaya")}</th>
               <th className="px-2 text-end font-medium">{tr("Domicile")}</th>
               <th className="px-2 text-end font-medium">{tr("Bureau")}</th>
               <th className="px-2 text-end font-medium">{tr("Délai")}</th>
@@ -508,8 +486,7 @@ function DeliveryPrices() {
           <tbody>
             {rows.map((w) => (
               <tr key={w.code} className={`border-b border-line/60 last:border-0 ${w.is_active ? "" : "opacity-50"}`}>
-                <td className="px-3"><input type="checkbox" className="size-4 accent-plum-600" aria-label={tr("Sélectionner {0}", { 0: w.name_fr })} checked={selected.includes(w.code)} onChange={(e) => setSelected(e.target.checked ? [...selected, w.code] : selected.filter((c) => c !== w.code))} /></td>
-                <td className="py-2">
+                <td className="px-3 py-2">
                   {w.code} - {w.name_fr}
                   {w.parent_code ? <span className="block text-xs text-ink-soft">{tr("nouvelle wilaya (ex-")}{w.parent_code}) · {w.communes} {tr("communes")}</span> : null}
                 </td>
@@ -787,7 +764,9 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
   const addCol = () => setG({ ...g, headersFr: [...g.headersFr, ""], headersAr: [...g.headersAr, ""], rows: g.rows.map((r) => [...r, ""]) });
   const removeCol = (i: number) =>
     setG({ ...g, headersFr: g.headersFr.filter((_, k) => k !== i), headersAr: g.headersAr.filter((_, k) => k !== i), rows: g.rows.map((r) => r.filter((_, k) => k !== i)) });
-  const cellCls = `${inputCls} h-9 min-w-20 px-2 text-center text-sm`;
+  const cellCls = `${inputCls} h-9 w-full min-w-20 px-2 text-center text-sm`;
+  // column titles ("Tour de poitrine (cm)") are long: their column is wide enough to read them whole
+  const headCls = (text: string) => `${cellCls} ${text.length > 8 ? "min-w-[11.5rem]" : "min-w-24"}`;
   return (
     <Sheet
       open
@@ -819,8 +798,8 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
                 <tr>
                   {g.headersFr.map((h, i) => (
                     <th key={i} className="p-1.5 align-top font-normal">
-                      <input className={`${cellCls} font-semibold`} placeholder={tr("Colonne (FR)")} value={h} onChange={(e) => setHeader("headersFr", i, e.target.value)} aria-label={tr("Colonne {0} en français", { 0: i + 1 })} />
-                      <input className={`${cellCls} mt-1`} dir="rtl" placeholder="العمود" value={g.headersAr[i] ?? ""} onChange={(e) => setHeader("headersAr", i, e.target.value)} aria-label={tr("Colonne {0} en arabe", { 0: i + 1 })} />
+                      <input className={`${headCls(h)} font-semibold`} placeholder={tr("Colonne (FR)")} value={h} onChange={(e) => setHeader("headersFr", i, e.target.value)} aria-label={tr("Colonne {0} en français", { 0: i + 1 })} />
+                      <input className={`${headCls(h)} mt-1`} dir="rtl" placeholder="العمود" value={g.headersAr[i] ?? ""} onChange={(e) => setHeader("headersAr", i, e.target.value)} aria-label={tr("Colonne {0} en arabe", { 0: i + 1 })} />
                       {i > 0 && cols > 2 && (
                         <button type="button" onClick={() => removeCol(i)} className="mt-1 text-xs text-red-700 hover:underline">
                           {tr("retirer")}

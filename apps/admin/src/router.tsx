@@ -45,7 +45,6 @@ const appRoutes = [
   page("/ventes", lazy(() => import("./pages/Sales"), "SalesPage")),
   page("/caisse", lazy(() => import("./pages/Cashier"), "CashierPage")),
   page("/preparation", lazy(() => import("./pages/Packing"), "PackingPage")),
-  page("/tests-ab", lazy(() => import("./pages/Experiments"), "ExperimentsPage")),
   page("/commandes", lazy(() => import("./pages/Orders"), "OrdersPage")),
   page("/clients", lazy(Customers, "CustomersPage")),
   page("/paniers", lazy(Customers, "CartsPage")),

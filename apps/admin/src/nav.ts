@@ -10,7 +10,6 @@ import {
   KeyRound,
   LayoutDashboard,
   Link,
-  FlaskConical,
   Menu,
   MessageSquare,
   PackageCheck,
@@ -80,7 +79,6 @@ export const NAV: NavGroup[] = [
     label: tr("Analyse"),
     items: [
       { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn },
-      { path: "/tests-ab", label: tr("Tests A/B"), permission: "stats.view", icon: FlaskConical },
     ],
   },
   {

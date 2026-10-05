@@ -1,10 +1,10 @@
 /**
- * Admin → packing mode, returns analysis, product profitability, A/B tests and the shop
+ * Admin → packing mode, returns analysis, product profitability and the shop
  * (boutique) page settings.
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { abVerdict, cleanText, DEFAULT_BOUTIQUE, EXPERIMENT_EVENTS, OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
+import { cleanText, DEFAULT_BOUTIQUE, OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { mediaUrl, variantLabels } from "../../lib/catalog";
@@ -227,71 +227,6 @@ insightRoutes.get("/stats/profit", requirePermission("stats.view"), async (c) =>
     totals: { revenue: sum("revenue"), cost: sum("cost"), delivery: sum("delivery"), returns: sum("returns"), discounts: sum("discounts"), profit: sum("profit") },
     missingCost: rows.filter((r) => r.missingCost).length,
   });
-});
-
-/* ───────────── A/B tests ───────────── */
-
-const labelPair = z.object({ fr: cleanText(40).pipe(z.string().min(2)), ar: cleanText(40).pipe(z.string().min(2)) });
-const experimentInput = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("buy_label"), name: cleanText(80).pipe(z.string().min(2)), a: labelPair, b: labelPair }),
-  z.object({ kind: z.literal("grid"), name: cleanText(80).pipe(z.string().min(2)) }),
-]);
-
-insightRoutes.get("/experiments", requirePermission("stats.view"), async (c) => {
-  const [exps, stats] = await c.env.DB.batch([
-    c.env.DB.prepare("SELECT * FROM experiments ORDER BY (status = 'running') DESC, id DESC LIMIT 50"),
-    c.env.DB.prepare("SELECT experiment_id, variant, event, SUM(n) AS n FROM experiment_stats GROUP BY experiment_id, variant, event"),
-  ]);
-  const counts = stats!.results as { experiment_id: number; variant: string; event: string; n: number }[];
-  return c.json(
-    (exps!.results as ({ id: number; config: string } & Record<string, unknown>)[]).map((e) => {
-      const funnel = (v: string) => Object.fromEntries(EXPERIMENT_EVENTS.map((ev) => [ev, counts.find((x) => x.experiment_id === e.id && x.variant === v && x.event === ev)?.n ?? 0]));
-      const a = funnel("a");
-      const b = funnel("b");
-      return { ...e, config: JSON.parse(e.config), funnel: { a, b }, verdict: abVerdict({ seen: a.seen!, converted: a.order! }, { seen: b.seen!, converted: b.order! }) };
-    }),
-  );
-});
-
-insightRoutes.post("/experiments", requirePermission("marketing.edit"), async (c) => {
-  const input = await body(c, experimentInput);
-  const config = input.kind === "buy_label" ? { a: input.a, b: input.b } : { a: { layout: "grid" }, b: { layout: "large" } };
-  const row = await c.env.DB.prepare("INSERT INTO experiments (name, kind, config, status, created_at) VALUES (?, ?, ?, 'draft', ?) RETURNING id")
-    .bind(input.name, input.kind, JSON.stringify(config), Date.now())
-    .first<{ id: number }>();
-  await auditStmt(c.env, actorOf(c.get("member")), "create", "experiment", row!.id, { kind: input.kind }).run();
-  return c.json({ id: row!.id }, 201);
-});
-
-/** start / stop (one running test per kind), or note the version kept. */
-insightRoutes.patch("/experiments/:id", requirePermission("marketing.edit"), async (c) => {
-  const id = intParam(c, "id");
-  const input = await body(c, z.object({ status: z.enum(["running", "stopped"]).optional(), winner: z.enum(["a", "b"]).nullable().optional() }));
-  const e = await c.env.DB.prepare("SELECT id, kind, status FROM experiments WHERE id = ?").bind(id).first<{ id: number; kind: string; status: string }>();
-  if (!e) throw new HttpError(404, "not_found");
-  const now = Date.now();
-  const stmts: D1PreparedStatement[] = [];
-  if (input.status === "running") {
-    const other = await c.env.DB.prepare("SELECT id FROM experiments WHERE kind = ? AND status = 'running' AND id != ?").bind(e.kind, id).first();
-    if (other) throw new HttpError(409, "experiment_running");
-    stmts.push(c.env.DB.prepare("UPDATE experiments SET status = 'running', started_at = COALESCE(started_at, ?), ended_at = NULL WHERE id = ?").bind(now, id));
-  } else if (input.status === "stopped") {
-    stmts.push(c.env.DB.prepare("UPDATE experiments SET status = 'stopped', ended_at = ? WHERE id = ?").bind(now, id));
-  }
-  if (input.winner !== undefined) stmts.push(c.env.DB.prepare("UPDATE experiments SET winner = ? WHERE id = ?").bind(input.winner, id));
-  if (stmts.length) await c.env.DB.batch([...stmts, bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "experiment", id, input)]);
-  return c.json({ ok: true });
-});
-
-insightRoutes.delete("/experiments/:id", requirePermission("marketing.edit"), async (c) => {
-  const id = intParam(c, "id");
-  await c.env.DB.batch([
-    c.env.DB.prepare("DELETE FROM experiment_stats WHERE experiment_id = ?").bind(id),
-    c.env.DB.prepare("DELETE FROM experiments WHERE id = ?").bind(id),
-    bumpCatalogStmt(c.env),
-    auditStmt(c.env, actorOf(c.get("member")), "delete", "experiment", id),
-  ]);
-  return c.json({ ok: true });
 });
 
 /* ───────────── The shop (boutique) page ───────────── */

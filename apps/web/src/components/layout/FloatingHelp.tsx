@@ -17,13 +17,12 @@ export function WhatsAppIcon({ size = 26 }: { size?: number }) {
 }
 
 /**
- * Bottom corner, every page: "💬 Besoin d'aide ?" on WhatsApp (number from Admin → Contact)
- * and the ✨ shopping assistant. Lifted above the phone's buy bar on product pages,
+ * Bottom corner, every page: the ✨ shopping assistant (WhatsApp is in the menu, the contact
+ * page and the product pages). Lifted above the phone's buy bar on product pages,
  * hidden at checkout (its own confirm bar is there).
  */
 export function FloatingHelp() {
   const { t, locale } = useLocale();
-  const site = useSite();
   const [path, setPath] = useState("");
   const [open, setOpen] = useState(false);
   // once per visit: a little bubble introducing the assistant, gone after a few seconds
@@ -51,7 +50,6 @@ export function FloatingHelp() {
     return () => window.removeEventListener("henine:assistant", show);
   }, []);
   if (!path || path.startsWith("/commande")) return null;
-  const wa = whatsappLink(site.data?.contact.whatsapp, t.plus.whatsapp.hello);
   // pages with a bar fixed at the bottom (buy bar, outfit total): sit above it
   const onProduct = path.startsWith("/produit/") || path.startsWith("/tenue");
   return (
@@ -91,18 +89,6 @@ export function FloatingHelp() {
           {/* on a product page's phone layout: the icon only, the page needs the room */}
           <span className={`whitespace-nowrap ${onProduct ? "max-md:hidden" : ""}`}>{t.plus.assistant.short}</span>
         </button>
-        {wa && (
-          <a
-            href={wa}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`${t.plus.whatsapp.help} WhatsApp`}
-            className="lift group flex h-13 items-center gap-2 rounded-full bg-[#25D366] ps-3 pe-3 text-white shadow-[0_10px_26px_-8px_rgb(37_211_102/0.7)] md:pe-5"
-          >
-            <WhatsAppIcon />
-            <span className="hidden text-sm font-semibold md:inline">💬 {t.plus.whatsapp.help}</span>
-          </a>
-        )}
       </div>
       {open && <AssistantPanel onClose={() => setOpen(false)} locale={locale} />}
     </>

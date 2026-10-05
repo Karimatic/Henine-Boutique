@@ -38,11 +38,11 @@ const STORY_LINES: Record<string, React.ReactNode> = {
   ),
   // dress
   robes: <path d="M26 12h12l-1.5 7 6 6-3 5c3 8 6 15 8 22H17c2-7 5-14 8-22l-3-5 6-6L26 12Zm1.5 7h9M24.5 30c5 1.5 10 1.5 15 0" />,
-  // nightie with thin straps and lace hem
+  // nightwear: long covered nightgown with sleeves
   lingerie: (
     <>
-      <path d="M26 12v9m12-9v9M24 21c3 3 13 3 16 0 1 5 2 8 4 11-1 7 1 13 4 20H16c3-7 5-13 4-20 2-3 3-6 4-11Z" />
-      <path d="M16 52c2-2 4-2 6 0s4 2 6 0 4-2 6 0 4 2 6 0 4-2 6 0" />
+      <path d="M27 9c1 3 3 4 5 4s4-1 5-4l7 3 7 17-5 2-5-10c1 11 3 22 6 33H17c3-11 5-22 6-33l-5 10-5-2 7-17Z" />
+      <path d="M27 9c1 3 3 4 5 4s4-1 5-4M21 50h22" />
     </>
   ),
   // djebba: long traditional dress, wide sleeves, embroidered neckline and hem
@@ -59,11 +59,11 @@ const STORY_LINES: Record<string, React.ReactNode> = {
       <path d="M23 37h18l2 18h-7l-4-12-4 12h-7l2-18Z" />
     </>
   ),
-  // lingerie set: bra + briefs
+  // discreet gift box with a ribbon
   set: (
     <>
-      <path d="M14 20c4-7 11-8 16-2h4c5-6 12-5 16 2l-2 8c-5 3-11 1-16-4-5 5-11 7-16 4Z" />
-      <path d="M20 38h24l-3 10c-3 5-6 7-9 7s-6-2-9-7Z" />
+      <path d="M14 28h36v24H14ZM12 21h40v7H12ZM32 21v31" />
+      <path d="M32 21c-4-7-13-9-13-3 0 3 6 4 13 3Zm0 0c4-7 13-9 13-3 0 3-6 4-13 3Z" />
     </>
   ),
   // tracksuit: hoodie + joggers
@@ -92,37 +92,57 @@ export function StoryArt({ kind }: { kind: string }) {
   );
 }
 
+/**
+ * The shop's categories as cards: a soft colour tile with a fine drawing, the full name on two
+ * lines and how many pieces, plus a "Promotions" card when something is on sale.
+ */
 export function Stories({ categories, products }: { categories: CategoryDTO[] | undefined; products: ProductCardDTO[] }) {
   const { t, href, ar } = useLocale();
   const S = t.home.stories;
-  const onSale = products.some((p) => p.compareAtPrice != null && p.compareAtPrice > p.price);
-  const stories: Story[] = [
+  const onSale = products.filter((p) => p.compareAtPrice != null && p.compareAtPrice > p.price).length;
+  const stories: (Story & { count?: number })[] = [
     // main categories only (their sub-categories are one tap further)
-    ...mainCategories(categories ?? []).map((c) => ({ key: c.slug, label: ar ? c.nameAr : c.nameFr, href: href(`/c/${c.slug}`), category: c.slug, art: artKey(c.slug) })),
-    ...(onSale ? [{ key: "promo", label: S.promo, href: "#promos" }] : []),
+    ...mainCategories(categories ?? [])
+      .filter((c) => (c.productCount ?? 0) > 0)
+      .map((c) => ({ key: c.slug, label: ar ? c.nameAr : c.nameFr, href: href(`/c/${c.slug}`), category: c.slug, art: artKey(c.slug), count: c.productCount })),
+    ...(onSale ? [{ key: "promo", label: S.promo, href: href("/promotions"), art: "promo", count: onSale }] : []),
   ];
+  if (!stories.length) return null;
   return (
-    <nav aria-label={t.categories.title} className="mx-auto max-w-6xl">
-      <ul className="swipe-row mx-auto flex w-fit max-w-full gap-3.5 overflow-x-auto px-4 pb-1 pt-1 md:gap-6">
+    <section aria-label={t.categories.title} className="mx-auto max-w-6xl px-4">
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <h2 className="heading-display text-[1.45rem] leading-tight md:text-3xl">{t.categories.title}</h2>
+        <a href={href("/categories")} className="shrink-0 text-sm font-semibold text-plum-600">
+          {t.categories.all} <span className="inline-block rtl:rotate-180" aria-hidden="true">→</span>
+        </a>
+      </div>
+      <ul className="swipe-row -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 md:mx-0 md:grid md:grid-cols-6 md:overflow-visible md:px-0">
         {stories.map((s, i) => (
-          <li key={s.key} className="shrink-0">
+          <li key={s.key} className="w-[8.25rem] shrink-0 md:w-auto">
             <a
               href={s.href}
-              {...(s.external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
-              className="story group flex w-[4.6rem] flex-col items-center gap-1.5 text-center"
+              className="story lift group flex h-full flex-col overflow-hidden rounded-[1.4rem] border border-line bg-surface shadow-[0_8px_24px_-16px_rgb(23_10_16/0.35)]"
               style={{ animationDelay: `${i * 60}ms` }}
             >
-              <span className="story-ring grid size-[4.4rem] place-items-center rounded-full p-[3px]">
-                <span className="relative block size-full overflow-hidden rounded-full border-[3px] border-white">
-                  <StoryArt kind={s.art ?? s.key} />
-                </span>
+              <span className="relative block aspect-square overflow-hidden">
+                <StoryArt kind={s.art ?? s.key} />
+                {s.key === "promo" && (
+                  <span className="absolute start-2 top-2 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-plum-700">%</span>
+                )}
               </span>
-              <span className="line-clamp-1 w-full text-[11.5px] font-semibold leading-tight">{s.label}</span>
+              <span className="flex flex-1 flex-col justify-between gap-1 px-2.5 pb-2.5 pt-2">
+                <span className="line-clamp-2 text-[13px] font-semibold leading-snug">{s.label}</span>
+                {s.count != null && (
+                  <span className="text-[11px] text-ink-soft">
+                    <span dir="ltr">{s.count}</span> {t.categories.products}
+                  </span>
+                )}
+              </span>
             </a>
           </li>
         ))}
       </ul>
-    </nav>
+    </section>
   );
 }
 

@@ -16,6 +16,8 @@ import { da } from "./format";
 /* ── Device preferences (Paramètres → Notifications) ── */
 
 export const SOUNDS = {
+  // the "announcement" chime (rising do-mi-sol-do, bell tone with a little echo), 1.5 s
+  annonce: { label: "Annonce (carillon 1,5 s)", notes: [] },
   chime: { label: "Carillon", notes: [[880, 0, 0.18], [1318.5, 0.16, 0.32]] },
   bell: { label: "Cloche", notes: [[1046.5, 0, 0.6], [1568, 0, 0.45]] },
   pop: { label: "Bulle", notes: [[660, 0, 0.09], [990, 0.1, 0.12]] },
@@ -34,7 +36,7 @@ export interface SoundPrefs {
 }
 
 const PREFS_KEY = "henine.admin.orderAlerts";
-export const DEFAULT_PREFS: SoundPrefs = { sound: true, volume: 0.8, tone: "chime", flash: true, browser: false };
+export const DEFAULT_PREFS: SoundPrefs = { sound: true, volume: 0.8, tone: "annonce", flash: true, browser: false };
 
 export function loadPrefs(): SoundPrefs {
   try {
@@ -77,11 +79,64 @@ export async function unlockSound(): Promise<boolean> {
   return c.state === "running";
 }
 
+/**
+ * Announcement chime, like a shop / station "attention" call: four rising bell notes
+ * (C5 E5 G5 C6), each with a few soft overtones, a short echo for space, and a fade that ends
+ * at exactly 1.5 seconds.
+ */
+function playChime(c: AudioContext, volume: number) {
+  const t0 = c.currentTime + 0.02;
+  const END = 1.5;
+  const master = c.createGain();
+  master.gain.setValueAtTime(Math.max(volume, 0.01) * 0.55, t0);
+  master.gain.setValueAtTime(Math.max(volume, 0.01) * 0.55, t0 + END - 0.25);
+  master.gain.linearRampToValueAtTime(0, t0 + END);
+  master.connect(c.destination);
+  // a little room: one soft echo
+  const delay = c.createDelay(1);
+  delay.delayTime.value = 0.12;
+  const feedback = c.createGain();
+  feedback.gain.value = 0.22;
+  const tone = c.createBiquadFilter();
+  tone.type = "lowpass";
+  tone.frequency.value = 3200;
+  delay.connect(tone).connect(feedback).connect(delay);
+  tone.connect(master);
+  const notes: [number, number][] = [
+    [523.25, 0],
+    [659.25, 0.2],
+    [783.99, 0.4],
+    [1046.5, 0.6],
+  ];
+  for (const [freq, start] of notes) {
+    const last = start === 0.6;
+    const ring = last ? END - start - 0.05 : 0.75;
+    // bell: the note + a few overtones that fade faster
+    for (const [mult, level] of [[1, 1], [2.01, 0.32], [3.02, 0.12], [4.17, 0.05]] as const) {
+      const osc = c.createOscillator();
+      const g = c.createGain();
+      osc.type = "sine";
+      osc.frequency.value = freq * mult;
+      const at = t0 + start;
+      g.gain.setValueAtTime(0.0001, at);
+      g.gain.exponentialRampToValueAtTime(level * 0.42, at + 0.012);
+      g.gain.exponentialRampToValueAtTime(0.0001, at + ring / Math.sqrt(mult));
+      osc.connect(g);
+      g.connect(master);
+      g.connect(delay);
+      osc.start(at);
+      osc.stop(Math.min(at + ring + 0.05, t0 + END));
+    }
+  }
+  return true;
+}
+
 export function playTone(tone: SoundKey, volume: number) {
   const c = ctx();
   if (!c || c.state !== "running") return false;
+  if (tone === "annonce") return playChime(c, volume);
   const t0 = c.currentTime + 0.02;
-  for (const [freq, start, dur] of SOUNDS[tone].notes) {
+  for (const [freq, start, dur] of SOUNDS[tone].notes as readonly (readonly [number, number, number])[]) {
     const osc = c.createOscillator();
     const gain = c.createGain();
     osc.type = "sine";

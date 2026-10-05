@@ -18,7 +18,6 @@ import { Lightbox } from "./Lightbox";
 import { FindSimilarButton } from "./FindSimilar";
 import { SizeAdvisorButton } from "./SizeAdvisor";
 import { BoutiqueOpenBadge } from "@/components/views/BoutiqueView";
-import { abSeen, abStep, useExperiment, useExperiments } from "@/lib/ab";
 import { ProductGrid } from "./ProductCard";
 import { ReviewForm } from "./ReviewForm";
 import { ShareButton } from "./ShareButton";
@@ -152,14 +151,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   const fav = favorites.includes(p.slug);
   // computed by the API: hand-picked look → bought together → same category (no catalogue download)
   const related = p.related;
-  // A/B test of the buy button's words (Admin → Tests A/B); otherwise the usual words
-  const buyTest = useExperiment("buy_label");
-  const experiments = useExperiments();
-  const buyLabel = buyTest ? (buyTest.exp.config[buyTest.variant]?.[ar ? "ar" : "fr"] ?? t.product.buyNow) : t.product.buyNow;
-  useEffect(() => {
-    if (buyTest) abSeen(buyTest.exp);
-    abStep(experiments, "product");
-  }, [buyTest?.exp.id, experiments]); // eslint-disable-line react-hooks/exhaustive-deps
+  const buyLabel = t.product.buyNow;
   const boutique = site.data?.boutique;
   // the chosen size / colour if any, otherwise the product as a whole
   const availableNow = variant ? variant.available > 0 : p.inStock;

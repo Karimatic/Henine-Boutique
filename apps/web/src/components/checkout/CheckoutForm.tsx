@@ -6,7 +6,6 @@ import { inputCls, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
-import { abStep } from "@/lib/ab";
 import { cart, checkoutMemory, pendingCoupon, saveOrder, takePendingCoupon } from "@/lib/stores";
 import { newIdempotencyKey, Turnstile } from "@/lib/turnstile";
 import { Picker } from "./Picker";
@@ -35,10 +34,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const site = useApi<SiteConfigDTO>("/site");
   const texts = useStoreTexts();
   const wilayas = useApi<WilayaDTO[]>("/geo/wilayas");
-  // A/B tests: this visitor reached the checkout
-  useEffect(() => {
-    if (site.data) abStep(site.data.experiments, "checkout");
-  }, [site.data]);
 
   const memory = useMemo(() => checkoutMemory.get(), []);
   const [name, setName] = useState(memory?.name ?? "");
@@ -173,7 +168,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         },
       });
       saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
-      abStep(site.data?.experiments, "order");
       if (coupon) pendingCoupon.set(null); // used: not offered again
       try {
         sessionStorage.removeItem(CART_KEY(channel)); // the next checkout is a new one
