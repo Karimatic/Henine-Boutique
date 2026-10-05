@@ -22,7 +22,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, errorMessage, post, put } from "../api";
 import { tr } from "../i18n";
-import { ago, da, dateTime, telLink, waLink } from "../lib/format";
+import { ago, da, daMinus, dateTime, telLink, waLink } from "../lib/format";
 import { variantLabel } from "../lib/variants";
 import { Badge, Button, Card, inputCls, SearchBox, StatusBadge, useToast } from "../ui";
 import { useCan } from "../Shell";
@@ -336,7 +336,7 @@ export function DiscountBox({ orderId, subtotal, otherDiscount, current, onDone 
           ))}
         </div>
         <input className={`${inputCls} w-32`} inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value.replace(/[^\d.]/g, ""))} aria-label={tr("Montant de la remise")} placeholder="0" />
-        <span className="pb-3 text-sm text-ink-soft">= −{da(amount)}</span>
+        <span className="pb-3 text-sm text-ink-soft">= {daMinus(amount)}</span>
       </div>
       <label className="mt-2 block text-sm font-medium">
         {tr("Raison")} *
@@ -354,21 +354,26 @@ export function DiscountBox({ orderId, subtotal, otherDiscount, current, onDone 
 /* ───────────── Profit ───────────── */
 
 export function ProfitBlock({ profit }: { profit: ProfitResult }) {
-  const row = (label: string, v: number, sign = "−") => (
-    <div className="flex justify-between"><dt className="text-ink-soft">{label}</dt><dd className="tabular-nums">{v ? `${sign}${da(v)}` : "—"}</dd></div>
+  const row = (label: string, v: number, minus = true) => (
+    <div className="flex justify-between gap-3"><dt className="text-ink-soft">{label}</dt><dd className="tabular-nums">{v ? (minus ? daMinus(v) : da(v)) : "—"}</dd></div>
   );
   return (
     <div className="mt-3 rounded-xl bg-ivory-deep p-3 text-sm">
       <p className="mb-1.5 font-semibold">{tr("💸 Bénéfice estimé")}</p>
       <dl className="space-y-0.5">
-        {row(tr("Vente des articles"), profit.revenue, "")}
+        {row(tr("Vente des articles"), profit.revenue, false)}
         {row(tr("Coût des produits"), profit.productCost)}
         {row(tr("Livraison payée par la boutique"), profit.shippingCost)}
         {row(tr("Emballage"), profit.packaging)}
         {row(tr("Remises"), profit.discount)}
-        <div className={`flex justify-between border-t border-line pt-1 text-base font-semibold ${profit.profit < 0 ? "text-red-700" : "text-emerald-700"}`}>
-          <dt>{tr("Bénéfice")}</dt>
-          <dd>{da(profit.profit)}{profit.margin != null ? ` · ${Math.round(profit.margin * 100)} %` : ""}</dd>
+        <div className={`mt-1 flex items-center justify-between gap-3 border-t border-line pt-2 text-base font-semibold ${profit.profit < 0 ? "text-red-700" : "text-emerald-700"}`}>
+          <dt className="flex flex-wrap items-center gap-2">
+            {tr("Bénéfice")}
+            {profit.margin != null && (
+              <span className="rounded-full bg-current/10 px-2 py-0.5 text-xs font-medium">{tr("marge {0} %", { 0: Math.round(profit.margin * 100) })}</span>
+            )}
+          </dt>
+          <dd className="tabular-nums">{da(profit.profit)}</dd>
         </div>
       </dl>
       {profit.missingCost && <p className="mt-1 text-xs text-amber-800">{tr("Coût d'achat manquant pour un article : le bénéfice est surestimé (Produits → coût).")}</p>}

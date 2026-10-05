@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { dateLocale, normalizeDzPhone, type ImageRef, type ProductCardDTO, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
+import { dateLocale, formatDA, normalizeDzPhone, type ImageRef, type ProductCardDTO, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
 import { FlashPanel } from "@/components/home/HomeExtras";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
 import { BagIcon, HeartIcon } from "@/components/ui/icons";
@@ -60,7 +60,7 @@ function ProductSkeleton() {
 }
 
 function ProductDetail({ p }: { p: ProductDetailDTO }) {
-  const { t, ar, href } = useLocale();
+  const { t, ar, href, locale } = useLocale();
   const favorites = useFavorites();
   const site = useApi<SiteConfigDTO>("/site");
   const name = ar ? p.nameAr : p.nameFr;
@@ -87,6 +87,12 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
     const ids = Object.values(selected);
     return p.variants.find((v) => ids.every((id) => v.optionValueIds.includes(id))) ?? null;
   }, [selected, p]);
+
+  // how many pieces: back to 1 for another size / colour, never more than what is in stock (20 max)
+  const [qty, setQty] = useState(1);
+  const maxQty = Math.max(1, Math.min(20, variant ? variant.available : 20));
+  useEffect(() => setQty(1), [variant?.id]);
+  const quantity = Math.min(qty, maxQty);
 
   // images: the ones of the selected colour first
   const colorOption = p.options.find((o) => o.kind === "couleur");
@@ -132,7 +138,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
     if (!variant) return;
     cart.add({
       variantId: variant.id,
-      qty: 1,
+      qty: quantity,
       productId: p.id,
       slug: p.slug,
       nameFr: p.nameFr,
@@ -381,6 +387,37 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             )}
           </p>
 
+          {!soldOut && (
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <span className="text-sm font-semibold">{t.product.quantity}</span>
+              <div className="flex items-center rounded-full border border-line bg-surface" dir="ltr">
+                <button
+                  type="button"
+                  aria-label={t.product.less}
+                  disabled={quantity <= 1}
+                  onClick={() => setQty(Math.max(1, quantity - 1))}
+                  className="grid size-11 place-items-center rounded-full text-xl transition active:scale-90 disabled:opacity-30"
+                >
+                  −
+                </button>
+                <output aria-live="polite" aria-label={t.product.quantity} className="w-9 text-center text-lg font-semibold tabular-nums">
+                  {quantity}
+                </output>
+                <button
+                  type="button"
+                  aria-label={t.product.more}
+                  disabled={quantity >= maxQty}
+                  onClick={() => setQty(Math.min(maxQty, quantity + 1))}
+                  className="grid size-11 place-items-center rounded-full text-xl transition active:scale-90 disabled:opacity-30"
+                >
+                  +
+                </button>
+              </div>
+              {variant && quantity >= maxQty && maxQty < 20 && <span className="text-xs text-ink-soft">{t.product.maxQty(maxQty)}</span>}
+              {quantity > 1 && <span className="text-sm text-ink-soft" dir="ltr">= {formatDA((variant?.price ?? p.price) * quantity, locale)}</span>}
+            </div>
+          )}
+
           {soldOut ? (
             <NotifyMe variantId={variant.id} siteKey={site.data?.turnstileSiteKey ?? ""} />
           ) : (
@@ -428,7 +465,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
             <section id="express" className="mt-6 scroll-mt-24 rounded-card border border-plum-600/30 bg-surface/70 p-4">
               <h2 className="text-lg font-semibold">{t.product.express}</h2>
               <p className="mb-4 text-sm text-ink-soft">{t.product.expressHint}</p>
-              <CheckoutForm key={variant.id} lines={[{ variantId: variant.id, qty: 1 }]} channel="express" compact />
+              <CheckoutForm key={variant.id} lines={[{ variantId: variant.id, qty: quantity }]} channel="express" compact />
             </section>
           )}
 

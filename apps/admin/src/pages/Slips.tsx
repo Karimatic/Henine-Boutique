@@ -5,7 +5,7 @@ import { Printer } from "lucide-react";
 import { useEffect } from "react";
 import { api } from "../api";
 import { Blossom } from "../brand";
-import { da, date } from "../lib/format";
+import { da, daMinus, date } from "../lib/format";
 import { ErrorState, ListSkeleton } from "../ui";
 import { tr } from "../i18n";
 
@@ -162,7 +162,7 @@ function SlipCard({ s, store }: { s: Slip; store: SlipsData["store"] }) {
         </div>
         <dl className="grid shrink-0 grid-cols-[auto_auto] gap-x-4 text-end tabular-nums">
           <dt className="text-ink-soft">{tr("Sous-total")}</dt><dd>{da(s.subtotal)}</dd>
-          {s.discount_total > 0 && (<><dt className="text-ink-soft">{tr("Remise")}</dt><dd>−{da(s.discount_total)}</dd></>)}
+          {s.discount_total > 0 && (<><dt className="text-ink-soft">{tr("Remise")}</dt><dd>{daMinus(s.discount_total)}</dd></>)}
           <dt className="text-ink-soft">{tr("Livraison")}</dt><dd>{s.shipping_price ? da(s.shipping_price) : tr("Offerte")}</dd>
           <dt className="font-bold">{tr("Total")}</dt><dd className="font-bold">{da(s.total)}</dd>
         </dl>

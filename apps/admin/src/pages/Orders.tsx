@@ -13,7 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { api, del, errorMessage, patch, post } from "../api";
-import { ago, CHANNEL_LABEL, da, dateTime, statusLabel, telLink, waLink } from "../lib/format";
+import { ago, CHANNEL_LABEL, da, daMinus, dateTime, statusLabel, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useLive } from "../lib/live";
 import {
@@ -560,7 +560,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
               <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
                 <div className="flex justify-between"><dt className="text-ink-soft">{tr("Sous-total")}</dt><dd>{da(o.subtotal)}</dd></div>
                 {o.discount_total - o.manual_discount > 0 && (
-                  <div className="flex justify-between text-emerald-700"><dt>{tr("Remise")} {o.coupon_code}</dt><dd>−{da(o.discount_total - o.manual_discount)}</dd></div>
+                  <div className="flex justify-between text-emerald-700"><dt>{tr("Remise")} {o.coupon_code}</dt><dd>{daMinus(o.discount_total - o.manual_discount)}</dd></div>
                 )}
                 {o.manual_discount > 0 && (
                   <div className="flex justify-between gap-3 text-emerald-700">
@@ -568,7 +568,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                       {tr("Remise manuelle")}
                       {o.manual_discount_reason ? <span className="text-ink-soft"> · {o.manual_discount_reason}</span> : null}
                     </dt>
-                    <dd>−{da(o.manual_discount)}</dd>
+                    <dd>{daMinus(o.manual_discount)}</dd>
                   </div>
                 )}
                 <div className="flex justify-between"><dt className="text-ink-soft">{tr("Livraison")}</dt><dd>{da(o.shipping_price)}</dd></div>

@@ -103,6 +103,10 @@ export const ar: Dictionary = {
     color: "اللون",
     choose: "اختاري",
     addToCart: "أضيفي إلى السلة",
+    quantity: "الكمية",
+    less: "قطعة أقل",
+    more: "قطعة أخرى",
+    maxQty: (n: number) => arCount(n, { one: "قطعة واحدة", two: "قطعتان", few: "قطع", many: "قطعة", other: "قطعة" }) + " كحد أقصى لهذا المقاس",
     added: "أضيف إلى السلة ✓",
     buyNow: "اطلبي الآن",
     outOfStock: "نفد المخزون",
@@ -253,8 +257,7 @@ export const ar: Dictionary = {
     pickWilayaFirst: "اختاري الولاية أولا",
   },
   checkoutPlus: {
-    contactTime: "أفضل وقت للاتصال بك",
-    contactTimeHint: "يتصل بك فريقنا لتأكيد الطلب.",
+    contactTime: "أفضل وقت للاتصال بك لتأكيد الطلبية",
     delay: (d: string) => {
       // "2" → "يومين", "1-2" → "1-2 أيام", "15" → "15 يومًا"
       const n = Number(d);

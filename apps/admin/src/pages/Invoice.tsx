@@ -5,7 +5,7 @@ import { Download } from "lucide-react";
 import { useEffect } from "react";
 import { api } from "../api";
 import { Blossom } from "../brand";
-import { da, date } from "../lib/format";
+import { da, daMinus, date } from "../lib/format";
 import { ErrorState, ListSkeleton } from "../ui";
 import { tr } from "../i18n";
 
@@ -133,7 +133,7 @@ export function InvoicePage() {
             {o.discount_total > 0 && (
               <p className="flex justify-between text-plum-700">
                 <span>Discount · التخفيض{o.coupon_code ? ` (${o.coupon_code})` : ""}</span>
-                <span>-{da(o.discount_total)}</span>
+                <span>{daMinus(o.discount_total)}</span>
               </p>
             )}
             <p className="mt-2 flex justify-between border-t-2 border-ink pt-2 text-lg font-bold">

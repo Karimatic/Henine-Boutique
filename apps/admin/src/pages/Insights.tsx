@@ -2,11 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
 import { tr } from "../i18n";
-import { da } from "../lib/format";
+import { da, daMinus, ltr } from "../lib/format";
 import { useCan } from "../Shell";
 import { Card, ErrorState, ListSkeleton, Pills, Stat } from "../ui";
 
-const pct = (v: number) => `${Math.round(v * 100)} %`;
+const pct = (v: number) => ltr(`${Math.round(v * 100)} %`);
 
 interface ReturnsData {
   shippedOrders: number;
@@ -198,10 +198,10 @@ export function ProfitSection({ query }: { query: string }) {
                     </td>
                     <td className="py-2 text-end tabular-nums">{r.units}{r.returnedUnits ? <span className="text-xs text-ink-soft"> (+{r.returnedUnits} ↩)</span> : null}</td>
                     <td className="py-2 text-end tabular-nums">{da(r.revenue)}</td>
-                    <td className="py-2 text-end tabular-nums">−{da(r.cost)}</td>
-                    <td className="py-2 text-end tabular-nums">−{da(r.delivery)}</td>
-                    <td className="py-2 text-end tabular-nums">−{da(r.returns)}</td>
-                    <td className="py-2 text-end tabular-nums">−{da(r.discounts)}</td>
+                    <td className="py-2 text-end tabular-nums">{daMinus(r.cost)}</td>
+                    <td className="py-2 text-end tabular-nums">{daMinus(r.delivery)}</td>
+                    <td className="py-2 text-end tabular-nums">{daMinus(r.returns)}</td>
+                    <td className="py-2 text-end tabular-nums">{daMinus(r.discounts)}</td>
                     <td className={`py-2 text-end font-semibold tabular-nums ${r.profit < 0 ? "text-red-700" : ""}`}>{da(r.profit)}</td>
                     <td className="py-2 text-end tabular-nums">{pct(r.margin)}</td>
                   </tr>

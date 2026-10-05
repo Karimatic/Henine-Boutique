@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
-import { ago, da, waLink } from "../lib/format";
+import { ago, da, daMinus, ltr, waLink } from "../lib/format";
 import { CategoryPicker, ProductPicker } from "../lib/pickers";
 import {
   Badge, Button, Card, Empty, ErrorState, Field, inputCls, ListSkeleton, NumberField, PageHeader, Pills, Select, Sheet, TextArea, TextField, Toggle, useToast,
@@ -47,7 +47,7 @@ interface Coupon {
   discounted: number;
 }
 
-const couponLabel = (c: Pick<Coupon, "type" | "value">) => (c.type === "percent" ? `-${c.value} %` : c.type === "fixed" ? `-${da(c.value)}` : "Livraison offerte");
+const couponLabel = (c: Pick<Coupon, "type" | "value">) => (c.type === "percent" ? ltr(`-${c.value} %`) : c.type === "fixed" ? daMinus(c.value) : "Livraison offerte");
 const toDateInput = (ts: number | null) => (ts ? new Date(ts + 3600_000).toISOString().slice(0, 10) : "");
 const fromDateInput = (s: string, end = false) => (s ? new Date(`${s}T${end ? "23:59:59" : "00:00:00"}+01:00`).getTime() : null);
 

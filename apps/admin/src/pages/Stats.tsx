@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
 import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
-import { CHANNEL_LABEL, da } from "../lib/format";
+import { CHANNEL_LABEL, da, ltr } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
 import { tr } from "../i18n";
 import { DailyReportCard } from "./DailyReport";
@@ -33,7 +33,7 @@ interface StatsData {
   topProducts: { product_id: number; name_fr: string; units: number; revenue: number }[];
 }
 
-const pct = (v: number | null) => (v == null ? "—" : `${v} %`);
+const pct = (v: number | null) => (v == null ? "—" : ltr(`${v} %`));
 
 /** Every day of the range (missing days = 0), "dd/mm" labels. */
 function fillDays(data: StatsData["daily"], since: number, days: number) {

@@ -5,7 +5,13 @@ const LOCALE = isAr ? "ar-DZ" : "fr-DZ";
 
 export { formatDA, formatDzPhone };
 
-export const da = (n: number | null | undefined) => (n == null ? "—" : formatDA(n));
+/** Keeps "−3 600 DA" or "41 %" in one piece: Arabic (right-to-left) text would otherwise swap the digits, the sign and "DA". */
+export const ltr = (s: string) => (isAr ? `⁦${s}⁩` : s);
+
+export const da = (n: number | null | undefined) => (n == null ? "—" : ltr(formatDA(n)));
+
+/** an amount taken off: "−500 DA" */
+export const daMinus = (n: number | null | undefined) => (n == null ? "—" : ltr(`−${formatDA(n)}`));
 
 export function dateTime(ts: number | null | undefined): string {
   if (!ts) return "—";

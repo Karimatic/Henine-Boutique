@@ -339,7 +339,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
               </button>
             ))}
           </div>
-          <p className="mt-1 text-xs text-ink-soft">{t.checkoutPlus.contactTimeHint}</p>
         </fieldset>
 
         {!compact && (
