@@ -5,9 +5,9 @@ import type { Dictionary } from "./fr";
 /** Arabic texts (the store at /). Only Arabic pages download this file. */
 export const ar: Dictionary = {
   meta: {
-    title: "Henine Boutique · فساتين، جبات وبيجامات",
+    title: "Henine Boutique · بيجامات، ملابس داخلية وجبب",
     description:
-      "الأناقة والجودة بأفضل سعر. فساتين، جبات وبيجامات نسائية. التوصيل إلى 69 ولاية والدفع عند الاستلام. المحل في بومرداس، مفتوح 7/7.",
+      "الأناقة والجودة بأفضل سعر. بيجامات، ملابس داخلية، قمصان نوم، بدلات رياضية وجبب نسائية. التوصيل إلى 69 ولاية والدفع عند الاستلام. المحل في بومرداس، مفتوح 7/7.",
   },
   brand: { tagline: "الأناقة والجودة بأفضل سعر" },
   announcement: STORE_TEXTS.ar.announcement,
@@ -36,7 +36,19 @@ export const ar: Dictionary = {
       `منذ ${m < 60 ? arCount(m, { one: "دقيقة", two: "دقيقتين", few: "دقائق", many: "دقيقة", other: "دقيقة" }) : arCount(Math.round(m / 60), { one: "ساعة", two: "ساعتين", few: "ساعات", many: "ساعة", other: "ساعة" })}`,
   },
   freeShip: { left: (amount: string) => `بقي ${amount} للحصول على توصيل مجاني`, done: "رائع، التوصيل مجاني 🎉" },
-  categories: { title: "عالمنا", all: "كل الأقسام", products: "منتج", empty: "لا توجد منتجات في هذا القسم حاليا." },
+  categories: {
+    title: "عالمنا", all: "كل الأقسام", products: "منتج", empty: "لا توجد منتجات في هذا القسم حاليا.",
+    everything: "الكل", summer: "☀️ صيفي", winter: "❄️ شتوي", inSeason: "موسمي",
+    filters: { price: "السعر", any: "كل الأسعار", under: (n: string) => `أقل من ${n}`, between: (a: string, b: string) => `${a} – ${b}`, over: (n: string) => `أكثر من ${n}`, onSale: "تخفيضات", reset: "مسح الفلاتر" },
+    count: (n: number) => arCount(n, { one: "قطعة واحدة", two: "قطعتان", few: "قطع", many: "قطعة", other: "قطعة" }),
+  },
+  promos: {
+    title: "التخفيضات",
+    text: "أسعار مكسورة: قطع بأثمان صغيرة ما دامت متوفرة. المقاسات تنفد بسرعة!",
+    empty: "لا توجد تخفيضات حاليا: عودي قريبًا، أو اكتشفي الجديد.",
+    off: (n: number) => `−${n} %`,
+    save: (s: string) => `توفرين ${s}`,
+  },
   trust: [
     { icon: "truck", title: "التوصيل إلى 69 ولاية", text: "إلى المنزل أو إلى المكتب" },
     { icon: "cash", title: "الدفع عند الاستلام", text: "تدفعين عند استلام الطلب" },
@@ -200,7 +212,7 @@ export const ar: Dictionary = {
     back: "العودة إلى المتجر",
   },
   favorites: { title: "مفضلتي", empty: "لا توجد مفضلات بعد. اضغطي ♡ على أي منتج لإضافته." },
-  search: { title: "بحث", placeholder: "فستان، بيجامة…", results: (n: number) => arCount(n, { one: "نتيجة واحدة", two: "نتيجتان", few: "نتائج", many: "نتيجة", other: "نتيجة" }), none: "لا توجد نتائج." },
+  search: { title: "بحث", placeholder: "بيجامة، قميص نوم، جبة…", results: (n: number) => arCount(n, { one: "نتيجة واحدة", two: "نتيجتان", few: "نتائج", many: "نتيجة", other: "نتيجة" }), none: "لا توجد نتائج." },
   contact: {
     title: "تواصلي معنا",
     text: "سؤال عن مقاس أو طلب؟ راسلينا، نرد بسرعة.",
@@ -367,7 +379,7 @@ export const ar: Dictionary = {
       categories: "الأقسام",
       didYouMean: "ربما تقصدين",
       noneTitle: (q: string) => `لا توجد نتائج لـ«${q}»`,
-      noneText: "جربي كلمة أبسط (فستان، بيجامة، أسود، M…) أو اسألي مساعدتنا.",
+      noneText: "جربي كلمة أبسط (بيجامة، جبة، أسود، M…) أو اسألي مساعدتنا.",
       popular: "اكتشفي أيضًا",
       askAssistant: "✨ اسألي المساعدة",
     },
@@ -446,7 +458,7 @@ export const ar: Dictionary = {
       ios: "اضغطي مشاركة ⬆️ ثم «إضافة إلى الشاشة الرئيسية».",
     },
     footerFollow: "تابعينا",
-    topNav: { shop: "المتجر", new: "الجديد", orders: "تتبع طلباتي", store: "زوري محلنا" },
+    topNav: { shop: "المتجر", new: "الجديد", promos: "التخفيضات", orders: "تتبع طلباتي", store: "زوري محلنا" },
     mode: { label: "المظهر", light: "فاتح", dark: "داكن", auto: "تلقائي" },
     size: {
       open: "📏 أي مقاس أختار؟",

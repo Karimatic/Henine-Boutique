@@ -1,6 +1,6 @@
 "use client";
 
-import { formatDA, imageSrcSet, imageUrl, type ImageRef } from "@henine/shared";
+import { formatDA, imageSrcSet, imageUrl, type ImageRef, artKey } from "@henine/shared";
 import { useLocale } from "@/lib/locale";
 
 export function Price({ value, compareAt, className = "" }: { value: number; compareAt?: number | null; className?: string }) {
@@ -48,6 +48,10 @@ const SILHOUETTES: Record<string, string> = {
   djebba: "M50 12h20l4 8 18 10-6 18-8-4c2 24 8 46 16 70H26c8-24 14-46 16-70l-8 4-6-18 18-10 4-8Z",
   // nightie / lingerie
   lingerie: "M46 14v16c-6 8-10 16-10 26 0 16 6 34 0 58h48c-6-24 0-42 0-58 0-10-4-18-10-26V14h-4v14c-4 3-8 4-10 4s-6-1-10-4V14h-4Z",
+  // lingerie set: bra + briefs
+  set: "M28 34c6-12 20-14 30-4h4c10-10 24-8 30 4l-4 14c-9 5-20 2-28-7-8 9-19 12-28 7Zm8 34h48l-6 22c-6 9-12 13-18 13s-12-4-18-13Z",
+  // tracksuit: hoodie + joggers
+  sport: "M44 10c4 6 8 8 16 8s12-2 16-8l18 10-6 26-10-4v22H42V42l-10 4-6-26Zm-2 64h36l6 46H68l-8-32-8 32H36Z",
 };
 
 export function ProductImage({
@@ -87,7 +91,7 @@ export function ProductImage({
       </div>
     );
   }
-  const path = SILHOUETTES[category ?? ""] ?? SILHOUETTES.robes!;
+  const path = SILHOUETTES[artKey(category)] ?? SILHOUETTES.robes!;
   const fill = color ?? "#e8b4bc";
   return (
     <div className={`${pos} overflow-hidden bg-gradient-to-b from-ivory-deep to-rose-100 ${className}`} role="img" aria-label={alt}>

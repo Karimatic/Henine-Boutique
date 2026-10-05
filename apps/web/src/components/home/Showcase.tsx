@@ -1,6 +1,6 @@
 "use client";
 
-import type { CategoryDTO, ProductCardDTO, ReviewWallDTO } from "@henine/shared";
+import { artKey, mainCategories, type CategoryDTO, type ProductCardDTO, type ReviewWallDTO } from "@henine/shared";
 import { ProductGrid } from "@/components/product/ProductCard";
 import { InstagramIcon, TRUST_ICONS } from "@/components/ui/icons";
 import { Stars } from "@/components/ui/kit";
@@ -13,7 +13,7 @@ const IG = "https://www.instagram.com/henine.boutique/";
 
 /* ───────── Instagram-style story bubbles (the shop's own highlights) ───────── */
 
-type Story = { key: string; label: string; href: string; external?: boolean; category?: string };
+type Story = { key: string; label: string; href: string; external?: boolean; category?: string; art?: string };
 
 /* Story artwork: a soft gradient per bubble with a fine white line drawing (no photos). */
 const STORY_GRADIENT: Record<string, string> = {
@@ -22,6 +22,8 @@ const STORY_GRADIENT: Record<string, string> = {
   lingerie: "from-[#f6b9cf] via-rose-500 to-[#7b1747]",
   djebba: "from-[#f3d9a4] via-rose-500 to-[#7b1747]",
   pyjamas: "from-[#fbd3e1] via-rose-300 to-plum-600",
+  set: "from-[#f9c6d6] via-rose-500 to-plum-700",
+  sport: "from-[#d9c8f2] via-plum-600 to-noir",
   promo: "from-plum-600 via-plum-700 to-noir",
 };
 
@@ -57,6 +59,20 @@ const STORY_LINES: Record<string, React.ReactNode> = {
       <path d="M23 37h18l2 18h-7l-4-12-4 12h-7l2-18Z" />
     </>
   ),
+  // lingerie set: bra + briefs
+  set: (
+    <>
+      <path d="M14 20c4-7 11-8 16-2h4c5-6 12-5 16 2l-2 8c-5 3-11 1-16-4-5 5-11 7-16 4Z" />
+      <path d="M20 38h24l-3 10c-3 5-6 7-9 7s-6-2-9-7Z" />
+    </>
+  ),
+  // tracksuit: hoodie + joggers
+  sport: (
+    <>
+      <path d="M26 9c2 3 4 4 6 4s4-1 6-4l9 5-3 12-5-2v10H25V24l-5 2-3-12Z" />
+      <path d="M25 38h14l3 18h-6l-4-12-4 12h-6Z" />
+    </>
+  ),
   // hanger, for any other category
   other: <path d="M32 18a4 4 0 1 1 4-4c0 3-4 3-4 7l18 12c2 1.4 1 4-1.5 4H15.5c-2.5 0-3.5-2.6-1.5-4L32 21" />,
 };
@@ -81,7 +97,8 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
   const S = t.home.stories;
   const onSale = products.some((p) => p.compareAtPrice != null && p.compareAtPrice > p.price);
   const stories: Story[] = [
-    ...(categories ?? []).map((c) => ({ key: c.slug, label: ar ? c.nameAr : c.nameFr, href: href(`/c/${c.slug}`), category: c.slug })),
+    // main categories only (their sub-categories are one tap further)
+    ...mainCategories(categories ?? []).map((c) => ({ key: c.slug, label: ar ? c.nameAr : c.nameFr, href: href(`/c/${c.slug}`), category: c.slug, art: artKey(c.slug) })),
     ...(onSale ? [{ key: "promo", label: S.promo, href: "#promos" }] : []),
   ];
   return (
@@ -97,7 +114,7 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
             >
               <span className="story-ring grid size-[4.4rem] place-items-center rounded-full p-[3px]">
                 <span className="relative block size-full overflow-hidden rounded-full border-[3px] border-white">
-                  <StoryArt kind={s.key} />
+                  <StoryArt kind={s.art ?? s.key} />
                 </span>
               </span>
               <span className="line-clamp-1 w-full text-[11.5px] font-semibold leading-tight">{s.label}</span>

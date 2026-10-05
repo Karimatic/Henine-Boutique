@@ -16,3 +16,4 @@ export * from "./size-advice";
 export * from "./boutique";
 export * from "./abtest";
 export * from "./operations";
+export * from "./catalog-tree";

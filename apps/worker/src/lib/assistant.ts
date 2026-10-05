@@ -29,17 +29,17 @@ const OCCASIONS: { fr: string; ar: string; words: string[]; categories: string[]
   {
     fr: "mariage / soirée", ar: "عرس / سهرة",
     words: ["mariage", "soiree", "fete", "ceremonie", "gala", "عرس", "زفاف", "عروس", "سهرة", "حفلة", "حفل", "مناسبة", "fiancailles", "خطوبة", "تصديرة"],
-    categories: ["robes", "djebba"], hints: ["soiree", "satin", "paillettes", "dentelle", "longue", "سهرة", "ساتان", "جبة"],
+    categories: ["gandouras", "lingerie-fine"], hints: ["soiree", "satin", "paillettes", "dentelle", "longue", "سهرة", "ساتان", "جبة"],
   },
   {
     fr: "maison / nuit", ar: "الدار / النوم",
     words: ["maison", "nuit", "dormir", "sommeil", "detente", "الدار", "البيت", "نوم", "النوم", "راحة"],
-    categories: ["pyjamas", "djebba"], hints: ["pyjama", "nuisette", "coton", "بيجامة", "جبة"],
+    categories: ["pyjamas", "nuisettes"], hints: ["pyjama", "nuisette", "coton", "بيجامة", "جبة"],
   },
   {
     fr: "mariée / lune de miel", ar: "عروس / شهر العسل",
     words: ["lune de miel", "trousseau", "شهر العسل", "جهاز", "الجهاز"],
-    categories: [], hints: ["nuisette", "soie", "dentelle", "satin"],
+    categories: ["trousseau", "lingerie-fine"], hints: ["nuisette", "soie", "dentelle", "satin"],
   },
   {
     fr: "tous les jours", ar: "كل يوم",
@@ -48,12 +48,33 @@ const OCCASIONS: { fr: string; ar: string; words: string[]; categories: string[]
   },
 ];
 
-/** Category words (besides the category names themselves). */
-const CATEGORY_WORDS: Record<string, string[]> = {
-  robes: ["robe", "robes", "فستان", "فساتين", "قفطان", "كفتان", "dress", "rob"],
-  pyjamas: ["pyjama", "pyjamas", "بيجامة", "بيجامات", "pijama", "pyj"],
-  djebba: ["djebba", "djebbas", "jebba", "jebbas", "جبة", "جبات", "جبه", "قندورة", "gandoura", "djellaba", "جلابة"],
-};
+/**
+ * What she may call each part of the catalogue (French, Arabic, Darija), and the category
+ * slugs it covers (see the tree in packages/db/seed/base.sql).
+ */
+const CATEGORY_GROUPS: { key: string; fr: string; ar: string; slugs: string[]; words: string[] }[] = [
+  { key: "pyjamas", fr: "pyjamas", ar: "بيجامات", slugs: ["pyjamas", "pyjamas-ete", "pyjamas-hiver"], words: ["pyjama", "pyjamas", "بيجامة", "بيجامات", "pijama", "pyj"] },
+  { key: "pyjamas-ete", fr: "pyjamas d'été", ar: "بيجامات صيفية", slugs: ["pyjamas-ete"], words: ["ete", "estival", "صيفية", "صيفي", "short"] },
+  { key: "pyjamas-hiver", fr: "pyjamas d'hiver", ar: "بيجامات شتوية", slugs: ["pyjamas-hiver"], words: ["hiver", "polaire", "chaud", "شتوية", "شتوي", "دافئة"] },
+  { key: "nuisettes", fr: "nuisettes & robes de chambre", ar: "قمصان نوم وروب دو شامبر", slugs: ["robes-de-chambre-nuisettes"], words: ["nuisette", "nuisettes", "robe de chambre", "peignoir", "روب", "روب دو شامبر", "قميص نوم", "قمصان نوم", "نويزات"] },
+  {
+    key: "lingerie", fr: "lingerie", ar: "ملابس داخلية",
+    slugs: ["lingerie", "ensembles-lingerie", "soutiens-gorge-culottes", "gaines", "trousseau-mariee", "lingerie-fine"],
+    words: ["lingerie", "dessous", "ملابس داخلية", "لانجري", "لنجري"],
+  },
+  { key: "ensembles", fr: "ensembles lingerie", ar: "أطقم لانجري", slugs: ["ensembles-lingerie"], words: ["ensemble", "ensembles", "طقم", "أطقم", "اطقم"] },
+  { key: "soutiens", fr: "soutiens-gorge & culottes", ar: "حمالات وسراويل داخلية", slugs: ["soutiens-gorge-culottes"], words: ["soutien", "soutien-gorge", "soutiens-gorge", "culotte", "culottes", "slip", "حمالة", "حمالات", "سروال داخلي", "سراويل داخلية"] },
+  { key: "gaines", fr: "gaines", ar: "مشدات", slugs: ["gaines"], words: ["gaine", "gaines", "gainant", "sculptant", "body", "مشد", "مشدات", "كورسيه", "corset"] },
+  { key: "trousseau", fr: "trousseau de mariée", ar: "جهاز العروس", slugs: ["trousseau-mariee"], words: ["trousseau", "mariee", "جهاز", "جهاز العروس", "العروسة"] },
+  { key: "lingerie-fine", fr: "lingerie fine", ar: "لانجري راقي", slugs: ["lingerie-fine"], words: ["lingerie fine", "sexy", "حرير", "soie"] },
+  { key: "sport", fr: "sportswear & survêtements", ar: "ملابس رياضية", slugs: ["sportswear-survetements"], words: ["survetement", "survetements", "sport", "sportswear", "jogging", "legging", "brassiere", "بدلة رياضية", "رياضية", "رياضة", "ليغينغ", "سبور"] },
+  {
+    key: "gandouras", fr: "gandouras, djebbas & robes", ar: "قنادر، جبب وفساتين", slugs: ["gandouras-djebbas-robes"],
+    words: ["djebba", "djebbas", "jebba", "jebbas", "gandoura", "gandouras", "djellaba", "robe", "robes", "dress", "جبة", "جبات", "جبب", "جبه", "قندورة", "قنادر", "فستان", "فساتين", "قفطان", "كفتان", "جلابة"],
+  },
+];
+const CATEGORY_WORDS: Record<string, string[]> = Object.fromEntries(CATEGORY_GROUPS.map((g) => [g.key, g.words]));
+const groupSlugs = (keys: string[]) => new Set(CATEGORY_GROUPS.filter((g) => keys.includes(g.key)).flatMap((g) => g.slugs));
 
 const SIZES = ["xxs", "xs", "s", "m", "l", "xl", "xxl", "xxxl", "3xl", "4xl"];
 
@@ -186,7 +207,7 @@ export async function recommend(env: Env, q: string, locale: "fr" | "ar"): Promi
     const wantCats = wish.categories.length ? wish.categories : (wish.occasion?.categories ?? []);
     const category: Check = !wantCats.length
       ? { ok: true }
-      : x?.category && wantCats.includes(x.category)
+      : x?.category && groupSlugs(wantCats).has(x.category)
         ? { ok: true, why: wish.occasion && !wish.categories.length ? (ar ? `مناسب لـ${wish.occasion.ar}` : `Idéal pour ${wish.occasion.fr}`) : undefined }
         : { ok: false };
     const price: Check =
@@ -222,7 +243,8 @@ export async function recommend(env: Env, q: string, locale: "fr" | "ar"): Promi
   picked.sort((a, b) => b.score - a.score || a.p.price - b.p.price);
 
   const understood: string[] = [];
-  if (wish.categories.length) understood.push(ar ? `النوع: ${wish.categories.map((c) => ({ robes: "فساتين", pyjamas: "بيجامات", djebba: "جبة" })[c] ?? c).join("، ")}` : `Type : ${wish.categories.join(", ")}`);
+  const groupName = (k: string) => CATEGORY_GROUPS.find((g) => g.key === k)?.[ar ? "ar" : "fr"] ?? k;
+  if (wish.categories.length) understood.push(ar ? `النوع: ${wish.categories.map(groupName).join("، ")}` : `Type : ${wish.categories.map(groupName).join(", ")}`);
   if (wish.occasion) understood.push(ar ? `المناسبة: ${wish.occasion.ar}` : `Occasion : ${wish.occasion.fr}`);
   if (wish.colors.length) understood.push(ar ? `اللون: ${wish.colors.map((c) => c.ar).join("، ")}` : `Couleur : ${wish.colors.map((c) => c.fr).join(", ")}`);
   if (wish.sizes.length) understood.push(ar ? `المقاس: ${wish.sizes.map((s) => s.toUpperCase()).join("، ")}` : `Taille : ${wish.sizes.map((s) => s.toUpperCase()).join(", ")}`);

@@ -11,6 +11,7 @@ import {
 } from "../ui";
 import { lang, setLang, tr } from "../i18n";
 import { useColorMode, type ColorMode } from "../lib/colorMode";
+import { mainsOf, subsOf } from "../lib/categories";
 import { MemberOwnerPanel } from "./MemberDetails";
 
 function useSave<T>(fn: (v: T) => Promise<unknown>, keys: string[], ok = "Enregistré ✓") {
@@ -638,6 +639,8 @@ interface CategoryRow {
   sort: number;
   is_active: number;
   product_count: number;
+  parent_id: number | null;
+  season: "summer" | "winter" | null;
 }
 
 function CategoriesEditor() {
@@ -648,24 +651,40 @@ function CategoriesEditor() {
       <div className="flex justify-end"><Button variant="primary" onClick={() => setEdit({ is_active: 1, sort: (q.data?.length ?? 0) + 1 })}>{tr("+ Nouvelle catégorie")}</Button></div>
       {!q.data ? <ListSkeleton /> : q.data.length === 0 ? <Empty title={tr("Aucune catégorie")} /> : (
         <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
-          {q.data.map((c) => (
+          {/* main categories, each followed by its sub-categories */}
+          {mainsOf(q.data).flatMap((m) => [m, ...subsOf(q.data!, m.id)]).map((c) => (
             <li key={c.id}>
-              <button type="button" onClick={() => setEdit(c)} className="flex w-full items-center justify-between px-4 py-3 text-start hover:bg-rose-100/30">
-                <span><span className="block font-medium">{c.name_fr} · <span dir="rtl">{c.name_ar}</span></span><span className="text-xs text-ink-soft">/c/{c.slug} · {c.product_count} {tr("produit(s)")}</span></span>
-                {!c.is_active && <Badge tone="bg-stone-200 text-stone-700">{tr("Masquée")}</Badge>}
+              <button type="button" onClick={() => setEdit(c)} className={`flex w-full items-center justify-between gap-2 py-3 pe-4 text-start hover:bg-rose-100/30 ${c.parent_id ? "ps-10" : "ps-4"}`}>
+                <span>
+                  <span className="block font-medium">
+                    {c.parent_id ? "↳ " : ""}{c.name_fr} · <span dir="rtl">{c.name_ar}</span>
+                    {c.season ? <span className="ms-1">{c.season === "summer" ? "☀️" : "❄️"}</span> : null}
+                  </span>
+                  <span className="text-xs text-ink-soft">/c/{c.slug} · {c.product_count} {tr("produit(s)")}</span>
+                </span>
+                <span className="flex shrink-0 gap-1.5">
+                  {!c.parent_id && subsOf(q.data!, c.id).length > 0 && <Badge tone="bg-ivory-deep text-ink-soft">{tr("{0} sous-catégorie(s)", { 0: subsOf(q.data!, c.id).length })}</Badge>}
+                  {!c.is_active && <Badge tone="bg-stone-200 text-stone-700">{tr("Masquée")}</Badge>}
+                </span>
               </button>
             </li>
           ))}
         </ul>
       )}
-      {edit && <CategorySheet cat={edit} onClose={() => setEdit(null)} />}
+      {edit && <CategorySheet cat={edit} all={q.data ?? []} onClose={() => setEdit(null)} />}
     </div>
   );
 }
 
-function CategorySheet({ cat, onClose }: { cat: Partial<CategoryRow>; onClose: () => void }) {
+function CategorySheet({ cat, all, onClose }: { cat: Partial<CategoryRow>; all: CategoryRow[]; onClose: () => void }) {
   const [f, setF] = useState(cat);
-  const body = () => ({ nameFr: f.name_fr ?? "", nameAr: f.name_ar ?? "", slug: f.slug || undefined, descriptionFr: f.description_fr || null, descriptionAr: f.description_ar || null, sort: f.sort ?? 0, isActive: !!f.is_active });
+  const body = () => ({
+    nameFr: f.name_fr ?? "", nameAr: f.name_ar ?? "", slug: f.slug || undefined, descriptionFr: f.description_fr || null, descriptionAr: f.description_ar || null,
+    sort: f.sort ?? 0, isActive: !!f.is_active, parentId: f.parent_id ?? null, season: f.parent_id ? (f.season ?? null) : null,
+  });
+  // a category with sub-categories stays a main category; a parent is always a main category
+  const hasSubs = cat.id != null && all.some((c) => c.parent_id === cat.id);
+  const parents = mainsOf(all).filter((c) => c.id !== cat.id);
   const save = useSave(() => (cat.id ? put(`/categories/${cat.id}`, body()) : post("/categories", body())), ["categories"]);
   const remove = useSave(() => del(`/categories/${cat.id}`), ["categories"], tr("Catégorie supprimée"));
   return (
@@ -684,6 +703,19 @@ function CategorySheet({ cat, onClose }: { cat: Partial<CategoryRow>; onClose: (
         <TextField label={tr("Nom (FR)")} value={f.name_fr ?? ""} onChange={(e) => setF({ ...f, name_fr: e.target.value })} />
         <TextField label={tr("Nom (AR)")} dir="rtl" value={f.name_ar ?? ""} onChange={(e) => setF({ ...f, name_ar: e.target.value })} />
         <TextField label={tr("Adresse")} hint="/c/…" value={f.slug ?? ""} onChange={(e) => setF({ ...f, slug: e.target.value })} />
+        <Select label={tr("Place dans la boutique")} value={f.parent_id ?? ""} disabled={hasSubs} onChange={(e) => setF({ ...f, parent_id: e.target.value ? Number(e.target.value) : null })}>
+          <option value="">{tr("Catégorie principale")}</option>
+          {parents.map((p) => (
+            <option key={p.id} value={p.id}>{tr("Sous-catégorie de : {0}", { 0: p.name_fr })}</option>
+          ))}
+        </Select>
+        {f.parent_id ? (
+          <Select label={tr("Saison")} value={f.season ?? ""} onChange={(e) => setF({ ...f, season: (e.target.value || null) as CategoryRow["season"] })}>
+            <option value="">{tr("Toute l'année")}</option>
+            <option value="summer">{tr("☀️ Été (affichée en premier d'avril à septembre)")}</option>
+            <option value="winter">{tr("❄️ Hiver (affichée en premier d'octobre à mars)")}</option>
+          </Select>
+        ) : null}
         <NumberField label={tr("Ordre d'affichage")} value={f.sort ?? 0} onChange={(v) => setF({ ...f, sort: v ?? 0 })} />
         <Toggle label={tr("Visible")} checked={!!f.is_active} onChange={(v) => setF({ ...f, is_active: v ? 1 : 0 })} />
       </div>

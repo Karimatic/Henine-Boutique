@@ -3,6 +3,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, ImagePlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, errorMessage, post } from "../api";
+import { CategoryOptions, categoryPath, type CategoryLite } from "../lib/categories";
 import { tr } from "../i18n";
 import { da } from "../lib/format";
 import { Button, Card, inputCls, NumberField, PageHeader, Spinner, TextArea, TextField, useToast } from "../ui";
@@ -23,7 +24,7 @@ export function ProductWizard() {
   const toast = useToast();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<{ id: number; name_fr: string }[]>("/categories") });
+  const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<CategoryLite[]>("/categories") });
   const [step, setStep] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
   const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
@@ -154,11 +155,7 @@ export function ProductWizard() {
               {tr("Catégorie")}
               <select className={`${inputCls} mt-1.5`} value={info.categoryId ?? ""} onChange={(e) => setInfo({ ...info, categoryId: e.target.value ? Number(e.target.value) : null })}>
                 <option value="">—</option>
-                {(categories.data ?? []).map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name_fr}
-                  </option>
-                ))}
+                <CategoryOptions cats={categories.data ?? []} />
               </select>
             </label>
             <details className="rounded-xl border border-line p-3">
@@ -285,7 +282,7 @@ export function ProductWizard() {
             <dl className="min-w-0 flex-1 space-y-1 text-sm">
               <div><dt className="inline text-ink-soft">{tr("Nom")} : </dt><dd className="inline font-semibold">{info.nameFr}{info.nameAr ? ` · ${info.nameAr}` : ""}</dd></div>
               <div><dt className="inline text-ink-soft">{tr("Prix")} : </dt><dd className="inline font-semibold">{da(info.price)}{info.compareAt ? <s className="ms-2 text-ink-soft">{da(info.compareAt)}</s> : null}</dd></div>
-              <div><dt className="inline text-ink-soft">{tr("Catégorie")} : </dt><dd className="inline">{categories.data?.find((c) => c.id === info.categoryId)?.name_fr ?? "—"}</dd></div>
+              <div><dt className="inline text-ink-soft">{tr("Catégorie")} : </dt><dd className="inline">{categoryPath(categories.data ?? [], info.categoryId) ?? "—"}</dd></div>
               <div><dt className="inline text-ink-soft">{tr("Tailles")} : </dt><dd className="inline">{sizes.join(", ") || "—"}</dd></div>
               <div><dt className="inline text-ink-soft">{tr("Couleurs")} : </dt><dd className="inline">{colors.map((c) => c.labelFr).join(", ") || "—"}</dd></div>
               <div><dt className="inline text-ink-soft">{tr("Stock")} : </dt><dd className="inline font-semibold">{tr("{0} pièce(s)", { 0: totalPieces })}</dd></div>

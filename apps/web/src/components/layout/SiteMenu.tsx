@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { toE164, type CategoryDTO, type SiteConfigDTO } from "@henine/shared";
+import { toE164, type CategoryDTO, type SiteConfigDTO, artKey, mainCategories } from "@henine/shared";
 import { Blossom, ChatIcon, GridIcon, HeartIcon, HomeIcon, InstagramIcon, MenuIcon, PackageIcon, SearchIcon, SparkleIcon } from "@/components/ui/icons";
 import { useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
@@ -118,12 +118,13 @@ export function SiteMenu() {
                 <a href={href("/recherche")} className={row}><SearchIcon size={20} className="text-plum-600" />{t.nav.search}</a>
                 <a href={href("/nouveautes")} className={row}><SparkleIcon size={20} className="text-plum-600" />{t.home.newArrivals}</a>
                 {/* categories with something to show: their photo + how many pieces */}
-                {(categories ?? [])
+                <a href={href("/promotions")} className={row}><span className="grid size-5 place-items-center text-sm font-bold text-plum-600">%</span>{t.promos.title}</a>
+                {mainCategories(categories ?? [])
                   .filter((c) => (c.productCount ?? 0) > 0)
                   .map((c) => (
                     <a key={c.id} href={href(`/c/${c.slug}`)} className={row}>
                       <span className="group block size-8 shrink-0 overflow-hidden rounded-full ring-2 ring-rose-100">
-                        <StoryArt kind={c.slug} />
+                        <StoryArt kind={artKey(c.slug)} />
                       </span>
                       <span className="flex-1">{ar ? c.nameAr : c.nameFr}</span>
                       <span className="rounded-full bg-ivory-deep px-2 py-0.5 text-xs text-ink-soft" dir="ltr">{c.productCount}</span>

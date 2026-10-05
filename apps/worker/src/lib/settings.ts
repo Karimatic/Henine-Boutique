@@ -2,11 +2,15 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SlaSettings } from "@henine/shared";
+import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
-  store: { name: string; tagline_fr: string; tagline_ar: string; city_fr: string; city_ar: string; hours_fr: string; hours_ar: string; wilaya: number };
+  store: {
+    name: string; tagline_fr: string; tagline_ar: string; city_fr: string; city_ar: string; hours_fr: string; hours_ar: string; wilaya: number;
+    /** pyjamas of which season come first: by the calendar, or forced */
+    season?: SeasonSetting;
+  };
   contact: {
     phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null;
     facebook: string | null; maps: string | null; address_fr: string | null; address_ar: string | null;
@@ -70,8 +74,8 @@ export const DEFAULTS: Settings = {
   hero: {
     eyebrow_fr: "Nouvelle collection", eyebrow_ar: "تشكيلة جديدة",
     title_fr: "L’élégance & la qualité au meilleur prix", title_ar: "الأناقة والجودة بأفضل سعر",
-    subtitle_fr: "Robes, djebbas et pyjamas choisis avec soin, livrés partout en Algérie.",
-    subtitle_ar: "فساتين، جبات وبيجامات مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
+    subtitle_fr: "Pyjamas, lingerie, nuisettes et djebbas choisis avec soin, livrés partout en Algérie.",
+    subtitle_ar: "بيجامات، ملابس داخلية، قمصان نوم وجبب مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
   },
   checkout: {
     cod: true, express_on_product: true, require_turnstile: true, max_orders_per_phone_per_hour: 3,

@@ -1,17 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatDA, type CategoryDTO, type ProductCardDTO, type QuoteDTO, type SiteConfigDTO } from "@henine/shared";
+import { formatDA, type ProductCardDTO, type QuoteDTO, type SiteConfigDTO } from "@henine/shared";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
-import { CategoryCard } from "@/components/product/CategoryCard";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
-import { ErrorBox, PageTitle, ProductImage } from "@/components/ui/kit";
-import { apiGet, apiPost, slugFromPath, useApi } from "@/lib/api";
+import { PageTitle, ProductImage } from "@/components/ui/kit";
+import { apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { pushSupported, subscribeProduct } from "@/lib/push";
 import { cart, cartCount, favoritesStore, pendingCoupon, useCart, useFavorites } from "@/lib/stores";
 
 export { SearchView } from "./SearchView";
+export { CategoriesView, CategoryView, PromotionsView } from "./CatalogViews";
 
 /**
  * Reminder link from the team ("نسيت شيئًا في سلتك 🛒"): /panier?r=<cart id>&code=<promo>.
@@ -163,90 +163,6 @@ export function CheckoutView() {
 }
 
 /* ───────── Categories ───────── */
-
-export function CategoriesView() {
-  const { t } = useLocale();
-  const { data, error, reload } = useApi<CategoryDTO[]>("/categories");
-  const catalog = useApi<ProductCardDTO[]>("/catalog");
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <PageTitle>{t.categories.all}</PageTitle>
-      {error ? (
-        <ErrorBox onRetry={reload} />
-      ) : (
-        <ul className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {/* empty categories stay hidden (unless every one is empty) */}
-          {(data ?? []).filter((c, _, all) => (c.productCount ?? 0) > 0 || all.every((x) => !x.productCount)).map((c) => {
-            const sample = catalog.data?.find((p) => p.categorySlug === c.slug);
-            return (
-              <li key={c.id}>
-                <CategoryCard c={c} sample={sample} />
-              </li>
-            );
-          })}
-          {!data && [0, 1, 2].map((i) => <li key={i} className="skeleton aspect-[4/6] rounded-3xl" />)}
-        </ul>
-      )}
-    </div>
-  );
-}
-
-type Sort = "new" | "price_asc" | "price_desc";
-
-export function CategoryView() {
-  const { t, ar, href } = useLocale();
-  const [slug, setSlug] = useState<string | null>(null);
-  useEffect(() => setSlug(slugFromPath(location.pathname)), []);
-  const categories = useApi<CategoryDTO[]>("/categories");
-  const catalog = useApi<ProductCardDTO[]>("/catalog");
-  const [sort, setSort] = useState<Sort>("new");
-  const [inStockOnly, setInStockOnly] = useState(false);
-  const category = categories.data?.find((c) => c.slug === slug);
-  const products = useMemo(() => {
-    let list = (catalog.data ?? []).filter((p) => p.categorySlug === slug);
-    if (inStockOnly) list = list.filter((p) => p.inStock);
-    return [...list].sort((a, b) => (sort === "price_asc" ? a.price - b.price : sort === "price_desc" ? b.price - a.price : b.createdAt - a.createdAt));
-  }, [catalog.data, slug, sort, inStockOnly]);
-  useEffect(() => {
-    if (category) document.title = `${ar ? category.nameAr : category.nameFr} · Henine Boutique`;
-  }, [category, ar]);
-
-  return (
-    <div className="mx-auto max-w-6xl px-4 py-8">
-      <PageTitle>{category ? (ar ? category.nameAr : category.nameFr) : <span className="skeleton inline-block h-9 w-40" />}</PageTitle>
-      <div className="mb-5 flex flex-wrap items-center gap-2">
-        {([["new", ar ? "الأحدث" : "Nouveautés"], ["price_asc", ar ? "السعر ↑" : "Prix ↑"], ["price_desc", ar ? "السعر ↓" : "Prix ↓"]] as [Sort, string][]).map(([k, label]) => (
-          <button key={k} type="button" onClick={() => setSort(k)} className={`h-9 rounded-full border px-4 text-sm font-medium ${sort === k ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface"}`}>
-            {label}
-          </button>
-        ))}
-        <label className="ms-auto flex items-center gap-2 text-sm">
-          <input type="checkbox" className="size-4 accent-plum-600" checked={inStockOnly} onChange={(e) => setInStockOnly(e.target.checked)} />
-          {t.product.inStock}
-        </label>
-      </div>
-      {catalog.error ? (
-        <ErrorBox onRetry={catalog.reload} />
-      ) : !catalog.data ? (
-        <ProductGridSkeleton count={6} />
-      ) : products.length ? (
-        <ProductGrid products={products} />
-      ) : (
-        <div className="rounded-card border border-line bg-surface p-8 text-center">
-          <p className="text-ink-soft">{t.categories.empty}</p>
-          <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <a href={href("/nouveautes")} className="inline-flex h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-on-ink">
-              {t.home.newArrivals}
-            </a>
-            <a href="https://www.instagram.com/henine.boutique/" target="_blank" rel="noopener noreferrer" className="inline-flex h-11 items-center rounded-full border border-line px-5 text-sm font-semibold">
-              Instagram
-            </a>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 /* ───────── Favourites ───────── */
 

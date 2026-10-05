@@ -10,6 +10,7 @@ import { useCan } from "../Shell";
 import {
   Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Spinner, TextArea, TextField, useToast,
 } from "../ui";
+import { CategoryOptions, categoryOrder, categoryPath, type CategoryLite } from "../lib/categories";
 import { tr } from "../i18n";
 
 /* ───────────── List ───────────── */
@@ -49,6 +50,16 @@ export function ProductsPage() {
     queryKey: ["products", status, q, stock],
     queryFn: () => api<ProductRow[]>(`/products?status=${status}&q=${encodeURIComponent(q)}${stock ? `&stock=${stock}` : ""}`),
   });
+  const cats = useQuery({ queryKey: ["categories"], queryFn: () => api<CategoryLite[]>("/categories") });
+  // promo mode: tick products, then one discount for all of them
+  const [picking, setPicking] = useState(false);
+  const [sel, setSel] = useState<Set<number>>(new Set());
+  const toggle = (id: number) => setSel((s) => {
+    const n = new Set(s);
+    if (n.has(id)) n.delete(id);
+    else n.add(id);
+    return n;
+  });
   // grouped by category (shop order), sorted inside each group
   const groups = useMemo(() => {
     const sorted = [...(list.data ?? [])].sort((a, b) =>
@@ -57,19 +68,31 @@ export function ProductsPage() {
     const map = new Map<string, { name: string; order: number; rows: ProductRow[] }>();
     for (const p of sorted) {
       const key = String(p.category_id ?? "none");
-      const g = map.get(key) ?? { name: p.category ?? tr("Sans catégorie"), order: p.category_sort ?? 999, rows: [] };
+      const all = cats.data ?? [];
+      const g = map.get(key) ?? {
+        name: categoryPath(all, p.category_id) ?? p.category ?? tr("Sans catégorie"),
+        order: all.length ? categoryOrder(all, p.category_id) : (p.category_sort ?? 999),
+        rows: [],
+      };
       g.rows.push(p);
       map.set(key, g);
     }
     return [...map.values()].sort((a, b) => a.order - b.order);
-  }, [list.data, sort]);
+  }, [list.data, sort, cats.data]);
   return (
     <div>
       <PageHeader
         group={tr("Catalogue")}
         title={tr("Produits")}
         subtitle={list.data ? tr("{0} produit(s)", { 0: list.data.length }) : undefined}
-        actions={can("products.edit") && <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-white">{tr("+ Nouveau produit")}</Link>}
+        actions={
+          can("products.edit") && (
+            <div className="flex flex-wrap gap-2">
+              <Button onClick={() => { setPicking((v) => !v); setSel(new Set()); }}>{picking ? tr("Terminer") : tr("🏷️ Mettre en promo")}</Button>
+              <Link to="/produits/nouveau" className="inline-flex h-11 items-center rounded-lg bg-plum-600 px-5 font-semibold text-white">{tr("+ Nouveau produit")}</Link>
+            </div>
+          )
+        }
       />
       <Pills
         value={status}
@@ -110,7 +133,20 @@ export function ProductsPage() {
               </h2>
               <ul className="grid gap-2 md:grid-cols-2">
                 {g.rows.map((p) => (
-                  <li key={p.id}>
+                  <li key={p.id} className="relative">
+                    {picking && (
+                      <button
+                        type="button"
+                        onClick={() => toggle(p.id)}
+                        aria-pressed={sel.has(p.id)}
+                        aria-label={p.name_fr}
+                        className={`absolute inset-0 z-10 rounded-xl border-2 transition ${sel.has(p.id) ? "border-plum-600 bg-plum-600/10" : "border-transparent hover:border-plum-600/40"}`}
+                      >
+                        <span className={`absolute end-2 top-2 grid size-7 place-items-center rounded-full text-sm font-bold ${sel.has(p.id) ? "bg-plum-600 text-white" : "border border-line bg-surface"}`}>
+                          {sel.has(p.id) ? "✓" : ""}
+                        </span>
+                      </button>
+                    )}
                     <Link to="/produits/$id" params={{ id: String(p.id) }} className="flex gap-3 rounded-xl border border-line bg-surface p-3 transition hover:border-plum-600/40">
                       {p.image ? <img src={p.image} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-rose-100 text-2xl">👗</span>}
                       <div className="min-w-0 flex-1">
@@ -120,6 +156,9 @@ export function ProductsPage() {
                         </div>
                         <p className="text-sm tabular-nums">
                           {da(p.price)} {p.compare_at_price ? <s className="text-ink-soft">{da(p.compare_at_price)}</s> : null}
+                          {p.compare_at_price && p.compare_at_price > p.price ? (
+                            <Badge tone="ms-1.5 bg-red-100 text-red-800">−{Math.round((1 - p.price / p.compare_at_price) * 100)} %</Badge>
+                          ) : null}
                         </p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xs">
                           <span className={`font-semibold tabular-nums ${p.available <= 0 ? "text-red-700" : p.available <= 5 ? "text-amber-700" : "text-ink"}`}>
@@ -140,6 +179,44 @@ export function ProductsPage() {
           ))}
         </div>
       )}
+      {picking && <PromoBar ids={[...sel]} onDone={() => { setPicking(false); setSel(new Set()); }} />}
+    </div>
+  );
+}
+
+/** Promo mode: the chosen products' sale, in one tap. */
+function PromoBar({ ids, onDone }: { ids: number[]; onDone: () => void }) {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const [custom, setCustom] = useState("");
+  const run = useMutation({
+    mutationFn: (v: { percent?: number; restore?: true }) => post<{ changed: number }>("/products/sale", { ids, ...v }),
+    onSuccess: (r, v) => {
+      toast(v.restore ? tr("Promo retirée sur {0} produit(s)", { 0: r.changed }) : tr("−{0} % sur {1} produit(s) · visible sur la boutique", { 0: v.percent, 1: r.changed }));
+      void qc.invalidateQueries({ queryKey: ["products"] });
+      onDone();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  const pct = Math.round(Number(custom));
+  return (
+    <div className="fixed inset-x-2 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 rounded-2xl border border-plum-600/30 bg-surface p-3 shadow-2xl md:inset-x-auto md:bottom-6 md:end-6 md:w-[34rem]">
+      <p className="text-sm font-semibold">
+        {ids.length ? tr("{0} produit(s) choisi(s)", { 0: ids.length }) : tr("Touchez les produits à mettre en promo")}
+      </p>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {[10, 20, 30, 50].map((p) => (
+          <Button key={p} variant="primary" disabled={!ids.length} loading={run.isPending && run.variables?.percent === p} onClick={() => run.mutate({ percent: p })}>
+            −{p} %
+          </Button>
+        ))}
+        <span className="flex items-center gap-1">
+          <input className={`${inputCls} w-20`} inputMode="numeric" placeholder="%" value={custom} onChange={(e) => setCustom(e.target.value.replace(/\D/g, ""))} aria-label={tr("Autre pourcentage")} />
+          <Button disabled={!ids.length || !(pct >= 1 && pct <= 90)} onClick={() => run.mutate({ percent: pct })}>{tr("OK")}</Button>
+        </span>
+        <Button variant="danger" disabled={!ids.length} loading={run.isPending && !!run.variables?.restore} onClick={() => run.mutate({ restore: true })}>{tr("Retirer la promo")}</Button>
+      </div>
+      <p className="mt-2 text-xs text-ink-soft">{tr("Le prix habituel devient le prix barré ; le nouveau prix est arrondi à 50 DA. Les produits en promo apparaissent dans « Promotions » sur la boutique.")}</p>
     </div>
   );
 }
@@ -237,7 +314,7 @@ export function ProductEditor() {
   const qc = useQueryClient();
   const toast = useToast();
   const can = useCan();
-  const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<{ id: number; name_fr: string }[]>("/categories") });
+  const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<CategoryLite[]>("/categories") });
   const sizeGuides = useQuery({ queryKey: ["size-guides"], queryFn: () => api<{ id: number; name: string }[]>("/size-guides") });
   const loaded = useQuery({ queryKey: ["product", params.id], queryFn: () => api<ProductForm>(`/products/${params.id}`), enabled: !isNew });
   const [form, setForm] = useState<ProductForm | null>(isNew ? emptyForm() : null);
@@ -391,7 +468,7 @@ export function ProductEditor() {
             </Select>
             <Select label={tr("Catégorie")} className="mt-3" value={form.categoryId ?? ""} onChange={(e) => set("categoryId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
               <option value="">—</option>
-              {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name_fr}</option>)}
+              <CategoryOptions cats={categories.data ?? []} />
             </Select>
             <Select label={tr("📏 Guide des tailles")} className="mt-3" value={form.sizeGuideId ?? ""} onChange={(e) => set("sizeGuideId", e.target.value ? Number(e.target.value) : null)} disabled={readOnly}>
               <option value="">{tr("Aucun")}</option>

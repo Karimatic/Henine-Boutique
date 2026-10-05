@@ -89,6 +89,7 @@ function TopNav({ inline = false }: { inline?: boolean }) {
   const items: [string, string, (p: string) => boolean][] = [
     ["/categories", N.shop, (p) => p.startsWith("/categories") || p.startsWith("/c/") || p.startsWith("/produit/")],
     ["/nouveautes", N.new, (p) => p.startsWith("/nouveautes")],
+    ["/promotions", N.promos, (p) => p.startsWith("/promotions")],
     ["/suivi", N.orders, (p) => p.startsWith("/suivi")],
     ["/boutique", N.store, (p) => p.startsWith("/boutique")],
   ];

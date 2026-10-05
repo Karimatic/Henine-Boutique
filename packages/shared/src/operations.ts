@@ -164,3 +164,13 @@ export function slaLateMinutes(status: OrderStatus, since: number, sla: SlaSetti
   if (!stage) return 0;
   return Math.max(0, Math.floor((now - since) / 60_000) - slaLimitMinutes(stage, sla));
 }
+
+/* ── Clearance sale (Produits → "Mettre en promo") ── */
+
+/** Sale price for `percent` off, rounded to 50 DA (4 900 rather than 4 873), always below the usual price. */
+export function salePrice(usual: number, percent: number): number {
+  const p = Math.min(Math.max(percent, 1), 90);
+  const raw = usual * (1 - p / 100);
+  const rounded = Math.round(raw / 50) * 50;
+  return Math.max(50, Math.min(rounded, usual - 50));
+}

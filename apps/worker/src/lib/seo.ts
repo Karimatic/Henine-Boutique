@@ -29,6 +29,7 @@ export async function sitemapXml(env: Env): Promise<string> {
   const entries: { path: string; lastmod?: string | null; priority: string }[] = [
     { path: "/", priority: "1.0" },
     { path: "/nouveautes", priority: "0.9" },
+    { path: "/promotions", priority: "0.8" },
     { path: "/categories", priority: "0.7" },
     { path: "/contact", priority: "0.4" },
     { path: "/suivi", priority: "0.3" },

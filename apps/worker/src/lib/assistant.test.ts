@@ -11,10 +11,18 @@ describe("assistant: understanding a wish", () => {
 
   it("reads a French request with a size and a spaced amount", () => {
     const w = understand("Robe rouge taille M, moins de 6 500 DA");
-    expect(w.categories).toEqual(["robes"]);
+    expect(w.categories).toEqual(["gandouras"]);
     expect(w.colors.map((c) => c.key)).toEqual(["rouge"]);
     expect(w.sizes).toEqual(["m"]);
     expect(w.maxPrice).toBe(6500);
+  });
+
+  it("knows the new categories (lingerie, gaines, trousseau, sport, seasons)", () => {
+    expect(understand("قميص نوم أسود").categories).toEqual(["nuisettes"]);
+    expect(understand("je cherche une gaine").categories).toEqual(["gaines"]);
+    expect(understand("جهاز العروس").categories).toContain("trousseau");
+    expect(understand("survetement taille L").categories).toEqual(["sport"]);
+    expect(understand("بيجامة شتوية").categories).toEqual(["pyjamas", "pyjamas-hiver"]);
   });
 
   it("understands ranges, thousands and Arabic digits", () => {

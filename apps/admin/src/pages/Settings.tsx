@@ -23,7 +23,7 @@ interface HomeSettings {
   announcement: { active: boolean };
   checkout: { express_on_product: boolean; desk_enabled: boolean; free_shipping_over: number | null; max_orders_per_phone_per_hour: number };
   maintenance: { active: boolean };
-  store: { name: string };
+  store: { name: string; season?: "auto" | "summer" | "winter" };
   contact: ContactSettings;
   texts?: { ar?: Overrides; fr?: Overrides };
 }
@@ -171,6 +171,7 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
   });
   const saveHome = useMutation({ mutationFn: (v: Pick<HomeSettings, "announcement" | "checkout" | "maintenance">) => put("/home", v), ...done("Enregistré ✓ visible tout de suite sur la boutique") });
   const saveName = useMutation({ mutationFn: (n: string) => put("/content/store", { name: n }), ...done("Nom de la boutique enregistré ✓") });
+  const saveSeason = useMutation({ mutationFn: (season: string) => put("/content/store", { season }), ...done("Saison enregistrée ✓") });
 
   if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
   if (!q.data) return <ListSkeleton rows={4} />;
@@ -197,6 +198,24 @@ function StoreSettings({ tab, goTo }: { tab: TabKey; goTo: (t: TabKey) => void }
           ) : (
             <p className="font-medium">{h.store.name}</p>
           )}
+        </Row>
+        <Row
+          title={tr("Saison")}
+          help={tr("Les sous-catégories de saison (pyjamas d'été / d'hiver) passent en premier. « Automatique » : été d'avril à septembre, hiver d'octobre à mars.")}
+        >
+          <select
+            className={`${inputCls} h-11 w-full sm:w-64`}
+            value={h.store.season ?? "auto"}
+            disabled={!can("content.edit")}
+            onChange={(e) => {
+              qc.setQueryData<HomeSettings>(["home"], { ...h, store: { ...h.store, season: e.target.value as "auto" } });
+              saveSeason.mutate(e.target.value);
+            }}
+          >
+            <option value="auto">{tr("Automatique (selon le mois)")}</option>
+            <option value="summer">{tr("☀️ Été")}</option>
+            <option value="winter">{tr("❄️ Hiver")}</option>
+          </select>
         </Row>
         <Row title={tr("Bandeau d'annonces")} help={tr("La petite bande rose tout en haut de la boutique (livraison 69 wilayas, paiement à la livraison…).")}>
           <Switch checked={h.announcement.active} onChange={(v) => apply({ announcement: { active: v } })} on={tr("Affiché sur la boutique")} off={tr("Masqué")} />

@@ -606,3 +606,40 @@ Decisions taken while building (easy to revisit):
 Performance: `@henine/shared` is marked `sideEffects: false`, so the storefront no longer ships Zod: **~240 KB → ~151 KB gz JS per page**. Product pages no longer download the whole catalogue (related products come with the product).
 
 Known/open: ESLint 10 crashes with eslint-plugin-react (tooling, not run in CI). Commune-level delivery prices are supported by the API but have no admin editor yet (set `communes.home_price` / `home_supported`). Stop-desk addresses per wilaya still need ZR's list.
+
+## 14. Order operations & catalogue (2026-10-05)
+
+Built on what existed (tracking without login, customer cancel with reason, address self-edit,
+risk score, call/WhatsApp buttons, product profit, daily Telegram summary are reused, not redone).
+
+**Live admin** — `AdminHub` Durable Object (SQLite-backed, free plan, hibernating WebSockets) at
+`/api/admin/live` (orders.view, same-origin). New storefront order → sound once per browser
+(Web Locks), notification card, blinking tab, optional system notification, red counter on
+Commandes (`team_members.orders_seen_at`). Sound / notification prefs per device
+(Paramètres → Alertes & délais). Closed when an account is revoked.
+
+**Alerts & SLA** — `alerts` table + topbar bell (unread / resolve). 5-minute scan in one D1 batch:
+late orders against the SLA (`settings.operations.sla`: confirm 30 min, prepare 2 h, ship 24 h,
+editable), unconfirmed backlog, parcels ready, critical stock. Receipt problems and exchange
+requests alert instantly. "En retard" filter + dashboard line + badge on the order.
+
+**Order sheet** — one action bar (call / WhatsApp / SMS / note, typed contact log as order
+events), last contact, contacts across the customer's orders, previous orders, clear customer
+warning, preferred contact time (checkout), receipt status. Edits before shipping only: items
+(size / colour / qty / add / remove, reservations follow), customer fields; every change in
+`order_changes` (old → new, who, when, why). Manual discount (fixed / %, reason, never negative,
+`orders.discount`). Real profit per order (cost, delivery paid by the shop, packaging, discounts).
+
+**Customer, private link** — "did you receive it?" (yes / problem) and exchange requests
+(`exchange_requests`: pending → approved (piece set aside) → completed (stock swapped) / rejected).
+
+**Daily report** — Statistiques → Rapport du jour (any day) + richer evening Telegram summary.
+
+**Catalogue** — two-level tree (`categories.parent_id`, `season`): Pyjamas (été ☀️ / hiver ❄️, the
+season's first; Paramètres → Boutique → Saison), Robes de chambre & nuisettes, Lingerie (Ensembles,
+Soutiens-gorge & culottes, Gaines, Trousseau de mariée, Lingerie fine), Sportswear & survêtements,
+Gandouras/djebbas/robes. Category pages: sub-category chips, price / promo / in-stock filters.
+Nouveautés = latest arrivals (published or restocked). `/promotions` = everything on sale, biggest
+discount first; admin "🏷️ Mettre en promo" (−X % on selected products, rounded to 50 DA, undo).
+
+Migrations: `0003_operations`, `0004_category_season`.

@@ -10,6 +10,7 @@ import {
   clientErrorInput,
   contactInput,
   createOrderInput,
+  currentSeason,
   EXCHANGE_REASON_LABEL,
   EXCHANGE_REASONS,
   EXCHANGE_WINDOW_DAYS,
@@ -95,6 +96,7 @@ publicRoutes.get("/site", (c) =>
       flash: flash.sales[0] ?? null,
       design: designOut(c.env, s.design),
       boutique: { ...DEFAULT_BOUTIQUE, ...s.boutique },
+      season: currentSeason(s.store.season ?? "auto"),
       experiments,
     };
     return c.json(dto);

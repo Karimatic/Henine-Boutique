@@ -89,6 +89,8 @@ export const categories = sqliteTable("categories", {
   image: text("image"),
   sort: integer("sort").notNull().default(0),
   isActive: bool("is_active").notNull().default(true),
+  /** seasonal sub-category ("summer" / "winter"): shown first in its season (pyjamas) */
+  season: text("season", { enum: ["summer", "winter"] }),
   seoTitle: text("seo_title"),
   seoDescription: text("seo_description"),
   updatedAt: updatedAt(),

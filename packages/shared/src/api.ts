@@ -37,6 +37,10 @@ export function imageSrcSet(img: ImageRef): string {
 
 export interface CategoryDTO {
   id: number;
+  /** sub-category of (null: a main category) */
+  parentId?: number | null;
+  /** seasonal sub-category, shown first in its season */
+  season?: "summer" | "winter" | null;
   slug: string;
   nameFr: string;
   nameAr: string;
@@ -232,6 +236,8 @@ export interface SiteConfigDTO {
   design: DesignDTO;
   /** the shop in Boumerdès: address, map, opening hours */
   boutique: BoutiqueDTO;
+  /** whose pyjamas come first right now (Paramètres → Boutique → Saison) */
+  season: "summer" | "winter";
   /** A/B tests running now (each visitor sees version a or b) */
   experiments: ExperimentDTO[];
 }

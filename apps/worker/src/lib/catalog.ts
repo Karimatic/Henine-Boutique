@@ -70,7 +70,9 @@ export function imageRef(env: Env, r: ImageRow): ImageRef {
 
 const PRODUCT_COLS = `p.id, p.slug, p.name_fr, p.name_ar, p.description_fr, p.description_ar, p.status, p.category_id,
   c.slug AS category_slug, p.tags, p.price, p.compare_at_price, p.seo_title, p.seo_description,
-  COALESCE(p.published_at, p.created_at) AS created_at, p.related_ids, p.size_guide_id, p.video_key`;
+  -- "arrived": published, or new stock received since (Nouveautés = the latest goods in)
+  MAX(COALESCE(p.published_at, p.created_at), COALESCE((SELECT MAX(m.created_at) FROM stock_movements m JOIN variants mv ON mv.id = m.variant_id
+    WHERE mv.product_id = p.id AND m.reason = 'reception'), 0)) AS created_at, p.related_ids, p.size_guide_id, p.video_key`;
 
 const CANCELLED = "('annulee','doublon','fausse')";
 
@@ -466,11 +468,14 @@ export async function featuredDrop(env: Env): Promise<DropTeaserDTO | null> {
 
 export async function listCategories(env: Env): Promise<CategoryDTO[]> {
   const { results } = await env.DB.prepare(
-    `SELECT c.id, c.slug, c.name_fr, c.name_ar, c.image,
-            (SELECT COUNT(*) FROM products p WHERE p.category_id = c.id AND p.status = 'published') AS product_count
+    `SELECT c.id, c.parent_id, c.slug, c.name_fr, c.name_ar, c.image, c.season,
+            (SELECT COUNT(*) FROM products p WHERE p.status = 'published'
+                AND (p.category_id = c.id OR p.category_id IN (SELECT s.id FROM categories s WHERE s.parent_id = c.id AND s.is_active = 1))) AS product_count
        FROM categories c WHERE c.is_active = 1 ORDER BY c.sort, c.id`,
-  ).all<{ id: number; slug: string; name_fr: string; name_ar: string; image: string | null; product_count: number }>();
-  return results.map((c) => ({ id: c.id, slug: c.slug, nameFr: c.name_fr, nameAr: c.name_ar, image: c.image, productCount: c.product_count }));
+  ).all<{ id: number; parent_id: number | null; slug: string; name_fr: string; name_ar: string; image: string | null; season: "summer" | "winter" | null; product_count: number }>();
+  return results.map((c) => ({
+    id: c.id, parentId: c.parent_id, slug: c.slug, nameFr: c.name_fr, nameAr: c.name_ar, image: c.image, season: c.season, productCount: c.product_count,
+  }));
 }
 
 /** "Rose poudré / M" for a variant, in both languages. */

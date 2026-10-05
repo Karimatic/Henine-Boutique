@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SLA, isEditable, manualDiscountAmount, orderProfit, slaLateMinutes, slaStage } from "./operations";
+import { DEFAULT_SLA, isEditable, manualDiscountAmount, orderProfit, salePrice, slaLateMinutes, slaStage } from "./operations";
+import { artKey, categorySlugs, currentSeason, subCategories } from "./catalog-tree";
 
 describe("manualDiscountAmount", () => {
   it("takes a fixed amount or a percentage of the items", () => {
@@ -53,5 +54,41 @@ describe("order SLA", () => {
   it("orders can be edited only before shipping", () => {
     expect(isEditable("confirmee")).toBe(true);
     expect(isEditable("expediee")).toBe(false);
+  });
+});
+
+describe("salePrice", () => {
+  it("takes the percentage off and rounds to 50 DA", () => {
+    expect(salePrice(4900, 30)).toBe(3450);
+    expect(salePrice(2500, 20)).toBe(2000);
+  });
+  it("always stays below the usual price, never free", () => {
+    expect(salePrice(100, 1)).toBe(50);
+    expect(salePrice(3000, 99)).toBe(300);
+  });
+});
+
+describe("catalog tree", () => {
+  const cats = [
+    { id: 1, parentId: null, slug: "pyjamas", nameFr: "Pyjamas", nameAr: "", image: null },
+    { id: 2, parentId: 1, slug: "pyjamas-ete", nameFr: "Été", nameAr: "", image: null, season: "summer" as const },
+    { id: 3, parentId: 1, slug: "pyjamas-hiver", nameFr: "Hiver", nameAr: "", image: null, season: "winter" as const },
+  ];
+  it("knows the season (April–September = summer) unless forced", () => {
+    expect(currentSeason("auto", Date.parse("2026-07-10T10:00:00Z"))).toBe("summer");
+    expect(currentSeason("auto", Date.parse("2026-12-10T10:00:00Z"))).toBe("winter");
+    expect(currentSeason("winter", Date.parse("2026-07-10T10:00:00Z"))).toBe("winter");
+  });
+  it("puts the current season's sub-category first", () => {
+    expect(subCategories(cats, 1, "winter").map((c) => c.slug)).toEqual(["pyjamas-hiver", "pyjamas-ete"]);
+  });
+  it("a main category includes its sub-categories", () => {
+    expect([...categorySlugs(cats, "pyjamas")]).toEqual(["pyjamas", "pyjamas-ete", "pyjamas-hiver"]);
+    expect([...categorySlugs(cats, "pyjamas-ete")]).toEqual(["pyjamas-ete"]);
+  });
+  it("draws a fitting silhouette per category", () => {
+    expect(artKey("survetements")).toBe("sport");
+    expect(artKey("soutiens-gorge-culottes")).toBe("set");
+    expect(artKey("gandouras-djebbas-robes")).toBe("djebba");
   });
 });

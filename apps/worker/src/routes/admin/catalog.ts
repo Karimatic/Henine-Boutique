@@ -3,7 +3,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { slugify } from "@henine/shared";
+import { salePrice, slugify } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { imageRef, mediaUrl, variantLabels, type ImageRow } from "../../lib/catalog";
@@ -547,8 +547,6 @@ catalogRoutes.delete("/images/:id", requirePermission("products.edit"), async (c
   return c.json({ ok: true });
 });
 
-/* ───────────── Categories ───────────── */
-
 /* ───────────── Size guides ───────────── */
 
 interface SizeGuideRow {
@@ -615,6 +613,43 @@ catalogRoutes.delete("/size-guides/:id", requirePermission("products.edit"), asy
   return c.json({ ok: true });
 });
 
+/* ───────────── Clearance sale: several products at once ───────────── */
+
+/**
+ * "Mettre en promo −X %": the usual price becomes the crossed-out price and the sale price
+ * applies (rounded to 50 DA). "Retirer la promo" puts the usual price back.
+ */
+catalogRoutes.post("/products/sale", requirePermission("products.edit"), async (c) => {
+  const input = await body(
+    c,
+    z.union([
+      z.object({ ids: z.array(z.number().int().positive()).min(1).max(200), percent: z.number().int().min(1).max(90) }),
+      z.object({ ids: z.array(z.number().int().positive()).min(1).max(200), restore: z.literal(true) }),
+    ]),
+  );
+  const ph = input.ids.map(() => "?").join(",");
+  const { results } = await c.env.DB.prepare(`SELECT id, price, compare_at_price FROM products WHERE id IN (${ph})`)
+    .bind(...input.ids)
+    .all<{ id: number; price: number; compare_at_price: number | null }>();
+  const now = Date.now();
+  const stmts: D1PreparedStatement[] = [];
+  for (const p of results) {
+    if ("percent" in input) {
+      const usual = p.compare_at_price && p.compare_at_price > p.price ? p.compare_at_price : p.price;
+      stmts.push(c.env.DB.prepare("UPDATE products SET compare_at_price = ?, price = ?, updated_at = ? WHERE id = ?").bind(usual, salePrice(usual, input.percent), now, p.id));
+    } else if (p.compare_at_price && p.compare_at_price > p.price) {
+      stmts.push(c.env.DB.prepare("UPDATE products SET price = compare_at_price, compare_at_price = NULL, updated_at = ? WHERE id = ?").bind(now, p.id));
+    }
+  }
+  if (!stmts.length) return c.json({ ok: true, changed: 0 });
+  await c.env.DB.batch([
+    ...stmts,
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), "percent" in input ? "sale" : "sale_end", "product", input.ids.join(","), "percent" in input ? { percent: input.percent } : undefined),
+  ]);
+  return c.json({ ok: true, changed: stmts.length });
+});
+
 /* ───────────── Categories ───────────── */
 
 catalogRoutes.get("/categories", requirePermission("products.view"), async (c) => {
@@ -633,16 +668,36 @@ const categoryInput = z.object({
   descriptionAr: optText(500),
   sort: z.number().int().min(0).max(1000).default(0),
   isActive: z.boolean().default(true),
+  /** sub-category of a main category (two levels only) */
+  parentId: z.number().int().positive().nullable().default(null),
+  season: z.enum(["summer", "winter"]).nullable().default(null),
 });
+
+/** A parent must be a main category (not itself, not a sub-category); a category with sub-categories stays main. */
+async function checkParent(env: AppEnv["Bindings"], id: number | null, parentId: number | null) {
+  if (parentId == null) return;
+  if (parentId === id) throw new HttpError(422, "validation_failed", { parentId: "self" });
+  const p = await env.DB.prepare("SELECT parent_id FROM categories WHERE id = ?").bind(parentId).first<{ parent_id: number | null }>();
+  if (!p) throw new HttpError(422, "validation_failed", { parentId: "unknown" });
+  if (p.parent_id != null) throw new HttpError(422, "validation_failed", { parentId: "two_levels" });
+  if (id != null) {
+    const kids = await env.DB.prepare("SELECT COUNT(*) AS n FROM categories WHERE parent_id = ?").bind(id).first<{ n: number }>();
+    if (kids?.n) throw new HttpError(422, "validation_failed", { parentId: "has_subcategories" });
+  }
+}
 
 catalogRoutes.post("/categories", requirePermission("content.edit"), async (c) => {
   const input = await body(c, categoryInput);
   const slug = slugify(input.slug || input.nameFr);
+  await checkParent(c.env, null, input.parentId);
   try {
     const row = await c.env.DB.prepare(
-      "INSERT INTO categories (slug, name_fr, name_ar, description_fr, description_ar, sort, is_active, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+      "INSERT INTO categories (slug, name_fr, name_ar, description_fr, description_ar, sort, is_active, parent_id, season, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
     )
-      .bind(slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.sort, input.isActive ? 1 : 0, Date.now())
+      .bind(
+        slug, input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.sort, input.isActive ? 1 : 0,
+        input.parentId, input.season, Date.now(),
+      )
       .first<{ id: number }>();
     await c.env.DB.batch([bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "create", "category", row!.id, { slug })]);
     return c.json({ id: row!.id }, 201);
@@ -655,11 +710,15 @@ catalogRoutes.post("/categories", requirePermission("content.edit"), async (c) =
 catalogRoutes.put("/categories/:id", requirePermission("content.edit"), async (c) => {
   const id = intParam(c, "id");
   const input = await body(c, categoryInput);
+  await checkParent(c.env, id, input.parentId);
   try {
     await c.env.DB.batch([
       c.env.DB.prepare(
-        "UPDATE categories SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, sort = ?, is_active = ?, updated_at = ? WHERE id = ?",
-      ).bind(slugify(input.slug || input.nameFr), input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.sort, input.isActive ? 1 : 0, Date.now(), id),
+        "UPDATE categories SET slug = ?, name_fr = ?, name_ar = ?, description_fr = ?, description_ar = ?, sort = ?, is_active = ?, parent_id = ?, season = ?, updated_at = ? WHERE id = ?",
+      ).bind(
+        slugify(input.slug || input.nameFr), input.nameFr, input.nameAr || input.nameFr, input.descriptionFr ?? null, input.descriptionAr ?? null, input.sort,
+        input.isActive ? 1 : 0, input.parentId, input.season, Date.now(), id,
+      ),
       bumpCatalogStmt(c.env),
       auditStmt(c.env, actorOf(c.get("member")), "update", "category", id),
     ]);
@@ -674,6 +733,8 @@ catalogRoutes.delete("/categories/:id", requirePermission("content.edit"), async
   const id = intParam(c, "id");
   const used = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM products WHERE category_id = ?").bind(id).first<{ n: number }>();
   if (used?.n) throw new HttpError(409, "category_not_empty", { products: used.n });
+  const kids = await c.env.DB.prepare("SELECT COUNT(*) AS n FROM categories WHERE parent_id = ?").bind(id).first<{ n: number }>();
+  if (kids?.n) throw new HttpError(409, "category_not_empty", { subcategories: kids.n });
   await c.env.DB.batch([
     c.env.DB.prepare("DELETE FROM categories WHERE id = ?").bind(id),
     bumpCatalogStmt(c.env),

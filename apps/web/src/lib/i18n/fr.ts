@@ -3,9 +3,9 @@ import { STORE_TEXTS } from "@henine/shared";
 /** French texts (the store under /fr). Only French pages download this file. */
 export const fr = {
   meta: {
-    title: "Henine Boutique · Robes, djebbas & pyjamas",
+    title: "Henine Boutique · Pyjamas, lingerie & djebbas",
     description:
-      "L’élégance & la qualité au meilleur prix. Robes, djebbas et pyjamas pour femmes. Livraison 69 wilayas, paiement à la livraison. Boutique à Boumerdès, ouverte 7j/7.",
+      "L’élégance & la qualité au meilleur prix. Pyjamas, lingerie, nuisettes, survêtements et djebbas pour femmes. Livraison 69 wilayas, paiement à la livraison. Boutique à Boumerdès, ouverte 7j/7.",
   },
   brand: { tagline: "L’élégance & la qualité au meilleur prix" },
   announcement: STORE_TEXTS.fr.announcement,
@@ -32,7 +32,19 @@ export const fr = {
   quickAdd: { open: "Ajout rapide", add: "Ajouter au panier", added: "Ajouté ✓", viewCart: "Voir le panier", details: "Voir la fiche" },
   activity: { ordered: (city: string) => `Une cliente de ${city} vient de commander`, ago: (m: number) => (m < 60 ? `il y a ${m} min` : `il y a ${Math.round(m / 60)} h`) },
   freeShip: { left: (amount: string) => `Plus que ${amount} pour la livraison offerte`, done: "Bravo, la livraison est offerte 🎉" },
-  categories: { title: "Nos univers", all: "Toutes les catégories", products: "articles", empty: "Aucun article dans cette catégorie pour le moment." },
+  categories: {
+    title: "Nos univers", all: "Toutes les catégories", products: "articles", empty: "Aucun article dans cette catégorie pour le moment.",
+    everything: "Tout", summer: "☀️ Été", winter: "❄️ Hiver", inSeason: "de saison",
+    filters: { price: "Prix", any: "Tous les prix", under: (n: string) => `Moins de ${n}`, between: (a: string, b: string) => `${a} – ${b}`, over: (n: string) => `Plus de ${n}`, onSale: "En promo", reset: "Effacer les filtres" },
+    count: (n: number) => `${n} article${n > 1 ? "s" : ""}`,
+  },
+  promos: {
+    title: "Promotions",
+    text: "Nos prix cassés : des pièces à petit prix, tant qu'il en reste. Les tailles partent vite !",
+    empty: "Pas de promotion en ce moment : revenez bientôt, ou découvrez les nouveautés.",
+    off: (n: number) => `−${n} %`,
+    save: (s: string) => `Vous économisez ${s}`,
+  },
   trust: [
     { icon: "truck", title: "Livraison 69 wilayas", text: "À domicile ou en bureau" },
     { icon: "cash", title: "Paiement à la livraison", text: "Vous payez à la réception" },
@@ -196,7 +208,7 @@ export const fr = {
     back: "Retour à la boutique",
   },
   favorites: { title: "Mes favoris", empty: "Aucun favori pour l'instant. Touchez ♡ sur un article pour l'ajouter." },
-  search: { title: "Recherche", placeholder: "Robe, djebba, pyjama…", results: (n: number) => `${n} résultat(s)`, none: "Aucun résultat." },
+  search: { title: "Recherche", placeholder: "Pyjama, nuisette, djebba…", results: (n: number) => `${n} résultat(s)`, none: "Aucun résultat." },
   contact: {
     title: "Contact",
     text: "Une question sur une taille, une commande ? Écrivez-nous, nous répondons vite.",
@@ -434,7 +446,7 @@ export const fr = {
       ios: "Touchez Partager ⬆️ puis « Sur l'écran d'accueil ».",
     },
     footerFollow: "Suivez-nous",
-    topNav: { shop: "La boutique", new: "Nouveautés", orders: "Mes commandes", store: "Nous trouver" },
+    topNav: { shop: "La boutique", new: "Nouveautés", promos: "Promotions", orders: "Mes commandes", store: "Nous trouver" },
     mode: { label: "Apparence", light: "Clair", dark: "Sombre", auto: "Auto" },
     size: {
       open: "📏 Quelle taille choisir ?",

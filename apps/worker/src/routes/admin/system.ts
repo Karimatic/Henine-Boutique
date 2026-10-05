@@ -826,7 +826,7 @@ systemRoutes.delete("/content/pages/:id", requirePermission("content.edit"), asy
 systemRoutes.put("/content/store", requirePermission("content.edit"), async (c) => {
   const input = await body(
     c,
-    z.object({ name: cleanText(60).pipe(z.string().min(2)) }),
+    z.object({ name: cleanText(60).pipe(z.string().min(2)).optional(), season: z.enum(["auto", "summer", "winter"]).optional() }),
   );
   const store = await getSetting(c.env, "store");
   await c.env.DB.batch([setSettingStmt(c.env, "store", { ...store, ...input }), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "store")]);
