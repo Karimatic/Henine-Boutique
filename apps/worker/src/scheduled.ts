@@ -1,7 +1,9 @@
 import { formatDA } from "@henine/shared";
 import type { Env } from "./env";
 import { recordError } from "./lib/audit";
-import { algiersDate, algiersDayStart, periodStats } from "./lib/orders";
+import { scanAlerts } from "./lib/alerts";
+import { algiersDate, algiersDayStart } from "./lib/orders";
+import { dailyReport as buildDailyReport } from "./lib/reports";
 import { processOutbox, sendTelegramText } from "./lib/telegram";
 import { sendCampaignBatch, sendRestockPushes } from "./lib/webpush";
 import { refreshInstagramToken, syncInstagramFollowers } from "./routes/admin/instagram";
@@ -20,6 +22,8 @@ export async function scheduled(controller: ScheduledController, env: Env, ctx: 
       run("restock_push", sendRestockPushes(env, undefined, 25)); // 10 + 25 + 10 ≤ 50 sub-requests
       // store news to subscribers, next batch
       run("campaign_push", sendCampaignBatch(env, 10));
+      // late orders (SLA), parcels ready, critical stock → Admin alerts (one D1 batch)
+      run("alerts", scanAlerts(env));
       break;
     case "*/30 * * * *":
       run("callbacks", callbackReminder(env));
@@ -45,18 +49,19 @@ async function callbackReminder(env: Env) {
 }
 
 async function dailyReport(env: Env) {
-  const s = await periodStats(env, algiersDayStart());
-  const pending = await env.DB.prepare("SELECT COUNT(*) AS n FROM orders WHERE status IN ('nouvelle','injoignable')").first<{ n: number }>();
+  const r = await buildDailyReport(env, algiersDayStart());
+  const diff = r.previous.orders ? Math.round(((r.orders - r.previous.orders) / r.previous.orders) * 100) : null;
   await sendTelegramText(
     env,
     [
       `📊 <b>Bilan du ${algiersDate()}</b>`,
-      `🛍 Commandes : ${s.orders} <i>(hors annulées)</i>`,
-      `💰 Chiffre d'affaires : ${formatDA(s.revenue)}`,
-      `✅ Confirmées : ${s.confirmed}${s.confirmRate != null ? ` · taux ${s.confirmRate} %` : ""}`,
-      `🎉 Livrées : ${s.delivered} · ↩️ Retours : ${s.returned}`,
-      `❌ Annulées : ${s.cancelled}`,
-      `⏳ Encore à confirmer (toutes dates) : ${pending?.n ?? 0}`,
+      `🛍 Commandes : ${r.orders}${diff != null ? ` (${diff >= 0 ? "+" : ""}${diff} % vs hier)` : ""} · 💰 ${formatDA(r.revenue)}`,
+      ...(r.profit != null ? [`💸 Bénéfice estimé : ${formatDA(r.profit)}${r.profitMissingCost ? " <i>(coûts incomplets)</i>" : ""}`] : []),
+      `✅ Confirmées : ${r.confirmed}${r.confirmRate != null ? ` · taux ${r.confirmRate} %` : ""} · ❌ Annulées : ${r.cancelled}`,
+      `🚚 Expédiées : ${r.shipped} · 🎉 Livrées : ${r.delivered} · ↩️ Retours : ${r.returned}`,
+      ...(r.topProduct ? [`🏆 Produit du jour : ${r.topProduct.name} (${r.topProduct.units})`] : []),
+      ...(r.topWilaya ? [`📍 Wilaya du jour : ${r.topWilaya.name} (${r.topWilaya.orders})`] : []),
+      `⏳ À confirmer : ${r.pending}${r.late ? ` · 🔴 en retard : ${r.late}` : ""}`,
     ].join("\n"),
   );
 }

@@ -14,6 +14,8 @@ import { authRoutes } from "./routes/auth";
 import { publicRoutes } from "./routes/public";
 import { scheduled } from "./scheduled";
 
+export { AdminHub } from "./hub";
+
 const app = new Hono<AppEnv>();
 app.use("*", httpsOnly);
 

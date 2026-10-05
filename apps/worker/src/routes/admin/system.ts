@@ -16,6 +16,7 @@ import { algiersDayStart, CANCELLED_SQL, periodStats } from "../../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings, patchSetting, setSettingStmt } from "../../lib/settings";
 import { pollUpdates, processOutbox, sendTelegramText, telegramConfig, tgCall } from "../../lib/telegram";
 import { actorOf, requireOwner, requirePermission } from "../../middleware/access";
+import { liveDisconnect } from "../../lib/live";
 import { createInvite } from "../auth";
 import { ABANDONED_AFTER, attentionSql } from "./orders";
 
@@ -83,7 +84,8 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
          FROM orders WHERE created_at >= ? AND status NOT IN ${CANCELLED_SQL} GROUP BY date ORDER BY date`,
     ).bind(dayStart - 13 * day),
   ]);
-  const attn = attentionSql(now);
+  const { operations } = await getSettings(c.env, ["operations"]);
+  const attn = attentionSql(now, operations.sla);
   const attnCols = Object.entries(attn).map(([k, cond]) => `SUM(CASE WHEN ${cond} THEN 1 ELSE 0 END) AS ${k}`).join(", ");
   const [pipeline, attention, carts, lowStock, stockCounts, restocked, recent, reviews, messages, outbox] = await c.env.DB.batch([
     c.env.DB.prepare(`SELECT status, COUNT(*) AS n FROM orders WHERE status IN (${ACTIVE}) GROUP BY status`),
@@ -505,6 +507,7 @@ systemRoutes.patch("/team/:id", requirePermission("team.manage"), async (c) => {
     if (String((err as Error).message).includes("telegram_user_id")) throw new HttpError(409, "telegram_id_taken");
     throw err;
   }
+  if (input.isActive === false) c.executionCtx.waitUntil(liveDisconnect(c.env, id));
   return c.json({ ok: true });
 });
 
@@ -555,6 +558,7 @@ systemRoutes.put("/team/:id/password", requireOwner, async (c) => {
     c.env.DB.prepare("DELETE FROM admin_sessions WHERE member_id = ?").bind(id),
     auditStmt(c.env, actorOf(c.get("member")), "password_set_by_owner", "team_member", id),
   ]);
+  c.executionCtx.waitUntil(liveDisconnect(c.env, id));
   return c.json({ ok: true });
 });
 
@@ -582,6 +586,7 @@ systemRoutes.delete("/team/:id", requireOwner, async (c) => {
     c.env.DB.prepare("DELETE FROM roles WHERE key = ?").bind(`custom-${id}`),
     auditStmt(c.env, actorOf(me), "delete", "team_member", id, { email: target.email, name: target.name }),
   ]);
+  c.executionCtx.waitUntil(liveDisconnect(c.env, id));
   return c.json({ ok: true });
 });
 
@@ -589,6 +594,7 @@ systemRoutes.delete("/team/:id/sessions", requirePermission("team.manage"), asyn
   const id = intParam(c, "id");
   if (id !== c.get("member").id) await assertCanManage(c, id);
   await c.env.DB.batch([c.env.DB.prepare("DELETE FROM admin_sessions WHERE member_id = ?").bind(id), auditStmt(c.env, actorOf(c.get("member")), "revoke_sessions", "team_member", id)]);
+  c.executionCtx.waitUntil(liveDisconnect(c.env, id));
   return c.json({ ok: true });
 });
 

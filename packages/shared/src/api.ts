@@ -355,6 +355,9 @@ export interface TrackedItemDTO {
   image: ImageRef | null;
   /** with a valid token on a delivered order: a verified review can be left (once) */
   canReview: boolean;
+  /** private link only: the line and its variant (to ask for an exchange) */
+  orderItemId: number | null;
+  variantId: number | null;
 }
 
 export interface TrackedOrderDTO {
@@ -378,6 +381,12 @@ export interface TrackedOrderDTO {
   details: { name: string; phoneMasked: string; address: string | null } | null;
   /** private link only: not confirmed yet, so the customer can still fix her address or cancel */
   canChange: boolean;
+  /** private link only, once delivered: did she get it? (null = not answered yet) */
+  receipt: { confirmedAt: number | null; issue: string | null } | null;
+  /** private link only: an exchange can still be asked (delivered recently) */
+  canExchange: boolean;
+  /** private link only: her exchange requests and where they stand */
+  exchanges: { id: number; orderItemId: number; fromFr: string | null; fromAr: string | null; toFr: string; toAr: string; status: string; createdAt: number }[];
 }
 
 /** Reasons a customer can give when she cancels from her tracking link. */

@@ -22,6 +22,13 @@
       "when": 1791043697170,
       "tag": "0002_insights",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1791141056758,
+      "tag": "0003_operations",
+      "breakpoints": true
     }
   ]
 }

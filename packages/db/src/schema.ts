@@ -274,6 +274,8 @@ export const customers = sqliteTable("customers", {
   referredBy: integer("referred_by"),
   firstOrderAt: integer("first_order_at"),
   lastOrderAt: integer("last_order_at"),
+  /** when she prefers to be called (CONTACT_TIMES), from her last order */
+  contactTime: text("contact_time"),
   createdAt: createdAt(),
 });
 
@@ -319,6 +321,14 @@ export const orders = sqliteTable(
     nextCallbackAt: integer("next_callback_at"),
     customerNote: text("customer_note"),
     internalNote: text("internal_note"),
+    /** best time to call her (CONTACT_TIMES), chosen at checkout */
+    contactTime: text("contact_time"),
+    /** discount given by the team (already inside discount_total), and why */
+    manualDiscount: integer("manual_discount").notNull().default(0),
+    manualDiscountReason: text("manual_discount_reason"),
+    /** after delivery: the customer confirmed receipt, or reported a problem */
+    receivedAt: integer("received_at"),
+    receiptIssue: text("receipt_issue"),
     riskScore: integer("risk_score").notNull().default(0),
     /** order-level risk signals captured at creation (see RISK_FLAGS in @henine/shared) */
     riskFlags: text("risk_flags", { mode: "json" }).$type<string[]>(),
@@ -383,13 +393,77 @@ export const orderEvents = sqliteTable(
     orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
     fromStatus: text("from_status"),
     toStatus: text("to_status"),
-    kind: text("kind", { enum: ["status", "note", "call", "edit", "carrier", "whatsapp"] }).notNull().default("status"),
+    kind: text("kind", { enum: ["status", "note", "call", "edit", "carrier", "whatsapp", "sms", "other", "receipt", "exchange"] })
+      .notNull()
+      .default("status"),
     actor: text("actor").notNull(),
     source: text("source", { enum: ["admin", "telegram", "carrier", "system", "customer"] }).notNull(),
     note: text("note"),
     createdAt: createdAt(),
   },
   (t) => [index("order_events_order_idx").on(t.orderId, t.createdAt)],
+);
+
+/** Every change the team makes to an order: what, from → to, who, when and why. */
+export const orderChanges = sqliteTable(
+  "order_changes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    /** "item", "qty", "variant", "address", "phone", "delivery_type", "discount", "note"… */
+    field: text("field").notNull(),
+    oldValue: text("old_value"),
+    newValue: text("new_value"),
+    reason: text("reason"),
+    actor: text("actor").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("order_changes_order_idx").on(t.orderId, t.createdAt)],
+);
+
+/** A customer asks to swap an item for another size / colour (from her private tracking link). */
+export const exchangeRequests = sqliteTable(
+  "exchange_requests",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    orderItemId: integer("order_item_id").notNull().references(() => orderItems.id, { onDelete: "cascade" }),
+    fromVariantId: integer("from_variant_id"),
+    toVariantId: integer("to_variant_id").notNull().references(() => variants.id),
+    /** EXCHANGE_REASONS */
+    reason: text("reason").notNull(),
+    note: text("note"),
+    status: text("status", { enum: ["pending", "approved", "rejected", "completed"] }).notNull().default("pending"),
+    decidedBy: text("decided_by"),
+    decisionNote: text("decision_note"),
+    createdAt: createdAt(),
+    decidedAt: integer("decided_at"),
+    completedAt: integer("completed_at"),
+  },
+  (t) => [index("exchange_requests_status_idx").on(t.status, t.createdAt), index("exchange_requests_order_idx").on(t.orderId)],
+);
+
+/**
+ * Operational alerts for the team (orders waiting too long, late orders, low stock, customer
+ * problems). `dedupe_key` makes each situation one alert, however often the cron sees it.
+ */
+export const alerts = sqliteTable(
+  "alerts",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** "unconfirmed", "ready_to_ship", "late_order", "low_stock", "receipt_issue", "exchange" */
+    kind: text("kind").notNull(),
+    priority: text("priority", { enum: ["high", "medium", "low"] }).notNull(),
+    entity: text("entity"),
+    entityId: text("entity_id"),
+    message: text("message").notNull(),
+    dedupeKey: text("dedupe_key").notNull().unique(),
+    createdAt: createdAt(),
+    readAt: integer("read_at"),
+    resolvedAt: integer("resolved_at"),
+    resolvedBy: text("resolved_by"),
+  },
+  (t) => [index("alerts_open_idx").on(t.resolvedAt, t.priority, t.createdAt)],
 );
 
 export const carts = sqliteTable(
@@ -620,6 +694,8 @@ export const teamMembers = sqliteTable("team_members", {
   failedLogins: integer("failed_logins").notNull().default(0),
   lockedUntil: integer("locked_until"),
   lastSeenAt: integer("last_seen_at"),
+  /** the newest order this member has seen (the red "new orders" counter starts after it) */
+  ordersSeenAt: integer("orders_seen_at"),
   createdAt: createdAt(),
 });
 

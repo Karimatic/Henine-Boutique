@@ -30,6 +30,11 @@
   ],
   "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "henine-media" }],
 
+  // Live admin (new orders, alerts) over WebSockets. SQLite-backed Durable Objects are on the
+  // free plan; hibernation keeps idle admin tabs at zero cost.
+  "durable_objects": { "bindings": [{ "name": "HUB", "class_name": "AdminHub" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AdminHub"] }],
+
   "ratelimits": [
     { "name": "RL_WRITE", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
     { "name": "RL_LOOKUP", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },

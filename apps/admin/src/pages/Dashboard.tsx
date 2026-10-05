@@ -56,7 +56,7 @@ interface DashboardData {
   kpis: { ordersToday: number; revenueToday: number; cancelledToday: number };
   pipeline: Record<string, number>;
   attention: {
-    to_confirm: number; callbacks: number; high_risk: number; stale_confirmed: number; stale_preparing: number; stale_shipped: number; returns: number;
+    late: number; to_confirm: number; callbacks: number; high_risk: number; stale_confirmed: number; stale_preparing: number; stale_shipped: number; returns: number;
     abandoned: number; abandonedValue: number; restocked: number; outOfStock: number; lowStock: number; pendingReviews: number; newMessages: number; telegramBacklog: number;
   };
   lowStock: StockLine[];
@@ -93,6 +93,7 @@ type Todo = { key: string; icon: string; label: string; hint?: string; count: nu
 /** Every line is a shortcut to the exact list that needs work, most urgent first. */
 function todos(a: DashboardData["attention"]): Todo[] {
   return [
+    { key: "late", icon: "⏰", label: tr("En retard sur les délais"), hint: tr("confirmation, préparation ou expédition hors délai (Paramètres → Délais)"), count: a.late ?? 0, to: "/commandes", search: { attention: "late" }, urgent: true, perm: "orders.view" },
     { key: "callbacks", icon: "📞", label: tr("À rappeler maintenant"), hint: tr("injoignables dont l'heure de rappel est passée"), count: a.callbacks, to: "/commandes", search: { attention: "callbacks" }, urgent: true, perm: "orders.view" },
     { key: "to_confirm", icon: "🆕", label: tr("Commandes à confirmer"), hint: tr("nouvelles + injoignables"), count: a.to_confirm, to: "/commandes", search: { attention: "to_confirm" }, urgent: true, perm: "orders.view" },
     { key: "high_risk", icon: "🔴", label: tr("Risque élevé à vérifier"), hint: tr("historique de retours / annulations : appelez avant de confirmer"), count: a.high_risk, to: "/commandes", search: { attention: "high_risk" }, urgent: true, perm: "orders.view" },

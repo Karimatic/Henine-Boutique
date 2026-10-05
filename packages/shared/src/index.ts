@@ -15,3 +15,4 @@ export * from "./design";
 export * from "./size-advice";
 export * from "./boutique";
 export * from "./abtest";
+export * from "./operations";

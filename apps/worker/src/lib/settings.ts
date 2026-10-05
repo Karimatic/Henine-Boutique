@@ -2,7 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides } from "@henine/shared";
+import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SlaSettings } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -20,6 +20,8 @@ export interface Settings {
     free_shipping_over: number | null; desk_enabled: boolean;
   };
   loyalty: { enabled: boolean; points_per_100da: number; redeem_value_da: number; min_redeem: number; expiry_days: number };
+  /** order handling: how long each step may take (SLA), packaging cost per parcel (real profit) */
+  operations: { sla: SlaSettings; packaging_cost: number };
   maintenance: { active: boolean; message_fr: string; message_ar: string };
   notifications: {
     telegram_new_order: boolean; telegram_status_change: boolean; telegram_low_stock: boolean;
@@ -76,6 +78,7 @@ export const DEFAULTS: Settings = {
     free_shipping_over: null, desk_enabled: true,
   },
   loyalty: { enabled: false, points_per_100da: 1, redeem_value_da: 5, min_redeem: 100, expiry_days: 365 }, // 1 pt / 100 DA, 1 pt = 5 DA → 5 % back
+  operations: { sla: DEFAULT_SLA, packaging_cost: 0 },
   maintenance: { active: false, message_fr: "", message_ar: "" },
   notifications: {
     telegram_new_order: true, telegram_status_change: true, telegram_low_stock: true,

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { formatDA, normalizeDzPhone, type CommuneDTO, type CreatedOrderDTO, type QuoteDTO, type SiteConfigDTO, type WilayaDTO } from "@henine/shared";
+import { CONTACT_TIME_LABEL, CONTACT_TIMES, formatDA, normalizeDzPhone, type CommuneDTO, type ContactTime, type CreatedOrderDTO, type QuoteDTO, type SiteConfigDTO, type WilayaDTO } from "@henine/shared";
 import { inputCls, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
@@ -49,6 +49,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [deliveryType, setDeliveryType] = useState<"domicile" | "bureau">(memory?.deliveryType ?? "domicile");
   const [address, setAddress] = useState(memory?.address ?? "");
   const [note, setNote] = useState("");
+  const [contactTime, setContactTime] = useState<ContactTime | null>(null);
   // a code brought by a link (cart reminder, campaign) is already filled in
   const linkedCoupon = useMemo(() => takePendingCoupon(), []);
   const [couponInput, setCouponInput] = useState(linkedCoupon ?? "");
@@ -158,6 +159,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         deliveryType,
         address: deliveryType === "domicile" ? address.trim() : undefined,
         note: note.trim() || undefined,
+        contactTime: contactTime ?? undefined,
         coupon: coupon || undefined,
         usePoints: !!quote?.points?.applied,
         lines,
@@ -327,6 +329,24 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
             {err("address")}
           </div>
         )}
+
+        <fieldset>
+          <legend className="mb-1.5 block text-sm font-medium">{t.checkoutPlus.contactTime}</legend>
+          <div className="flex flex-wrap gap-2">
+            {CONTACT_TIMES.map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={contactTime === k}
+                onClick={() => setContactTime((v) => (v === k ? null : k))}
+                className={`min-h-11 rounded-full border px-4 text-sm transition ${contactTime === k ? "border-plum-600 bg-plum-600 font-semibold text-white" : "border-line bg-surface hover:border-plum-600/40"}`}
+              >
+                {CONTACT_TIME_LABEL[k].emoji} {ar ? CONTACT_TIME_LABEL[k].ar : CONTACT_TIME_LABEL[k].fr}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-ink-soft">{t.checkoutPlus.contactTimeHint}</p>
+        </fieldset>
 
         {!compact && (
           <div>

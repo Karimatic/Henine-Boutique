@@ -10,6 +10,11 @@ import {
   clientErrorInput,
   contactInput,
   createOrderInput,
+  EXCHANGE_REASON_LABEL,
+  EXCHANGE_REASONS,
+  EXCHANGE_WINDOW_DAYS,
+  RECEIPT_ISSUE_LABEL,
+  RECEIPT_ISSUES,
   formatFollowers,
   maskDzPhone,
   pushSubscribeInput,
@@ -38,6 +43,8 @@ import { designOut, putImage } from "../lib/media";
 import { applyStatusChange, createOrder, quote } from "../lib/orders";
 import { bumpCatalogStmt, getSetting, getSettings } from "../lib/settings";
 import { notifyNewOrder, sendTelegramText, syncOrderMessage } from "../lib/telegram";
+import { exchangeAlert, receiptIssueAlert } from "../lib/alerts";
+import { liveEvent } from "../lib/live";
 import { isPushEndpoint, sendRestockPushes, vapidKeys } from "../lib/webpush";
 import { z } from "zod";
 
@@ -213,6 +220,14 @@ publicRoutes.post("/orders", async (c) => {
     ipHash: await ipHash(c),
     uaShort: uaShort(c),
   });
+  // open admin tabs hear about it right away (sound, notification, counter)
+  c.executionCtx.waitUntil(
+    c.env.DB.prepare("SELECT o.id, o.name, o.total, w.name_fr AS wilaya FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code WHERE o.public_code = ?")
+      .bind(order.code)
+      .first<{ id: number; name: string; total: number; wilaya: string | null }>()
+      .then((r) => r && liveEvent(c.env, { type: "order", id: r.id, code: order.code, name: r.name, total: r.total, wilaya: r.wilaya, at: Date.now() }))
+      .catch(() => undefined),
+  );
   // post to Telegram in the background; the outbox + cron retries if it fails
   c.executionCtx.waitUntil(
     notifyNewOrder(c.env, order.code)
@@ -278,7 +293,7 @@ publicRoutes.post("/assistant", async (c) => {
 async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[], withDetails: boolean): Promise<TrackedOrderDTO[]> {
   const { results: orders } = await c.env.DB.prepare(
     `SELECT o.id, o.public_code, o.status, o.created_at, o.subtotal, o.discount_total, o.shipping_price, o.total, o.delivery_type,
-            o.tracking_number, o.name, o.phone, o.address, o.wilaya_code, o.commune_text,
+            o.tracking_number, o.name, o.phone, o.address, o.wilaya_code, o.commune_text, o.delivered_at, o.received_at, o.receipt_issue,
             w.name_fr AS wilaya_fr, w.name_ar AS wilaya_ar, cm.name_fr AS commune_fr, cm.name_ar AS commune_ar
        FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN communes cm ON cm.id = o.commune_id
       WHERE ${where} ORDER BY o.created_at DESC LIMIT 10`,
@@ -288,13 +303,14 @@ async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[]
       id: number; public_code: string; status: TrackedOrderDTO["status"]; created_at: number; subtotal: number; discount_total: number;
       shipping_price: number; total: number; delivery_type: "domicile" | "bureau"; tracking_number: string | null; name: string; phone: string;
       address: string | null; wilaya_code: number; commune_text: string | null; wilaya_fr: string; wilaya_ar: string; commune_fr: string | null; commune_ar: string | null;
+      delivered_at: number | null; received_at: number | null; receipt_issue: string | null;
     }>();
   if (!orders.length) return [];
   const ids = orders.map((o) => o.id);
   const ph = ids.map(() => "?").join(",");
-  const [items, events, images, reviewed] = await c.env.DB.batch([
+  const [items, events, images, reviewed, exchanges] = await c.env.DB.batch([
     c.env.DB.prepare(
-      `SELECT oi.order_id, oi.name_fr, oi.name_ar, oi.options_label, oi.qty, oi.unit_price, oi.product_id, oi.variant_id, p.slug
+      `SELECT oi.id, oi.order_id, oi.name_fr, oi.name_ar, oi.options_label, oi.qty, oi.unit_price, oi.product_id, oi.variant_id, p.slug
          FROM order_items oi LEFT JOIN products p ON p.id = oi.product_id WHERE oi.order_id IN (${ph}) ORDER BY oi.id`,
     ).bind(...ids),
     c.env.DB.prepare(`SELECT order_id, to_status, created_at FROM order_events WHERE kind = 'status' AND order_id IN (${ph}) ORDER BY id`).bind(...ids),
@@ -302,9 +318,21 @@ async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[]
       `SELECT * FROM product_images WHERE product_id IN (SELECT product_id FROM order_items WHERE order_id IN (${ph})) ORDER BY product_id, sort, id`,
     ).bind(...ids),
     c.env.DB.prepare(`SELECT order_id, product_id FROM reviews WHERE order_id IN (${ph})`).bind(...ids),
+    c.env.DB.prepare(
+      `SELECT x.id, x.order_id, x.order_item_id, x.from_variant_id, x.to_variant_id, x.status, x.created_at, oi.options_label AS from_label
+         FROM exchange_requests x JOIN order_items oi ON oi.id = x.order_item_id WHERE x.order_id IN (${ph}) ORDER BY x.id`,
+    ).bind(...ids),
   ]);
+  const exchangeRows = exchanges!.results as {
+    id: number; order_id: number; order_item_id: number; from_variant_id: number | null; to_variant_id: number; status: string; created_at: number; from_label: string | null;
+  }[];
   const imgRows = images!.results as unknown as ImageRow[];
-  const variantIds = [...new Set((items!.results as { variant_id: number | null }[]).map((i) => i.variant_id).filter((v): v is number => v != null))];
+  const variantIds = [
+    ...new Set([
+      ...(items!.results as { variant_id: number | null }[]).map((i) => i.variant_id).filter((v): v is number => v != null),
+      ...exchangeRows.map((x) => x.to_variant_id),
+    ]),
+  ];
   const labels = await variantLabels(c.env, variantIds);
   const done = new Set((reviewed!.results as { order_id: number; product_id: number }[]).map((r) => `${r.order_id}:${r.product_id}`));
   return orders.map((o) => ({
@@ -325,7 +353,7 @@ async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[]
     trackingNumber: o.tracking_number,
     items: (
       items!.results as {
-        order_id: number; name_fr: string; name_ar: string; options_label: string | null; qty: number; unit_price: number; product_id: number | null;
+        id: number; order_id: number; name_fr: string; name_ar: string; options_label: string | null; qty: number; unit_price: number; product_id: number | null;
         variant_id: number | null; slug: string | null;
       }[]
     )
@@ -343,6 +371,8 @@ async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[]
           unitPrice: i.unit_price,
           image: img ? imageRef(c.env, img) : null,
           canReview: withDetails && o.status === "livree" && i.product_id != null && !done.has(`${o.id}:${i.product_id}`),
+          orderItemId: withDetails ? i.id : null,
+          variantId: withDetails ? i.variant_id : null,
         };
       }),
     events: (events!.results as { order_id: number; to_status: string; created_at: number }[])
@@ -350,6 +380,22 @@ async function trackedOrders(c: Context<AppEnv>, where: string, binds: unknown[]
       .map((e) => ({ status: e.to_status, at: e.created_at })),
     details: withDetails ? { name: o.name, phoneMasked: maskDzPhone(o.phone), address: o.address } : null,
     canChange: withDetails && CHANGEABLE.includes(o.status),
+    receipt: withDetails && o.status === "livree" ? { confirmedAt: o.received_at, issue: o.receipt_issue } : null,
+    canExchange: withDetails && o.status === "livree" && o.delivered_at != null && Date.now() - o.delivered_at <= EXCHANGE_WINDOW_DAYS * 86400_000,
+    exchanges: withDetails
+      ? exchangeRows
+          .filter((x) => x.order_id === o.id)
+          .map((x) => ({
+            id: x.id,
+            orderItemId: x.order_item_id,
+            fromFr: x.from_label,
+            fromAr: (x.from_variant_id != null ? labels.get(x.from_variant_id)?.ar : null) ?? x.from_label,
+            toFr: labels.get(x.to_variant_id)?.fr ?? "",
+            toAr: labels.get(x.to_variant_id)?.ar ?? "",
+            status: x.status,
+            createdAt: x.created_at,
+          }))
+      : [],
   }));
 }
 
@@ -402,6 +448,96 @@ publicRoutes.post("/track/:code/edit", async (c) => {
     ]),
   );
   return c.json({ ok: true });
+});
+
+/** Private link: the order whatever its status (token checked). */
+async function ownOrder(c: Context<AppEnv>, code: string, token: string) {
+  const o = await c.env.DB.prepare("SELECT id, public_code, status, delivered_at, received_at, receipt_issue, track_token_hash FROM orders WHERE public_code = ?")
+    .bind(code.toUpperCase())
+    .first<{ id: number; public_code: string; status: string; delivered_at: number | null; received_at: number | null; receipt_issue: string | null; track_token_hash: string }>();
+  if (!o || !token || !timingSafeEqual(await sha256Hex(token, c.env.TRACK_TOKEN_PEPPER), o.track_token_hash)) throw new HttpError(404, "not_found");
+  return o;
+}
+
+/** After delivery: "did you get it?" yes, or what went wrong (once). */
+publicRoutes.post("/track/:code/receipt", async (c) => {
+  await rateLimit(c.env.RL_WRITE, `receipt:${clientIp(c)}`);
+  const input = await body(
+    c,
+    z.object({ t: tokenField, ok: z.boolean(), issue: z.enum(RECEIPT_ISSUES).optional(), details: cleanText(500).optional() }).refine((v) => v.ok || v.issue, {
+      message: "issue_required",
+      path: ["issue"],
+    }),
+  );
+  const o = await ownOrder(c, c.req.param("code"), input.t);
+  if (o.status !== "livree") throw new HttpError(409, "not_delivered");
+  if (o.received_at || o.receipt_issue) throw new HttpError(409, "already_answered");
+  const now = Date.now();
+  const issue = input.ok ? null : `${RECEIPT_ISSUE_LABEL[input.issue!].fr}${input.details ? ` : ${input.details}` : ""}`;
+  const [upd] = await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE orders SET received_at = ?, receipt_issue = ?, updated_at = ? WHERE id = ? AND received_at IS NULL AND receipt_issue IS NULL").bind(
+      input.ok ? now : null, issue, now, o.id,
+    ),
+    c.env.DB.prepare("INSERT INTO order_events (order_id, kind, actor, source, note, created_at) VALUES (?, 'receipt', 'customer', 'customer', ?, ?)").bind(
+      o.id, input.ok ? "La cliente confirme avoir reçu sa commande ✅" : `Problème signalé ❌ ${issue}`, now,
+    ),
+  ]);
+  if (!upd!.meta.changes) throw new HttpError(409, "already_answered");
+  if (!input.ok) {
+    c.executionCtx.waitUntil(
+      Promise.all([
+        receiptIssueAlert(c.env, o, issue!),
+        sendTelegramText(c.env, `❌ Problème signalé sur la commande ${o.public_code} : ${issue!.replace(/[<>&]/g, "")}`).catch(() => undefined),
+      ]),
+    );
+  }
+  return c.json({ ok: true });
+});
+
+/** Within a few days of delivery: swap an item for another size / colour of the same product. */
+publicRoutes.post("/track/:code/exchange", async (c) => {
+  await rateLimit(c.env.RL_WRITE, `exchange:${clientIp(c)}`);
+  const input = await body(
+    c,
+    z.object({
+      t: tokenField,
+      orderItemId: z.number().int().positive(),
+      toVariantId: z.number().int().positive(),
+      reason: z.enum(EXCHANGE_REASONS),
+      note: cleanText(500).optional(),
+    }),
+  );
+  const o = await ownOrder(c, c.req.param("code"), input.t);
+  if (o.status !== "livree" || !o.delivered_at || Date.now() - o.delivered_at > EXCHANGE_WINDOW_DAYS * 86400_000) throw new HttpError(409, "exchange_closed");
+  const item = await c.env.DB.prepare("SELECT id, product_id, variant_id, name_fr, options_label FROM order_items WHERE id = ? AND order_id = ?")
+    .bind(input.orderItemId, o.id)
+    .first<{ id: number; product_id: number | null; variant_id: number | null; name_fr: string; options_label: string | null }>();
+  if (!item || item.product_id == null) throw new HttpError(404, "not_found");
+  // another size / colour of the same product, still sold
+  const target = await c.env.DB.prepare("SELECT id FROM variants WHERE id = ? AND product_id = ? AND is_active = 1")
+    .bind(input.toVariantId, item.product_id)
+    .first<{ id: number }>();
+  if (!target || target.id === item.variant_id) throw new HttpError(422, "validation_failed", { toVariantId: "invalid" });
+  const open = await c.env.DB.prepare("SELECT id FROM exchange_requests WHERE order_item_id = ? AND status IN ('pending','approved')").bind(item.id).first();
+  if (open) throw new HttpError(409, "exchange_pending");
+  const now = Date.now();
+  const labels = await variantLabels(c.env, [target.id]);
+  const toLabel = labels.get(target.id)?.fr ?? `#${target.id}`;
+  const row = await c.env.DB.prepare(
+    `INSERT INTO exchange_requests (order_id, order_item_id, from_variant_id, to_variant_id, reason, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+  )
+    .bind(o.id, item.id, item.variant_id, target.id, input.reason, input.note ?? null, now)
+    .first<{ id: number }>();
+  await c.env.DB.prepare("INSERT INTO order_events (order_id, kind, actor, source, note, created_at) VALUES (?, 'exchange', 'customer', 'customer', ?, ?)")
+    .bind(o.id, `Demande d'échange : ${item.name_fr} ${item.options_label ?? ""} → ${toLabel} (${EXCHANGE_REASON_LABEL[input.reason].fr})${input.note ? ` · ${input.note}` : ""}`, now)
+    .run();
+  c.executionCtx.waitUntil(
+    Promise.all([
+      exchangeAlert(c.env, { id: row!.id, orderId: o.id, code: o.public_code, product: item.name_fr, from: item.options_label, to: toLabel }),
+      sendTelegramText(c.env, `🔄 Demande d'échange sur ${o.public_code} : ${item.name_fr.replace(/[<>&]/g, "")} ${item.options_label ?? ""} → ${toLabel}`).catch(() => undefined),
+    ]),
+  );
+  return c.json({ ok: true, id: row!.id }, 201);
 });
 
 /** By phone number (+ optional order code). Limited info: no name, no address. */

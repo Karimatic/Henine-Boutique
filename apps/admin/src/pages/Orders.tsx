@@ -15,6 +15,21 @@ import { useEffect, useRef, useState } from "react";
 import { api, del, errorMessage, patch, post } from "../api";
 import { ago, CHANNEL_LABEL, da, dateTime, statusLabel, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
+import { useLive } from "../lib/live";
+import {
+  ContactActions,
+  ContactHistory,
+  ContactTimeBadge,
+  CustomerWarning,
+  DiscountBox,
+  ExchangesCard,
+  ItemsEditor,
+  OrderHistory,
+  PreviousOrders,
+  ProfitBlock,
+  SlaBadge,
+  type OrderOpsData,
+} from "./OrderOps";
 import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
 import { tr } from "../i18n";
@@ -43,6 +58,7 @@ interface OrderRow {
 
 /** Dashboard "needs attention" shortcuts (same keys as the API's attentionSql). */
 export const ATTENTION_LABEL: Record<string, string> = {
+  late: tr("En retard (délais dépassés)"),
   to_confirm: tr("À confirmer"),
   callbacks: tr("À rappeler maintenant"),
   high_risk: tr("Risque élevé à vérifier"),
@@ -67,6 +83,14 @@ const TABS = [
 export function OrdersPage() {
   const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string };
   const navigate = useNavigate();
+  // the red "new orders" counter resets while this page is on screen
+  const live = useLive();
+  useEffect(() => {
+    const seen = () => !document.hidden && live.markSeen();
+    seen();
+    document.addEventListener("visibilitychange", seen);
+    return () => document.removeEventListener("visibilitychange", seen);
+  }, [live]);
   const [status, setStatus] = useState(search.status ?? "active");
   const attention = search.attention && tr(ATTENTION_LABEL[search.attention]) ? search.attention : null;
   const clearAttention = () => void navigate({ to: "/commandes", search: (s: Record<string, unknown>) => ({ ...s, attention: undefined }) });
@@ -310,20 +334,21 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
   );
 }
 
-interface OrderDetail {
+type OrderDetail = {
   order: Record<string, unknown> & {
     id: number; public_code: string; status: OrderStatus; name: string; phone: string; wilaya_code: number; wilaya_fr: string; commune_fr: string | null;
     commune_text: string | null; address: string | null; delivery_type: string; subtotal: number; discount_total: number; shipping_price: number; total: number;
     coupon_code: string | null; customer_note: string | null; internal_note: string | null; tracking_number: string | null; channel: string; created_at: number;
     orders_count: number | null; delivered_count: number | null; returned_count: number | null; cancelled_count: number | null; is_blacklisted: number | null;
     customer_id: number; risk_score: number; confirm_attempts: number; ua_short: string | null; locale: string; outcome_reason: string | null;
+    contact_time: string | null; manual_discount: number; manual_discount_reason: string | null; received_at: number | null; receipt_issue: string | null;
   };
-  items: { id: number; name_fr: string; options_label: string | null; sku: string; qty: number; unit_price: number; image: string | null; available: number | null }[];
+  items: { id: number; variant_id: number | null; name_fr: string; options_label: string | null; sku: string; qty: number; unit_price: number; image: string | null; available: number | null }[];
   events: { id: number; from_status: string | null; to_status: string | null; kind: string; actor: string; source: string; note: string | null; created_at: number }[];
   next: OrderStatus[];
   risk: RiskAssessment;
   segment: CustomerSegment;
-}
+} & OrderOpsData;
 
 /** Statuses that ask why (cancellation / return reasons feed the analytics). */
 const NEEDS_REASON: OrderStatus[] = ["annulee", "fausse", "retour"];
@@ -343,10 +368,6 @@ const ACTION: Partial<Record<OrderStatus, { label: string; variant: "primary" | 
   nouvelle: { label: tr("Rouvrir"), variant: "secondary" },
 };
 
-function actorName(a: string) {
-  const p = a.split(":");
-  return p.length >= 3 ? `${p.slice(2).join(":")}${p[0] === "telegram" ? " (Telegram)" : ""}` : a === "customer" ? "Cliente" : a;
-}
 
 function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void }) {
   const qc = useQueryClient();
@@ -377,6 +398,10 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
     },
   });
   const [editing, setEditing] = useState(false);
+  const [editingItems, setEditingItems] = useState(false);
+  const [discounting, setDiscounting] = useState(false);
+  const navigate = useNavigate();
+  const openOther = (oid: number) => void navigate({ to: "/commandes", search: (s: Record<string, unknown>) => ({ ...s, o: oid }) });
   const d = q.data;
   const o = d?.order;
   const owner = useMe().data?.role === "owner";
@@ -405,7 +430,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
       open={id != null}
       onClose={onClose}
       wide
-      title={o ? <span className="flex items-center gap-2"><span className="font-mono">{o.public_code}</span><StatusBadge status={o.status} /></span> : tr("Commande")}
+      title={o ? <span className="flex flex-wrap items-center gap-2"><span className="font-mono">{o.public_code}</span><StatusBadge status={o.status} />{d && <SlaBadge sla={d.sla} />}</span> : tr("Commande")}
       footer={
         d && (d.next.length > 0 || owner) ? (
           <div className="flex flex-wrap gap-2">
@@ -450,7 +475,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
           )}
           <Card>
             <div className="flex items-start justify-between gap-3">
-              <div>
+              <div className="min-w-0">
                 <p className="text-lg font-semibold">{o.name}</p>
                 <p className="font-mono text-sm"><bdi dir="ltr">{formatDzPhone(o.phone)}</bdi></p>
                 <p className="mt-1 text-sm text-ink-soft">
@@ -458,12 +483,28 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 </p>
                 {o.address && <p className="text-sm">🏠 {o.address}</p>}
               </div>
-              <div className="flex flex-col gap-2">
-                <a href={telLink(o.phone)} onClick={() => addNote.mutate("call")} className="inline-flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-plum-600 px-4 text-sm font-semibold text-white">{tr("📞 Appeler")}</a>
-                <a href={waLink(o.phone, waText)} target="_blank" rel="noreferrer" onClick={() => addNote.mutate("whatsapp")} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg bg-[#25D366] px-4 text-sm font-semibold text-white">{tr("WhatsApp")}</a>
-                <Link to="/bordereaux" search={{ ids: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-4 text-sm font-semibold">{tr("🖨 Bordereau")}</Link>
-                <Link to="/facture" search={{ id: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-4 text-sm font-semibold">{tr("🧾 Facture PDF")}</Link>
+              <div className="flex shrink-0 flex-col gap-2">
+                <Link to="/bordereaux" search={{ ids: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold">{tr("🖨 Bordereau")}</Link>
+                <Link to="/facture" search={{ id: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold">{tr("🧾 Facture PDF")}</Link>
               </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <ContactTimeBadge value={o.contact_time} />
+              <span className="text-ink-soft">{d.lastContactAt ? tr("Dernier contact : {0}", { 0: ago(d.lastContactAt) }) : tr("Pas encore contactée")}</span>
+            </div>
+            {o.phone && (
+              <div className="mt-3">
+                <ContactActions orderId={o.id} phone={o.phone} waText={waText} onLogged={refresh} />
+              </div>
+            )}
+            {o.customer_note && <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-950">📝 {tr("Note de la cliente :")} {o.customer_note}</p>}
+            {o.receipt_issue && <p className="mt-3 rounded-xl border border-red-300 bg-red-50 p-3 text-sm font-semibold text-red-900">❌ {tr("Problème signalé par la cliente :")} {o.receipt_issue}</p>}
+            {o.received_at && <p className="mt-3 rounded-xl bg-emerald-50 p-2.5 text-sm text-emerald-800">✅ {tr("Réception confirmée par la cliente · {0}", { 0: dateTime(o.received_at) })}</p>}
+            <div className="mt-3">
+              <CustomerWarning
+                risk={d.risk}
+                counts={{ orders: o.orders_count ?? 1, delivered: o.delivered_count ?? 0, cancelled: o.cancelled_count ?? 0, returned: o.returned_count ?? 0, blacklisted: !!o.is_blacklisted }}
+              />
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 text-xs">
               <Badge tone="bg-stone-100 text-stone-700">{o.orders_count ?? 1} {tr("commande(s)")}</Badge>
@@ -483,34 +524,77 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 {tr("Motif :")} <b>{tr(OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason]) ?? o.outcome_reason}</b>
               </p>
             )}
+            <div className="mt-3">
+              <PreviousOrders data={d} onOpen={openOther} />
+            </div>
           </Card>
 
-          <Card title={tr("Articles ({0})", { 0: d.items.reduce((s, i) => s + i.qty, 0) })}>
-            <ul className="space-y-2">
-              {d.items.map((i) => (
-                <li key={i.id} className="flex items-center gap-3 text-sm">
-                  {i.image ? <img src={i.image} alt="" className="h-14 w-11 rounded-md object-cover" /> : <span className="grid h-14 w-11 place-items-center rounded-md bg-rose-100">👗</span>}
-                  <span className="min-w-0 flex-1">
-                    <span className="block font-medium">{i.name_fr}</span>
-                    <span className="text-ink-soft">{i.options_label} · {i.sku}</span>
-                  </span>
-                  <span className="text-end tabular-nums">
-                    {i.qty} {tr("×")} {da(i.unit_price)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
-              <div className="flex justify-between"><dt className="text-ink-soft">{tr("Sous-total")}</dt><dd>{da(o.subtotal)}</dd></div>
-              {o.discount_total > 0 && <div className="flex justify-between text-emerald-700"><dt>{tr("Remise")} {o.coupon_code}</dt><dd>−{da(o.discount_total)}</dd></div>}
-              <div className="flex justify-between"><dt className="text-ink-soft">{tr("Livraison")}</dt><dd>{da(o.shipping_price)}</dd></div>
-              <div className="flex justify-between text-base font-semibold"><dt>{tr("Total (à encaisser)")}</dt><dd>{da(o.total)}</dd></div>
-            </dl>
-            {o.customer_note && <p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm">📝 {o.customer_note}</p>}
-          </Card>
+          {editingItems ? (
+            <ItemsEditor orderId={o.id} items={d.items} onDone={() => { setEditingItems(false); refresh(); }} />
+          ) : (
+            <Card
+              title={tr("Articles ({0})", { 0: d.items.reduce((s, i) => s + i.qty, 0) })}
+              actions={
+                d.editable && (
+                  <div className="flex gap-1.5">
+                    {can("orders.edit") && <Button size="sm" onClick={() => setEditingItems(true)}>{tr("✏️ Modifier")}</Button>}
+                    {d.canDiscount && <Button size="sm" onClick={() => setDiscounting((v) => !v)}>{tr("💰 Remise")}</Button>}
+                  </div>
+                )
+              }
+            >
+              <ul className="space-y-2">
+                {d.items.map((i) => (
+                  <li key={i.id} className="flex items-center gap-3 text-sm">
+                    {i.image ? <img src={i.image} alt="" className="h-14 w-11 rounded-md object-cover" /> : <span className="grid h-14 w-11 place-items-center rounded-md bg-rose-100">👗</span>}
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium">{i.name_fr}</span>
+                      <span className="text-ink-soft">{i.options_label} · {i.sku}</span>
+                    </span>
+                    <span className="text-end tabular-nums">
+                      {i.qty} {tr("×")} {da(i.unit_price)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <dl className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
+                <div className="flex justify-between"><dt className="text-ink-soft">{tr("Sous-total")}</dt><dd>{da(o.subtotal)}</dd></div>
+                {o.discount_total - o.manual_discount > 0 && (
+                  <div className="flex justify-between text-emerald-700"><dt>{tr("Remise")} {o.coupon_code}</dt><dd>−{da(o.discount_total - o.manual_discount)}</dd></div>
+                )}
+                {o.manual_discount > 0 && (
+                  <div className="flex justify-between gap-3 text-emerald-700">
+                    <dt>
+                      {tr("Remise manuelle")}
+                      {o.manual_discount_reason ? <span className="text-ink-soft"> · {o.manual_discount_reason}</span> : null}
+                    </dt>
+                    <dd>−{da(o.manual_discount)}</dd>
+                  </div>
+                )}
+                <div className="flex justify-between"><dt className="text-ink-soft">{tr("Livraison")}</dt><dd>{da(o.shipping_price)}</dd></div>
+                <div className="flex justify-between text-base font-semibold"><dt>{tr("Total (à encaisser)")}</dt><dd>{da(o.total)}</dd></div>
+              </dl>
+              {discounting && d.editable && (
+                <DiscountBox
+                  orderId={o.id}
+                  subtotal={o.subtotal}
+                  otherDiscount={o.discount_total - o.manual_discount}
+                  current={o.manual_discount}
+                  onDone={() => {
+                    setDiscounting(false);
+                    refresh();
+                  }}
+                />
+              )}
+              {d.profit && <ProfitBlock profit={d.profit} />}
+              {!d.editable && <p className="mt-2 text-xs text-ink-soft">{tr("🔒 Le colis est parti : les articles, l'adresse et la remise ne se modifient plus.")}</p>}
+            </Card>
+          )}
+
+          <ExchangesCard data={d} onChange={refresh} />
 
           {editing ? (
-            <EditOrder order={o} onDone={() => { setEditing(false); refresh(); }} />
+            <EditOrder order={o} editable={d.editable} onDone={() => { setEditing(false); refresh(); }} />
           ) : (
             <Card
               title={tr("Livraison & suivi")}
@@ -521,23 +605,12 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
             </Card>
           )}
 
-          <Card title={tr("Historique")}>
-            <ol className="space-y-2 text-sm">
-              {d.events.map((e) => (
-                <li key={e.id} className="flex gap-2">
-                  <span className="w-24 shrink-0 text-xs text-ink-soft">{dateTime(e.created_at)}</span>
-                  <span>
-                    {e.kind === "status" ? (
-                      <>{e.to_status ? <StatusBadge status={e.to_status} /> : null} {tr("par")} <b>{actorName(e.actor)}</b>{e.source === "telegram" ? " 📱" : ""}</>
-                    ) : (
-                      <>
-                        {e.kind === "call" ? "📞" : e.kind === "whatsapp" ? "💬" : e.kind === "edit" ? "✏️" : "📝"} {e.note} <span className="text-ink-soft">— {actorName(e.actor)}</span>
-                      </>
-                    )}
-                  </span>
-                </li>
-              ))}
-            </ol>
+          <Card title={tr("💬 Contacts avec la cliente")}>
+            <ContactHistory data={d} orderId={o.id} />
+          </Card>
+
+          <Card title={tr("Historique de la commande")}>
+            <OrderHistory events={d.events} changes={d.changes} />
             <div className="mt-3 flex gap-2">
               <input className={inputCls} placeholder={tr("Ajouter une note interne…")} value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
               <Button onClick={() => note.trim() && addNote.mutate("note")} loading={addNote.isPending}>{tr("Ajouter")}</Button>
@@ -615,7 +688,7 @@ function StatusDialog({
   );
 }
 
-function EditOrder({ order, onDone }: { order: OrderDetail["order"]; onDone: () => void }) {
+function EditOrder({ order, editable, onDone }: { order: OrderDetail["order"]; editable: boolean; onDone: () => void }) {
 
   const toast = useToast();
   const [form, setForm] = useState({
@@ -626,6 +699,8 @@ function EditOrder({ order, onDone }: { order: OrderDetail["order"]; onDone: () 
     internalNote: order.internal_note ?? "",
     shippingPrice: order.shipping_price,
     deliveryType: order.delivery_type as "domicile" | "bureau",
+    customerNote: order.customer_note ?? "",
+    reason: "",
   });
   const save = useMutation({
     mutationFn: () =>
@@ -637,6 +712,8 @@ function EditOrder({ order, onDone }: { order: OrderDetail["order"]; onDone: () 
         internalNote: form.internalNote || null,
         shippingPrice: form.shippingPrice,
         deliveryType: form.deliveryType,
+        customerNote: form.customerNote || null,
+        reason: form.reason.trim() || undefined,
       }),
     onSuccess: () => {
       toast(tr("Commande modifiée"));
@@ -648,19 +725,22 @@ function EditOrder({ order, onDone }: { order: OrderDetail["order"]; onDone: () 
   return (
     <Card title={tr("Modifier la commande")}>
       <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label={tr("Nom")} value={form.name} onChange={set("name")} />
-        <TextField label={tr("Téléphone")} value={form.phone} onChange={set("phone")} inputMode="tel" />
-        <TextField label={tr("Adresse")} value={form.address} onChange={set("address")} className="sm:col-span-2" />
+        {!editable && <p className="rounded-xl bg-stone-100 p-2.5 text-sm sm:col-span-2">{tr("🔒 Colis parti : seuls le suivi et les notes se modifient.")}</p>}
+        <TextField label={tr("Nom")} value={form.name} onChange={set("name")} disabled={!editable} />
+        <TextField label={tr("Téléphone")} value={form.phone} onChange={set("phone")} inputMode="tel" disabled={!editable} />
+        <TextField label={tr("Adresse")} value={form.address} onChange={set("address")} className="sm:col-span-2" disabled={!editable} />
         <label className="text-sm font-medium">
           {tr("Mode")}
-          <select className={`${inputCls} mt-1`} value={form.deliveryType} onChange={set("deliveryType")}>
+          <select className={`${inputCls} mt-1`} value={form.deliveryType} onChange={set("deliveryType")} disabled={!editable}>
             <option value="domicile">{tr("Domicile")}</option>
             <option value="bureau">{tr("Bureau (stop-desk)")}</option>
           </select>
         </label>
-        <TextField label={tr("Frais de livraison (DA)")} type="number" value={form.shippingPrice} onChange={(e) => setForm((f) => ({ ...f, shippingPrice: Number(e.target.value) || 0 }))} />
+        <TextField label={tr("Frais de livraison (DA)")} type="number" value={form.shippingPrice} onChange={(e) => setForm((f) => ({ ...f, shippingPrice: Number(e.target.value) || 0 }))} disabled={!editable} />
         <TextField label={tr("N° de suivi ZR Express")} value={form.trackingNumber} onChange={set("trackingNumber")} className="sm:col-span-2" />
+        <TextArea label={tr("Note de la cliente (affichée en évidence)")} value={form.customerNote} onChange={set("customerNote")} className="sm:col-span-2" rows={2} />
         <TextArea label={tr("Note interne (invisible pour la cliente)")} value={form.internalNote} onChange={set("internalNote")} className="sm:col-span-2" rows={2} />
+        <TextField label={tr("Raison du changement (gardée dans l'historique)")} value={form.reason} onChange={set("reason")} className="sm:col-span-2" maxLength={300} />
       </div>
       <div className="mt-3 flex gap-2">
         <Button variant="primary" loading={save.isPending} onClick={() => save.mutate()}>{tr("Enregistrer")}</Button>

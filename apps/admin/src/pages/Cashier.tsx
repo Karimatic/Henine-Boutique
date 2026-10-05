@@ -6,16 +6,11 @@ import { tr } from "../i18n";
 import { da } from "../lib/format";
 import { Button, Card, ErrorState, inputCls, ListSkeleton, PageHeader, SearchBox, Sheet, useToast } from "../ui";
 import type { StockProduct, StockVariant } from "./Stock";
+import { variantLabel } from "../lib/variants";
 
 type Line = { variantId: number; qty: number; name: string; label: string; price: number; max: number };
 
-/** "Rose poudré / M" for a variant, from the product's options. */
-function variantLabel(p: StockProduct, v: StockVariant): string {
-  return p.options
-    .map((o) => o.values.find((val) => v.valueIds.includes(val.id))?.label)
-    .filter(Boolean)
-    .join(" / ");
-}
+
 
 /**
  * Caisse boutique: sell in the shop from the same stock as the website. Tap a piece, its

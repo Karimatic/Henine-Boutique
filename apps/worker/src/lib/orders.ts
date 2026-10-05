@@ -241,6 +241,8 @@ export interface NewOrder {
   stopDeskId?: number | null;
   address?: string;
   note?: string;
+  /** best time to call her (CONTACT_TIMES) */
+  contactTime?: string;
   coupon?: string;
   usePoints?: boolean;
   lines: { variantId: number; qty: number }[];
@@ -334,24 +336,27 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
     // a walk-in boutique sale without a phone number goes to the shared "no record" customer (phone "")
     const stmts: D1PreparedStatement[] = [
       env.DB.prepare(
-        `INSERT INTO customers (phone, name, wilaya_code, commune_id, address, orders_count, first_order_at, last_order_at, created_at)
-         VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?)
+        `INSERT INTO customers (phone, name, wilaya_code, commune_id, address, contact_time, orders_count, first_order_at, last_order_at, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
          ON CONFLICT(phone) DO UPDATE SET name = excluded.name, wilaya_code = excluded.wilaya_code, commune_id = excluded.commune_id,
-           address = COALESCE(excluded.address, customers.address), orders_count = customers.orders_count + 1, last_order_at = excluded.last_order_at`,
-      ).bind(input.phone, input.phone === "" ? NO_RECORD_NAME : input.name, input.wilaya, input.communeId, input.address ?? null, now, now, now),
+           address = COALESCE(excluded.address, customers.address), contact_time = COALESCE(excluded.contact_time, customers.contact_time),
+           orders_count = customers.orders_count + 1, last_order_at = excluded.last_order_at`,
+      ).bind(
+        input.phone, input.phone === "" ? NO_RECORD_NAME : input.name, input.wilaya, input.communeId, input.address ?? null, input.contactTime ?? null, now, now, now,
+      ),
       env.DB.prepare(
         `INSERT INTO orders (public_code, track_token_hash, idempotency_key, status, channel, locale, customer_id, name, phone, wilaya_code,
             commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code, points_used,
             customer_note, internal_note, risk_score, risk_flags, utm_source, utm_medium, utm_campaign, ip_hash, ua_short, created_at, updated_at,
-            confirmed_at, delivered_at)
-         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            confirmed_at, delivered_at, contact_time)
+         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         code, tokenHash, input.idempotencyKey, status, input.channel, input.locale, input.phone, input.name, input.phone, input.wilaya,
         input.communeId, input.communeText ?? null, input.deliveryType, input.stopDeskId ?? null, input.address ?? null,
         q.subtotal, q.discount, shipping, total, q.couponRow?.code ?? null, q.pointsUsed, input.note ?? null, input.internalNote ?? null, risk,
         riskFlags ? JSON.stringify(riskFlags) : null,
         input.utm?.source ?? null, input.utm?.medium ?? null, input.utm?.campaign ?? null, input.ipHash ?? null, input.uaShort ?? null,
-        now, now, status === "confirmee" || status === "livree" ? now : null, status === "livree" ? now : null,
+        now, now, status === "confirmee" || status === "livree" ? now : null, status === "livree" ? now : null, input.contactTime ?? null,
       ),
     ];
     for (const l of q.lines) {
@@ -734,8 +739,17 @@ export async function deleteOrder(env: Env, id: number, actor: string, restock: 
     env.DB.prepare("UPDATE reviews SET order_id = NULL WHERE order_id = ?").bind(id),
     env.DB.prepare("UPDATE carts SET recovered_order_id = NULL WHERE recovered_order_id = ?").bind(id),
     env.DB.prepare("DELETE FROM order_events WHERE order_id = ?").bind(id),
+    // an accepted exchange had set a piece aside: give it back
+    env.DB.prepare(
+      `UPDATE variants SET stock_reserved = MAX(stock_reserved - (SELECT COUNT(*) FROM exchange_requests x WHERE x.order_id = ?1 AND x.status = 'approved' AND x.to_variant_id = variants.id), 0)
+        WHERE id IN (SELECT to_variant_id FROM exchange_requests WHERE order_id = ?1 AND status = 'approved')`,
+    ).bind(id),
+    env.DB.prepare("DELETE FROM exchange_requests WHERE order_id = ?").bind(id),
+    env.DB.prepare("DELETE FROM order_changes WHERE order_id = ?").bind(id),
     env.DB.prepare("DELETE FROM order_items WHERE order_id = ?").bind(id),
     env.DB.prepare("DELETE FROM orders WHERE id = ?").bind(id),
+    // its alerts (late, problem, exchange) are over
+    env.DB.prepare("UPDATE alerts SET resolved_at = ?, resolved_by = ? WHERE entity = 'order' AND entity_id = ? AND resolved_at IS NULL").bind(Date.now(), actor, String(id)),
   );
   // the customer's history, recounted from the orders that remain
   if (o.customer_id != null) {

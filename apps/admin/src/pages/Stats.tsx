@@ -5,6 +5,7 @@ import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import { CHANNEL_LABEL, da } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
 import { tr } from "../i18n";
+import { DailyReportCard } from "./DailyReport";
 import { ProfitSection, ReturnsSection } from "./Insights";
 import { ColumnChart, shortDA, StackBar, TrendChart } from "../lib/charts";
 
@@ -251,6 +252,7 @@ export function StatsPage() {
         subtitle={tr("Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires.")}
         actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
       />
+      <DailyReportCard />
       <Pills value={range} onChange={setRange} options={RANGES} />
       {range === "custom" && (
         <div className="flex flex-wrap items-end gap-3">

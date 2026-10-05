@@ -30,7 +30,18 @@ import { applyStatusChange, CANCELLED_SQL, createOrder, deleteOrder, noRecordCus
 import { getSetting, getSettings, setSetting } from "../../lib/settings";
 import { permissionFor, syncOrderMessage } from "../../lib/telegram";
 import { actorOf, requireOwner, requirePermission } from "../../middleware/access";
-import { hasPermission } from "@henine/shared";
+import {
+  DEFAULT_SLA,
+  hasPermission,
+  isEditable,
+  orderProfit,
+  slaLateMinutes,
+  slaLimitMinutes,
+  slaStage,
+  type ProfitResult,
+  type SlaSettings,
+} from "@henine/shared";
+import { lateOrdersSql } from "../../lib/alerts";
 
 export const orderRoutes = new Hono<AppEnv>();
 
@@ -53,9 +64,11 @@ const riskOf = (r: RiskCounters) =>
  * "Needs attention" filters, shared by the orders list and the dashboard command center.
  * Each is a condition on `orders o` (+ `customers c`); `now` is generated server-side.
  */
-export function attentionSql(now: number): Record<string, string> {
+export function attentionSql(now: number, sla: SlaSettings = DEFAULT_SLA): Record<string, string> {
   const h = 3600_000;
   return {
+    // past the order SLA (Paramètres → Délais de traitement)
+    late: lateOrdersSql(now, sla),
     to_confirm: "o.status IN ('nouvelle','injoignable')",
     callbacks: `o.status = 'injoignable' AND o.next_callback_at <= ${now}`,
     high_risk: `o.status IN ('nouvelle','injoignable') AND (o.risk_score >= ${RISK_LEVELS.high} OR ${customerRiskSql("c")} >= ${RISK_LEVELS.high})`,
@@ -81,7 +94,8 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     annule: ["annulee", "doublon", "fausse"],
     retours: ["retour", "retour_recu"],
   };
-  const attentions = attentionSql(Date.now());
+  const { operations } = await getSettings(c.env, ["operations"]);
+  const attentions = attentionSql(Date.now(), operations.sla);
   const attn = attention && Object.hasOwn(attentions, attention) ? attentions[attention] : undefined;
   if (attn) where.push(attn);
   else if (groups[status]) {
@@ -205,17 +219,70 @@ orderRoutes.get("/orders/:id", requirePermission("orders.view"), async (c) => {
   delete o.track_token_hash;
   delete o.ip_hash;
   delete o.op_nonce;
-  const [items, events] = await c.env.DB.batch([
+  const customerId = o.customer_id as number;
+  const known = (o.phone as string) !== ""; // walk-in sales without a number share one record
+  const [items, events, changes, exchanges, previous, contacts, since] = await c.env.DB.batch([
     c.env.DB.prepare(
-      `SELECT oi.*, v.stock_on_hand - v.stock_reserved AS available FROM order_items oi LEFT JOIN variants v ON v.id = oi.variant_id WHERE oi.order_id = ?`,
+      `SELECT oi.*, v.stock_on_hand - v.stock_reserved AS available, p.cost_price
+         FROM order_items oi LEFT JOIN variants v ON v.id = oi.variant_id LEFT JOIN products p ON p.id = oi.product_id WHERE oi.order_id = ?`,
     ).bind(id),
     c.env.DB.prepare("SELECT * FROM order_events WHERE order_id = ? ORDER BY id").bind(id),
+    c.env.DB.prepare("SELECT * FROM order_changes WHERE order_id = ? ORDER BY id").bind(id),
+    c.env.DB.prepare(
+      `SELECT x.*, oi.name_fr AS product, oi.options_label AS from_label, v.stock_on_hand - v.stock_reserved AS available
+         FROM exchange_requests x JOIN order_items oi ON oi.id = x.order_item_id LEFT JOIN variants v ON v.id = x.to_variant_id
+        WHERE x.order_id = ? ORDER BY x.id`,
+    ).bind(id),
+    // the customer's other orders
+    c.env.DB.prepare("SELECT id, public_code, status, total, created_at FROM orders WHERE customer_id = ? AND id != ? AND ? ORDER BY created_at DESC LIMIT 8").bind(
+      customerId, id, known ? 1 : 0,
+    ),
+    // every contact with her, on all her orders
+    c.env.DB.prepare(
+      `SELECT e.id, e.order_id, e.kind, e.actor, e.note, e.created_at, o.public_code FROM order_events e JOIN orders o ON o.id = e.order_id
+        WHERE (e.order_id = ? OR (o.customer_id = ? AND ?)) AND e.kind IN ('call','whatsapp','sms','other','note')
+        ORDER BY e.created_at DESC LIMIT 30`,
+    ).bind(id, customerId, known ? 1 : 0),
+    c.env.DB.prepare("SELECT MAX(created_at) AS at FROM order_events WHERE order_id = ? AND kind = 'status' AND to_status = ?").bind(id, o.status),
   ]);
   const perms = c.get("member").permissions;
+  const itemRows = items!.results as ({ unit_price: number; qty: number; line_discount: number; cost_price: number | null; variant_id: number | null } & Record<string, unknown>)[];
+  const exchangeRows = exchanges!.results as ({ to_variant_id: number } & Record<string, unknown>)[];
+  const labels = await variantLabels(c.env, exchangeRows.map((x) => x.to_variant_id));
+
+  // real profit (only for those who see costs)
+  const { operations } = await getSettings(c.env, ["operations"]);
+  let profit: ProfitResult | null = null;
+  if (hasPermission(perms, "cost.view")) {
+    const rate = await c.env.DB.prepare("SELECT home_price, desk_price FROM wilayas WHERE code = ?").bind(o.wilaya_code).first<{ home_price: number | null; desk_price: number | null }>();
+    const boutique = o.channel === "boutique";
+    profit = orderProfit({
+      items: itemRows.map((i) => ({ unitPrice: i.unit_price - i.line_discount, qty: i.qty, unitCost: i.cost_price })),
+      discount: o.discount_total as number,
+      shippingCharged: o.shipping_price as number,
+      shippingCost: boutique ? 0 : ((o.delivery_type === "bureau" ? rate?.desk_price : rate?.home_price) ?? 0),
+      packagingCost: boutique ? 0 : operations.packaging_cost,
+      returned: o.status === "retour" || o.status === "retour_recu",
+    });
+  } else for (const i of itemRows) delete (i as Partial<typeof i>).cost_price;
+
+  // SLA: the step it's waiting on, since when, and how late
+  const stage = slaStage(o.status);
+  const enteredAt = ((since!.results[0] as { at: number | null }).at ?? (o.created_at as number));
+  const contactRows = contacts!.results as { kind: string; created_at: number }[];
   return c.json({
     order: o,
-    items: items!.results,
+    items: itemRows,
     events: events!.results,
+    changes: changes!.results,
+    exchanges: exchangeRows.map((x) => ({ ...x, to_label: labels.get(x.to_variant_id)?.fr ?? null })),
+    previous: previous!.results,
+    contacts: contactRows,
+    lastContactAt: contactRows.find((x) => x.kind !== "note")?.created_at ?? null,
+    profit,
+    sla: stage ? { stage, since: enteredAt, limit: slaLimitMinutes(stage, operations.sla), late: slaLateMinutes(o.status, enteredAt, operations.sla) } : null,
+    editable: isEditable(o.status),
+    canDiscount: hasPermission(perms, "orders.discount"),
     next: nextStatuses(o.status).filter((s) => hasPermission(perms, permissionFor(s))),
     risk,
     segment,
@@ -244,6 +311,9 @@ orderRoutes.post("/orders/:id/status", requirePermission("orders.view"), async (
   return c.json(res);
 });
 
+/** Fields that change what is shipped: only before the parcel leaves the shop. */
+const SHIPPING_FIELDS = ["name", "phone", "wilayaCode", "communeId", "address", "deliveryType", "shippingPrice"] as const;
+
 orderRoutes.patch("/orders/:id", requirePermission("orders.edit"), async (c) => {
   const id = intParam(c, "id");
   const input = await body(
@@ -260,30 +330,60 @@ orderRoutes.patch("/orders/:id", requirePermission("orders.edit"), async (c) => 
       trackingNumber: cleanText(60).nullable().optional(),
       assignedTo: z.number().int().positive().nullable().optional(),
       outcomeReason: z.enum(OUTCOME_REASONS).nullable().optional(),
+      customerNote: cleanText(500).nullable().optional(),
+      /** why (kept in the order's change history) */
+      reason: cleanText(300).optional(),
     }),
   );
-  const cols: string[] = [];
-  const vals: unknown[] = [];
+  const { reason, ...fields } = input;
   const map: Record<string, string> = {
     name: "name", phone: "phone", wilayaCode: "wilaya_code", communeId: "commune_id", address: "address", deliveryType: "delivery_type",
     shippingPrice: "shipping_price", internalNote: "internal_note", trackingNumber: "tracking_number", assignedTo: "assigned_to",
-    outcomeReason: "outcome_reason",
+    outcomeReason: "outcome_reason", customerNote: "customer_note",
   };
-  for (const [k, col] of Object.entries(map)) {
-    if (k in input) {
-      cols.push(`${col} = ?`);
-      vals.push((input as Record<string, unknown>)[k] ?? null);
-    }
-  }
-  if (!cols.length) return c.json({ ok: true });
-  const stmts = [
-    c.env.DB.prepare(`UPDATE orders SET ${cols.join(", ")}, updated_at = ? WHERE id = ?`).bind(...vals, Date.now(), id),
-    c.env.DB.prepare("INSERT INTO order_events (order_id, kind, actor, source, note, created_at) VALUES (?, 'edit', ?, 'admin', ?, ?)").bind(
-      id, actorOf(c.get("member")), `Modifié : ${Object.keys(input).join(", ")}`, Date.now(),
+  const cur = await c.env.DB.prepare(`SELECT status, customer_id, ${Object.values(map).join(", ")} FROM orders WHERE id = ?`)
+    .bind(id)
+    .first<Record<string, unknown> & { status: OrderStatus; customer_id: number }>();
+  if (!cur) throw new HttpError(404, "not_found");
+  // only what really changes
+  const changed = Object.keys(fields).filter((k) => ((fields as Record<string, unknown>)[k] ?? null) !== (cur[map[k]!] ?? null));
+  if (!changed.length) return c.json({ ok: true });
+  if (!isEditable(cur.status) && changed.some((k) => (SHIPPING_FIELDS as readonly string[]).includes(k))) throw new HttpError(409, "order_locked");
+
+  const actor = actorOf(c.get("member"));
+  const now = Date.now();
+  const stmts: D1PreparedStatement[] = [
+    c.env.DB.prepare(`UPDATE orders SET ${changed.map((k) => `${map[k]} = ?`).join(", ")}, updated_at = ? WHERE id = ?`).bind(
+      ...changed.map((k) => (fields as Record<string, unknown>)[k] ?? null), now, id,
     ),
-    auditStmt(c.env, actorOf(c.get("member")), "update", "order", id, Object.keys(input)),
   ];
-  if ("shippingPrice" in input) stmts.splice(1, 0, c.env.DB.prepare("UPDATE orders SET total = subtotal - discount_total + shipping_price WHERE id = ?").bind(id));
+  if (changed.includes("shippingPrice")) stmts.push(c.env.DB.prepare("UPDATE orders SET total = subtotal - discount_total + shipping_price WHERE id = ?").bind(id));
+  // a new phone number: the order follows that customer's profile (created if she's new)
+  if (changed.includes("phone") && fields.phone) {
+    stmts.push(
+      c.env.DB.prepare(
+        `INSERT INTO customers (phone, name, wilaya_code, orders_count, first_order_at, last_order_at, created_at) VALUES (?, ?, ?, 0, ?, ?, ?)
+         ON CONFLICT(phone) DO NOTHING`,
+      ).bind(fields.phone, fields.name ?? cur.name, fields.wilayaCode ?? cur.wilaya_code, now, now, now),
+      c.env.DB.prepare("UPDATE customers SET orders_count = MAX(orders_count - 1, 0) WHERE id = ?").bind(cur.customer_id),
+      c.env.DB.prepare("UPDATE orders SET customer_id = (SELECT id FROM customers WHERE phone = ?) WHERE id = ?").bind(fields.phone, id),
+      c.env.DB.prepare("UPDATE customers SET orders_count = orders_count + 1, last_order_at = ? WHERE phone = ?").bind(now, fields.phone),
+    );
+  }
+  for (const k of changed) {
+    const show = (v: unknown) => (v == null || v === "" ? null : String(v));
+    stmts.push(
+      c.env.DB.prepare("INSERT INTO order_changes (order_id, field, old_value, new_value, reason, actor, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(
+        id, map[k], show(cur[map[k]!]), show((fields as Record<string, unknown>)[k]), reason ?? null, actor, now,
+      ),
+    );
+  }
+  stmts.push(
+    c.env.DB.prepare("INSERT INTO order_events (order_id, kind, actor, source, note, created_at) VALUES (?, 'edit', ?, 'admin', ?, ?)").bind(
+      id, actor, `Modifié : ${changed.join(", ")}${reason ? ` · ${reason}` : ""}`, now,
+    ),
+    auditStmt(c.env, actor, "update", "order", id, { fields: changed, reason }),
+  );
   await c.env.DB.batch(stmts);
   c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
   return c.json({ ok: true });

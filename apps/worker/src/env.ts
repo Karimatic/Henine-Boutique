@@ -5,6 +5,8 @@ export interface Env {
   RL_WRITE: RateLimit;
   RL_LOOKUP: RateLimit;
   RL_AUTH: RateLimit;
+  /** live admin connections (new orders, alerts): see hub.ts */
+  HUB: DurableObjectNamespace<import("./hub").AdminHub>;
 
   ENVIRONMENT: "production" | "preview" | "development";
   PUBLIC_ORIGIN: string;

@@ -9,6 +9,8 @@ import { Wordmark } from "./brand";
 import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
 import { useColorMode } from "./lib/colorMode";
 import { UpdateBar } from "./lib/update";
+import { LiveProvider, SoundUnlock, useLive } from "./lib/live";
+import { AlertsBell } from "./lib/alerts";
 import { tr } from "./i18n";
 
 export function useMe() {
@@ -87,6 +89,17 @@ const SIDEBAR_KEY = "henine.admin.sidebar";
 
 /* ───────────── Sidebar ───────────── */
 
+/** Red counter of new storefront orders (live). */
+function NewBadge({ className = "" }: { className?: string }) {
+  const { unseen } = useLive();
+  if (!unseen) return null;
+  return (
+    <span className={`grid min-w-5 place-items-center rounded-full bg-red-600 px-1 text-[10px] font-bold leading-5 text-white ${className}`} aria-label={tr("{0} nouvelle(s) commande(s)", { 0: unseen })}>
+      {unseen > 99 ? "99+" : unseen}
+    </span>
+  );
+}
+
 function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; collapsed: boolean; onNavigate?: () => void }) {
   const item = (to: string, label: string, Icon: typeof DASHBOARD.icon, exact = false) => (
     <Link
@@ -97,8 +110,12 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
       title={collapsed ? label : undefined}
       className={`group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-ivory-deep [&.active]:bg-plum-600/10 [&.active]:font-medium [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
     >
-      <Icon className="size-[18px] shrink-0 text-ink-soft transition group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
+      <span className="relative">
+        <Icon className="size-[18px] shrink-0 text-ink-soft transition group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
+        {collapsed && to === "/commandes" && <NewBadge className="absolute -end-2.5 -top-2" />}
+      </span>
       {!collapsed && <span className="truncate">{label}</span>}
+      {!collapsed && to === "/commandes" && <NewBadge className="ms-auto" />}
     </Link>
   );
   return (
@@ -207,6 +224,7 @@ export function Shell() {
     return <AccessProblem error={me.error} />;
   }
   const groups = visibleNav(me.data);
+  const canOrders = hasPermission(me.data.permissions, "orders.view");
   const toggle = () => {
     // desktop: rail ↔ full sidebar; phones: slide-in sidebar
     if (window.matchMedia("(min-width: 768px)").matches) {
@@ -222,6 +240,7 @@ export function Shell() {
   };
 
   return (
+    <LiveProvider enabled={canOrders}>
     <div className="flex min-h-dvh">
       {/* Desktop sidebar (full or icon rail) */}
       <aside
@@ -280,6 +299,8 @@ export function Shell() {
               </ol>
             </div>
             <div className="flex shrink-0 items-center gap-2">
+              <SoundUnlock />
+              {canOrders && <AlertsBell />}
               <DarkToggle />
               <a
                 href="/"
@@ -311,8 +332,9 @@ export function Shell() {
           {TABS.map((t) => (
             <li key={t.path}>
               <Link to={t.path} activeOptions={{ exact: t.path === "/" }} className="group flex h-16 flex-col items-center justify-center gap-1 text-ink-soft [&.active]:text-ink">
-                <span className="grid h-7 w-12 place-items-center rounded-full transition group-[.active]:bg-ink group-[.active]:text-on-ink">
+                <span className="relative grid h-7 w-12 place-items-center rounded-full transition group-[.active]:bg-ink group-[.active]:text-on-ink">
                   <t.icon className="size-5" strokeWidth={1.8} />
+                  {t.path === "/commandes" && <NewBadge className="absolute -top-1.5 end-0.5 ring-2 ring-surface" />}
                 </span>
                 {t.label}
               </Link>
@@ -321,6 +343,7 @@ export function Shell() {
         </ul>
       </nav>
     </div>
+    </LiveProvider>
   );
 }
 

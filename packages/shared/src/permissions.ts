@@ -6,6 +6,8 @@ export const PERMISSIONS = [
   "orders.confirm",
   "orders.ship",
   "orders.export",
+  /** give a manual discount on an order */
+  "orders.discount",
   "customers.view",
   "customers.edit",
   "customers.export",

@@ -1,3 +1,4 @@
+import { CONTACT_TIMES } from "./operations";
 import { z } from "zod";
 import { normalizeDzPhone } from "./phone";
 
@@ -55,6 +56,8 @@ export const createOrderInput = z
     stopDeskId: z.number().int().positive().nullable().optional(),
     address: cleanText(200).optional(),
     note: cleanText(500).optional(),
+    /** best time to call her for the confirmation */
+    contactTime: z.enum(CONTACT_TIMES).optional(),
     coupon: z
       .string()
       .trim()

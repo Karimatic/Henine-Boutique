@@ -241,6 +241,8 @@ export const ar: Dictionary = {
     pickWilayaFirst: "اختاري الولاية أولا",
   },
   checkoutPlus: {
+    contactTime: "أفضل وقت للاتصال بك",
+    contactTimeHint: "يتصل بك فريقنا لتأكيد الطلب.",
     delay: (d: string) => {
       // "2" → "يومين", "1-2" → "1-2 أيام", "15" → "15 يومًا"
       const n = Number(d);
@@ -255,6 +257,30 @@ export const ar: Dictionary = {
     communePrice: "سعر هذه البلدية",
     deliveryTo: "التوصيل",
     step: { details: "معلوماتك", address: "العنوان", delivery: "التوصيل", ready: "التأكيد" } as Record<string, string>,
+  },
+  afterDelivery: {
+    receiptTitle: "هل استلمتِ طلبك؟",
+    yes: "نعم، استلمته ✅",
+    problem: "هناك مشكلة ❌",
+    whatProblem: "ماذا حدث؟",
+    details: "وضّحي أكثر (اختياري)",
+    send: "إرسال",
+    thanks: "شكرًا! استمتعي بقطعك 🌸",
+    problemSent: "تم التسجيل: سيتصل بك فريقنا قريبًا جدًا.",
+    confirmed: "تم تأكيد الاستلام ✅ شكرًا!",
+    reported: "تم إبلاغنا بالمشكلة: فريقنا يتكفل بها.",
+    exchange: "🔄 طلب تبديل",
+    exchangeText: "اختاري المقاس أو اللون الذي تريدينه: سيتصل بك فريقنا لترتيب التبديل.",
+    newVariant: "المقاس / اللون الجديد",
+    reason: "السبب",
+    note: "تفصيل تريدين إضافته؟ (اختياري)",
+    sendRequest: "إرسال الطلب",
+    requestSent: "تم إرسال طلب التبديل 🔄 سيتصل بك فريقنا.",
+    pending: "يوجد طلب تبديل قيد المعالجة لهذه القطعة.",
+    closed: "انتهت مدة طلب التبديل: تواصلي معنا.",
+    exchangeLabel: "تبديل",
+    soldOut: "نفد",
+    back: "رجوع",
   },
   trackPlus: {
     steps: {

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { CUSTOMER_CANCEL_REASONS, dateLocale, formatDA, normalizeDzPhone, toE164, TRACKING_STEPS, trackingStepIndex, type SiteConfigDTO, type TrackedOrderDTO } from "@henine/shared";
 import { ReviewForm } from "@/components/product/ReviewForm";
+import { ExchangeAction, ReceiptPrompt } from "@/components/views/AfterDelivery";
 import { ErrorBox, inputCls, PageTitle, ProductImage, Spinner } from "@/components/ui/kit";
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
@@ -240,6 +241,7 @@ function OrderCard({ o: initial, token }: { o: TrackedOrderDTO; token?: string }
           {notice && <p className="rounded-2xl bg-emerald-50 p-3 text-sm font-medium text-emerald-800">{notice}</p>}
           <Timeline o={o} />
           {token && o.canChange && <SelfService o={o} token={token} onChanged={changed} />}
+          {token && o.receipt && <ReceiptPrompt o={o} token={token} onChanged={changed} />}
           {o.trackingNumber && (
             <p className="rounded-2xl bg-rose-100 p-3 text-sm">
               {t.track.trackingNumber} :{" "}
@@ -293,6 +295,9 @@ function OrderCard({ o: initial, token }: { o: TrackedOrderDTO; token?: string }
                     )
                   ) : null}
                   {i.productId != null && reviewed.includes(i.productId) && <p className="mt-2 text-sm text-success">{t.reviewsPlus.sent}</p>}
+                  {token && i.orderItemId != null && (o.canExchange || o.exchanges.some((x) => x.orderItemId === i.orderItemId)) && (
+                    <ExchangeAction o={o} item={i} token={token} onChanged={changed} />
+                  )}
                 </li>
               ))}
             </ul>

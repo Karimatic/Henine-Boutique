@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
-import { KeyRound, Plug, Phone, ShoppingBag, Store, Type, type LucideIcon } from "lucide-react";
+import { BellRing, KeyRound, Plug, Phone, ShoppingBag, Store, Type, type LucideIcon } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { api, errorMessage, put } from "../api";
 import { da } from "../lib/format";
@@ -10,6 +10,7 @@ import { ContactSettingsCard, StoreTextsEditor, type ContactSettings, type Overr
 import { BoutiqueSettingsCard } from "./BoutiqueSettings";
 import { DesignEditor } from "./Design";
 import { IntegrationsSection, MyAccount } from "./System";
+import { OperationsSettings } from "./OperationsSettings";
 import { tr } from "../i18n";
 
 /**
@@ -27,11 +28,12 @@ interface HomeSettings {
   texts?: { ar?: Overrides; fr?: Overrides };
 }
 
-type TabKey = "boutique" | "commandes" | "textes" | "contact" | "compte" | "connexions";
+type TabKey = "boutique" | "commandes" | "alertes" | "textes" | "contact" | "compte" | "connexions";
 
 const TABS: { key: TabKey; label: string; icon: LucideIcon; perm: Parameters<ReturnType<typeof useCan>>[0] }[] = [
   { key: "boutique", label: tr("Boutique"), icon: Store, perm: "marketing.edit" },
   { key: "commandes", label: tr("Commandes & livraison"), icon: ShoppingBag, perm: "marketing.edit" },
+  { key: "alertes", label: tr("Alertes & délais"), icon: BellRing, perm: "orders.view" },
   { key: "textes", label: tr("Textes"), icon: Type, perm: "marketing.edit" },
   { key: "contact", label: tr("Contact & réseaux"), icon: Phone, perm: "marketing.edit" },
   { key: "compte", label: tr("Mon compte"), icon: KeyRound, perm: "dashboard.view" },
@@ -70,6 +72,8 @@ export function SettingsPage() {
       </div>
       {tab === "compte" ? (
         <MyAccount />
+      ) : tab === "alertes" ? (
+        <OperationsSettings />
       ) : tab === "connexions" ? (
         <div className="space-y-4">
           <IntegrationsSection />
