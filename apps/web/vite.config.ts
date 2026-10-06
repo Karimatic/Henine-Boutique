@@ -1,6 +1,6 @@
 import { fileURLToPath } from "node:url";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type PluginOption } from "vite";
 import { NOT_FOUND, PAGES, type ViewKey } from "./src/pages";
 
 /**
@@ -40,7 +40,7 @@ export const ENTRIES = [
 ];
 
 const PREFIX = "\0henine-page:";
-function pageEntries(): Plugin {
+function pageEntries(): PluginOption {
   return {
     name: "henine-page-entries",
     resolveId: (id) => (id.startsWith("henine-page:") ? `\0${id}` : null),
@@ -59,7 +59,7 @@ function pageEntries(): Plugin {
 }
 
 export default defineConfig(({ isSsrBuild }) => {
-  const plugins: Plugin[] = [tailwindcss()];
+  const plugins: PluginOption[] = [tailwindcss()];
 
   if (!isSsrBuild) {
     plugins.push(pageEntries());
