@@ -270,7 +270,7 @@ operationRoutes.get("/operations/settings", requirePermission("orders.view"), as
   return c.json({
     ...operations,
     soundUrl: operations.sound ? mediaUrl(c.env, operations.sound) : null,
-    soundSeconds: operations.sound_seconds === undefined ? 1.5 : operations.sound_seconds,
+    soundSeconds: operations.sound_seconds === undefined ? 5 : operations.sound_seconds,
     duplicates: { ...DEFAULT_DUPLICATE_SETTINGS, ...(operations.duplicates ?? {}) },
   });
 });

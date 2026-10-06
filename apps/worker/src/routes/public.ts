@@ -36,6 +36,7 @@ import {
 import type { AppEnv } from "../env";
 import { recordError } from "../lib/audit";
 import { answer } from "../lib/assistant-intents";
+import { withAiVoice } from "../lib/assistant-ai";
 import { activeFlash, featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, reviewPhotos, variantLabels, type ImageRow } from "../lib/catalog";
 import { cached } from "../lib/edge-cache";
 import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, validate, verifyTurnstile } from "../lib/http";
@@ -282,7 +283,7 @@ publicRoutes.get("/carts/:id", async (c) => {
 publicRoutes.post("/assistant", async (c) => {
   await rateLimit(c.env.RL_LOOKUP, `assistant:${clientIp(c)}`);
   const input = await body(c, assistantInput);
-  return c.json(await answer(c.env, input));
+  return c.json(await withAiVoice(c.env, input, await answer(c.env, input), clientIp(c)));
 });
 
 /* ───────── Tracking ───────── */

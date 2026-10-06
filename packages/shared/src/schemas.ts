@@ -202,6 +202,8 @@ export const assistantInput = z.object({
       cart: z.array(z.object({ slug: z.string().max(90), qty: z.number().int().min(1).max(20), price: z.number().int().min(0) })).max(30).default([]),
       orders: z.array(z.object({ code: z.string().max(20), token: z.string().max(200) })).max(3).default([]),
       previous: z.string().max(300).optional(),
+      /** the last exchanges of this conversation, so she can say "and in red?" or "the second one" */
+      history: z.array(z.object({ q: z.string().max(300), a: z.string().max(600) })).max(6).default([]),
     })
-    .default({ recent: [], favorites: [], cart: [], orders: [] }),
+    .default({ recent: [], favorites: [], cart: [], orders: [], history: [] }),
 });

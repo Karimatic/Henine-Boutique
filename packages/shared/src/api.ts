@@ -253,6 +253,8 @@ export interface AssistantReplyDTO {
   products: (ProductCardDTO & { why: string[] })[];
   /** nothing matched every wish: these are the closest ones */
   relaxed: boolean;
+  /** the reply was worded by the AI model (from the same facts) */
+  ai?: boolean;
 }
 
 export interface WilayaDTO {

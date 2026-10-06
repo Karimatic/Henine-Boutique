@@ -5,6 +5,12 @@ export interface Env {
   RL_WRITE: RateLimit;
   RL_LOOKUP: RateLimit;
   RL_AUTH: RateLimit;
+  /** AI answers per visitor (beyond it the rules answer alone) */
+  RL_AI?: RateLimit;
+  /** Workers AI (free daily allocation): the assistant's voice, see lib/assistant-ai.ts */
+  AI?: Ai;
+  /** Workers AI model for the assistant; "off" = rules only */
+  ASSISTANT_MODEL?: string;
   /** live admin connections (new orders, alerts): see hub.ts */
   HUB: DurableObjectNamespace<import("./hub").AdminHub>;
 

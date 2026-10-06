@@ -16,10 +16,10 @@ import { da } from "./format";
 /* ── Device preferences (Paramètres → Notifications) ── */
 
 export const SOUNDS = {
-  // the file sent in Paramètres → Alertes (same for the whole team); the chime until there is one
+  // the file sent in Paramètres → Alertes (same for the whole team); the announcement until there is one
   boutique: { label: "Son de la boutique", notes: [] },
-  // the "announcement" chime (rising do-mi-sol-do, bell tone with a little echo), 1.5 s
-  annonce: { label: "Annonce (carillon 1,5 s)", notes: [] },
+  // the built-in announcement (public/sounds/annonce.mp3); the synthesised chime if it can't play
+  annonce: { label: "Annonce (son par défaut)", notes: [] },
   chime: { label: "Carillon", notes: [[880, 0, 0.18], [1318.5, 0.16, 0.32]] },
   bell: { label: "Cloche", notes: [[1046.5, 0, 0.6], [1568, 0, 0.45]] },
   pop: { label: "Bulle", notes: [[660, 0, 0.09], [990, 0.1, 0.12]] },
@@ -134,12 +134,16 @@ function playChime(c: AudioContext, volume: number) {
   return true;
 }
 
-/* ── The shop's own sound (an audio file), played 1.5 s at most with a short fade ── */
+/* ── The new-order sound: the shop's file or the built-in announcement, cut at the chosen length with a short fade ── */
 
-/** Default length of the shop's sound; the owner sets her own in Paramètres → Alertes (null = whole file). */
-export const SHOP_SOUND_DEFAULT_SECONDS = 1.5;
+/** Default length of the shop's sound (the whole built-in announcement); the owner sets her own in Paramètres → Alertes (null = whole file). */
+export const SHOP_SOUND_DEFAULT_SECONDS = 5;
+/** The built-in new-order sound, until the shop sends its own file. */
+export const DEFAULT_SHOP_SOUND_URL = `${import.meta.env.BASE_URL}sounds/annonce.mp3`;
 let shopSound: HTMLAudioElement | null = null;
 let shopSoundUrl: string | null = null;
+let defaultSound: HTMLAudioElement | null = null;
+const builtIn = () => (defaultSound ??= Object.assign(new Audio(DEFAULT_SHOP_SOUND_URL), { preload: "auto" }));
 let shopSoundSeconds: number | null = SHOP_SOUND_DEFAULT_SECONDS;
 let fadeTimer: ReturnType<typeof setInterval> | undefined;
 /** an order rang before the page could make sound: it rings at the first click */
@@ -177,8 +181,8 @@ function playShopSound(a: HTMLAudioElement, volume: number, c: AudioContext) {
 export function playTone(tone: SoundKey, volume: number) {
   const c = ctx();
   if (!c || c.state !== "running") return false;
-  if (tone === "boutique") return shopSound ? playShopSound(shopSound, volume, c) : playChime(c, volume);
-  if (tone === "annonce") return playChime(c, volume);
+  if (tone === "boutique") return playShopSound(shopSound ?? builtIn(), volume, c);
+  if (tone === "annonce") return playShopSound(builtIn(), volume, c);
   const t0 = c.currentTime + 0.02;
   for (const [freq, start, dur] of SOUNDS[tone].notes as readonly (readonly [number, number, number])[]) {
     const osc = c.createOscillator();

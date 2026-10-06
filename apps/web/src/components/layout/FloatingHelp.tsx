@@ -133,6 +133,14 @@ function AssistantPanel({ onClose, locale }: { onClose: () => void; locale: "fr"
         cart: cartStore.get().slice(0, 30).map((i) => ({ slug: i.slug, qty: i.qty, price: i.price })),
         orders: ordersStore.get().slice(0, 3).map((o) => ({ code: o.code, token: o.token })),
         previous: lastSearch.current ?? undefined,
+        // the conversation so far, so "and in red?" or "the second one" make sense
+        history: turns
+          .filter((x) => x.reply)
+          .slice(-4)
+          .map((x) => ({
+            q: x.q.slice(0, 300),
+            a: (x.reply!.reply ?? x.reply!.products.map((p) => (ar ? p.nameAr : p.nameFr)).join(", ")).slice(0, 600),
+          })),
       };
       const reply = await apiPost<AssistantReplyDTO>("/assistant", { q: wish, locale, context });
       if (reply.intent === "search") lastSearch.current = wish;

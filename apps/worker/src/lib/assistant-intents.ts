@@ -79,7 +79,7 @@ const withWhy = (list: ProductCardDTO[], why: (p: ProductCardDTO) => string[] = 
 
 export async function answer(env: Env, input: Input): Promise<AssistantReplyDTO> {
   const ar = input.locale === "ar";
-  const ctx: Ctx = input.context ?? { recent: [], favorites: [], cart: [], orders: [] };
+  const ctx: Ctx = input.context ?? { recent: [], favorites: [], cart: [], orders: [], history: [] };
   const text = clean(input.q);
   const wordsCount = text.trim().split(" ").filter(Boolean).length;
   const base = (reply: string, extra: Partial<AssistantReplyDTO> = {}): AssistantReplyDTO => ({ reply, understood: [], products: [], relaxed: false, ...extra });

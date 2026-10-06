@@ -145,7 +145,7 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
     onError: (e) => toast(errorMessage(e), "error"),
   });
   useEffect(() => {
-    if (seconds === saved || !url) return;
+    if (seconds === saved) return;
     const t = setTimeout(() => duration.mutate(seconds), 600);
     return () => clearTimeout(t);
   }, [seconds]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -170,7 +170,7 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
   });
   const remove = useMutation({
     mutationFn: () => del<{ soundUrl: null }>("/operations/sound"),
-    onSuccess: () => done(null, tr("Son retiré : le carillon reprend")),
+    onSuccess: () => done(null, tr("Son retiré : le son « Annonce » reprend")),
     onError: (e) => toast(errorMessage(e), "error"),
   });
   async function listen() {
@@ -182,40 +182,38 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
     <div className="rounded-xl border border-line bg-ivory-deep/40 p-3.5">
       <p className="text-sm font-semibold">{tr("🎵 Son de la boutique (pour toute l'équipe)")}</p>
       <p className="mt-0.5 text-xs text-ink-soft">
-        {url ? tr("Votre fichier sonne à chaque nouvelle commande, sur tous les appareils de l'équipe.") : tr("Aucun fichier : le carillon intégré est utilisé.")}{" "}
+        {url ? tr("Votre fichier sonne à chaque nouvelle commande, sur tous les appareils de l'équipe.") : tr("Aucun fichier envoyé : le son « Annonce » intégré sonne à chaque nouvelle commande.")}{" "}
         {tr("MP3, WAV, OGG ou M4A, 1 Mo au plus ; vous choisissez combien de temps il sonne.")}
       </p>
-      {url && (
-        <div className="mt-3 rounded-lg bg-surface p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
-            <span>{tr("Durée du son")}</span>
-            <b className="tabular-nums text-plum-700">{seconds == null ? tr("Fichier entier") : tr("{0} s", { 0: String(seconds).replace(".", ",") })}</b>
-          </div>
-          <input
-            type="range"
-            min={0.5}
-            max={30}
-            step={0.5}
-            value={seconds ?? 30}
-            disabled={seconds == null || !can("orders.edit")}
-            onChange={(e) => setSeconds(Number(e.target.value))}
-            aria-label={tr("Durée du son")}
-            className="mt-2 block h-10 w-full accent-plum-600 disabled:opacity-40"
-          />
-          <label className="mt-1 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              className="size-4 accent-plum-600"
-              checked={seconds == null}
-              disabled={!can("orders.edit")}
-              onChange={(e) => setSeconds(e.target.checked ? null : SHOP_SOUND_DEFAULT_SECONDS)}
-            />
-            {tr("Jouer le fichier en entier")}
-          </label>
+      <div className="mt-3 rounded-lg bg-surface p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
+          <span>{tr("Durée du son")}</span>
+          <b className="tabular-nums text-plum-700">{seconds == null ? tr("Fichier entier") : tr("{0} s", { 0: String(seconds).replace(".", ",") })}</b>
         </div>
-      )}
+        <input
+          type="range"
+          min={0.5}
+          max={30}
+          step={0.5}
+          value={seconds ?? 30}
+          disabled={seconds == null || !can("orders.edit")}
+          onChange={(e) => setSeconds(Number(e.target.value))}
+          aria-label={tr("Durée du son")}
+          className="mt-2 block h-10 w-full accent-plum-600 disabled:opacity-40"
+        />
+        <label className="mt-1 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="size-4 accent-plum-600"
+            checked={seconds == null}
+            disabled={!can("orders.edit")}
+            onChange={(e) => setSeconds(e.target.checked ? null : SHOP_SOUND_DEFAULT_SECONDS)}
+          />
+          {tr("Jouer le fichier en entier")}
+        </label>
+      </div>
       <div className="mt-2.5 flex flex-wrap gap-2">
-        {url && <Button onClick={() => void listen()}>{tr("▶ Écouter")}</Button>}
+        <Button onClick={() => void listen()}>{tr("▶ Écouter")}</Button>
         {can("orders.edit") && (
           <label className={`inline-flex h-11 cursor-pointer items-center rounded-xl border border-line bg-surface px-4 text-sm font-semibold transition hover:border-plum-600/40 ${send.isPending ? "pointer-events-none opacity-60" : ""}`}>
             {send.isPending ? tr("Envoi…") : url ? tr("Remplacer le fichier") : tr("Choisir un fichier son")}

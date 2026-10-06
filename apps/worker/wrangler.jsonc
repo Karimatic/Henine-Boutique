@@ -94,8 +94,21 @@
         "limit": 10,
         "period": 60
       }
+    },
+    {
+      "name": "RL_AI",
+      "namespace_id": "1004",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
     }
   ],
+  // Workers AI: the shop assistant's voice (free daily allocation; when it is used up the
+  // assistant answers with its rules alone, nothing is billed on the free plan)
+  "ai": {
+    "binding": "AI"
+  },
   // 21:00 Algiers = 20:00 UTC (Algeria has no DST)
   "triggers": {
     "crons": [
@@ -111,7 +124,9 @@
     "TURNSTILE_SITE_KEY": "0x4AAAAAAFPeknmAStiuhKG6",
     // "resend" or "brevo" once MAIL_API_KEY is set as a secret; "console" logs codes (development)
     "MAIL_PROVIDER": "console",
-    "MAIL_FROM": "Henine Boutique <no-reply@example.com>"
+    "MAIL_FROM": "Henine Boutique <no-reply@example.com>",
+    // "off" = assistant without AI
+    "ASSISTANT_MODEL": "@cf/google/gemma-4-26b-a4b-it"
   },
   "observability": {
     "enabled": true,
