@@ -274,10 +274,11 @@ export function StockCountPage() {
             return (
               <li key={l.variant_id} className="p-3">
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="min-w-0 flex-1">
+                  <span className="min-w-0 basis-full sm:flex-1 sm:basis-auto">
                     <span className="block truncate text-sm font-medium">{isAr ? l.name_ar || l.name_fr : l.name_fr}</span>
-                    <span className="font-mono text-xs text-ink-soft">{l.sku}</span>
-                    <span className="block text-xs text-ink-soft">{tr("Système : {0}", { 0: l.system_qty })}</span>
+                    <span className="block text-xs text-ink-soft">
+                      <span className="font-mono" dir="ltr">{l.sku}</span> · {tr("Système : {0}", { 0: l.system_qty })}
+                    </span>
                   </span>
                   {editing ? (
                     <span className="flex items-center gap-1" dir="ltr">
@@ -285,7 +286,8 @@ export function StockCountPage() {
                         −
                       </button>
                       <input
-                        className={`${inputCls} w-20 text-center text-lg tabular-nums`}
+                        className={`${inputCls} text-center text-lg tabular-nums`}
+                        style={{ width: "5.5rem" }}
                         inputMode="numeric"
                         value={l.counted_qty ?? ""}
                         placeholder="—"

@@ -18,6 +18,18 @@ export { AdminHub } from "./hub";
 
 const app = new Hono<AppEnv>();
 app.use("*", httpsOnly);
+// PUBLIC_ORIGIN builds every absolute link (canonical, previews, sitemap): if it is missing or not a
+// valid address (a placeholder left in the config), use the address the site is reached at
+// instead of failing every page that needs it.
+app.use("*", async (c, next) => {
+  try {
+    if (!/^https?:\/\/[^<>\s]+$/.test(c.env.PUBLIC_ORIGIN)) throw new Error("invalid");
+    new URL(c.env.PUBLIC_ORIGIN);
+  } catch {
+    c.env.PUBLIC_ORIGIN = new URL(c.req.url).origin;
+  }
+  await next();
+});
 
 /* ─── API ─── */
 const api = new Hono<AppEnv>();

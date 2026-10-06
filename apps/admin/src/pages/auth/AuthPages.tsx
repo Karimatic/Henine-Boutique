@@ -80,7 +80,7 @@ export function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [remember, setRemember] = useState(true);
-  const [challenge, setChallenge] = useState<{ id: string; hint: string; dev?: string } | null>(null);
+  const [challenge, setChallenge] = useState<{ id: string; hint: string; dev?: string; totp?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,8 +90,8 @@ export function LoginPage() {
     setBusy(true);
     try {
       const key = await derivePasswordKey(email, password);
-      const res = await auth<{ challenge: string; emailHint: string; devCode?: string }>("/login", { email: email.trim(), key, remember });
-      setChallenge({ id: res.challenge, hint: res.emailHint, dev: res.devCode });
+      const res = await auth<{ challenge: string; emailHint: string; devCode?: string; method?: "totp" | "email" }>("/login", { email: email.trim(), key, remember });
+      setChallenge({ id: res.challenge, hint: res.emailHint, dev: res.devCode, totp: res.method === "totp" });
       setStep("code");
     } catch (err) {
       setError(errorMessage(err));
@@ -114,7 +114,18 @@ export function LoginPage() {
 
   if (step === "code" && challenge) {
     return (
-      <AuthLayout title={tr("Vérification par email")} subtitle={<>{tr("Nous avons envoyé un code à 6 chiffres à")} <b>{challenge.hint}</b>.</>}>
+      <AuthLayout
+        title={challenge.totp ? tr("Code de votre application") : tr("Vérification par email")}
+        subtitle={
+          challenge.totp ? (
+            tr("Ouvrez votre application d'authentification (Google Authenticator…) et tapez le code à 6 chiffres de Henine Boutique.")
+          ) : (
+            <>
+              {tr("Nous avons envoyé un code à 6 chiffres à")} <b>{challenge.hint}</b>.
+            </>
+          )
+        }
+      >
         <DevCode code={challenge.dev} />
         <CodeInput onComplete={submitCode} disabled={busy} />
         {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
@@ -122,7 +133,7 @@ export function LoginPage() {
           <button type="button" className="font-semibold text-plum-600" onClick={() => { setStep("password"); setError(null); }}>
             {tr("← Retour")}
           </button>
-          <span className="text-ink-soft">{tr("Valable 10 minutes")}</span>
+          <span className="text-ink-soft">{challenge.totp ? tr("Le code change toutes les 30 secondes") : tr("Valable 10 minutes")}</span>
         </div>
       </AuthLayout>
     );
@@ -189,14 +200,66 @@ export function InvitationPage() {
   const token = new URLSearchParams(location.search).get("token") ?? "";
   const [info, setInfo] = useState<{ email: string; name: string; role: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [challenge, setChallenge] = useState<{ id: string; dev?: string } | null>(null);
+  const [challenge, setChallenge] = useState<{ id: string; dev?: string; totp?: { secret: string; uri: string } } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
   useEffect(() => {
     auth<{ email: string; name: string; role: string }>(`/invite/${encodeURIComponent(token)}`).then(setInfo, (err) => setError(errorMessage(err)));
   }, [token]);
 
   if (error && !info) return <AuthLayout title={tr("Invitation")}>{<p className="text-sm text-red-700">{error}</p>}</AuthLayout>;
   if (!info) return <AuthLayout title={tr("Invitation")}><div className="skeleton h-24" /></AuthLayout>;
+  if (challenge?.totp) {
+    const { secret, uri } = challenge.totp;
+    return (
+      <AuthLayout title={tr("Sécurisez votre compte")} subtitle={tr("À chaque connexion, un code de votre téléphone sera demandé en plus du mot de passe.")}>
+        <ol className="space-y-4 text-sm">
+          <li>
+            <b>1.</b> {tr("Installez une application d'authentification gratuite : Google Authenticator ou Microsoft Authenticator.")}
+          </li>
+          <li>
+            <b>2.</b> {tr("Ajoutez Henine Boutique :")}
+            <a href={uri} className="mt-2 flex h-11 items-center justify-center rounded-xl bg-plum-600 px-4 font-semibold text-white">
+              {tr("📲 Ajouter à mon application")}
+            </a>
+            <span className="mt-2 block text-xs text-ink-soft">{tr("Sur ordinateur, ou si le bouton ne marche pas, entrez cette clé dans l'application (« Saisir une clé ») :")}</span>
+            <span className="mt-1 flex items-center gap-2">
+              <code className="flex-1 select-all break-all rounded-lg bg-ivory-deep px-3 py-2 font-mono text-sm tracking-wider" dir="ltr">
+                {secret.match(/.{1,4}/g)?.join(" ")}
+              </code>
+              <button
+                type="button"
+                className="h-10 shrink-0 rounded-lg border border-line px-3 text-xs font-semibold"
+                onClick={() => void navigator.clipboard?.writeText(secret).then(() => setCopied(true))}
+              >
+                {copied ? tr("Copiée ✓") : tr("Copier")}
+              </button>
+            </span>
+          </li>
+          <li>
+            <b>3.</b> {tr("Tapez le code à 6 chiffres affiché par l'application :")}
+          </li>
+        </ol>
+        <div className="mt-3">
+          <CodeInput
+            disabled={busy}
+            onComplete={async (code) => {
+              setBusy(true);
+              setError(null);
+              try {
+                await auth("/invite/verify", { token, challenge: challenge.id, code });
+                location.href = "/admin/";
+              } catch (err) {
+                setError(errorMessage(err));
+                setBusy(false);
+              }
+            }}
+          />
+        </div>
+        {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
+      </AuthLayout>
+    );
+  }
   if (challenge) {
     return (
       <AuthLayout title={tr("Confirmez votre email")} subtitle={<>{tr("Code envoyé à")} <b>{info.email}</b>.</>}>
@@ -225,8 +288,8 @@ export function InvitationPage() {
         email={info.email}
         submitLabel="Activer mon compte"
         onKey={async (key) => {
-          const res = await auth<{ challenge: string; devCode?: string }>("/invite/accept", { token, key });
-          setChallenge({ id: res.challenge, dev: res.devCode });
+          const res = await auth<{ challenge: string; devCode?: string; totp?: { secret: string; uri: string } }>("/invite/accept", { token, key });
+          setChallenge({ id: res.challenge, dev: res.devCode, totp: res.totp });
         }}
       />
     </AuthLayout>
@@ -236,7 +299,7 @@ export function InvitationPage() {
 export function ForgotPage() {
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<"email" | "password" | "code">("email");
-  const [challenge, setChallenge] = useState<{ id: string; dev?: string } | null>(null);
+  const [challenge, setChallenge] = useState<{ id: string; dev?: string; totp?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -258,8 +321,8 @@ export function ForgotPage() {
           email={email}
           submitLabel={tr("Recevoir le code")}
           onKey={async (key) => {
-            const res = await auth<{ challenge: string; devCode?: string }>("/forgot", { email: email.trim(), key });
-            setChallenge({ id: res.challenge, dev: res.devCode });
+            const res = await auth<{ challenge: string; devCode?: string; method?: "totp" | "email" }>("/forgot", { email: email.trim(), key });
+            setChallenge({ id: res.challenge, dev: res.devCode, totp: res.method === "totp" });
             setStep("code");
           }}
         />
@@ -267,7 +330,10 @@ export function ForgotPage() {
     );
   }
   return (
-    <AuthLayout title={tr("Code de confirmation")} subtitle={tr("Si ce compte existe, un code vient d'être envoyé.")}>
+    <AuthLayout
+      title={tr("Code de confirmation")}
+      subtitle={challenge?.totp ? tr("Tapez le code à 6 chiffres de votre application d'authentification.") : tr("Si ce compte existe, un code vient d'être envoyé.")}
+    >
       <DevCode code={challenge?.dev} />
       <CodeInput
         disabled={busy}

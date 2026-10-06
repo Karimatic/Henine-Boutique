@@ -54,7 +54,7 @@ const dir = mkdtempSync(join(tmpdir(), "henine-invite-"));
 const file = join(dir, "invite.sql");
 writeFileSync(file, sql);
 try {
-  execSync(`npx wrangler d1 execute henine-db ${remote ? "--remote" : "--local"} --file "${file}"`, { cwd: workerDir, stdio: ["ignore", "ignore", "inherit"] });
+  execSync(`npx wrangler d1 execute DB ${remote ? "--remote" : "--local"} --file "${file}"`, { cwd: workerDir, stdio: ["ignore", "ignore", "inherit"] });
 } finally {
   rmSync(dir, { recursive: true, force: true });
 }

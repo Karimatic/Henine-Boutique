@@ -656,3 +656,23 @@ Migrations: `0003_operations`, `0004_category_season`.
 
 **Result (gzip):** home 42.8 KB JS (was ~173), product page 65.7 KB, checkout 56.6 KB, every page < 66 KB; CSS 20.7 KB. Build ≈ 7 s. All 38 pages checked in a browser (render, hydration, no console errors); cart, quantity, checkout, menu and language switch verified.
 
+
+## 16. Business operations (2026-10-06)
+
+Audited first; reused what existed (order lifecycle, stock history, contact log, alerts + cron, audit log, analytics_daily, per-order profit). Migration `0005_business_operations`.
+- **COD reconciliation** (Finance → Encaissements): per order expected / collected / courier fee / return fee / net / remitted / outstanding and status (pending, partial, reconciled, disputed, overpaid); courier payments split over orders (`cod_remittances`, `cod_allocations`), voidable; the courier's real fee (`order_finance`) replaces the wilaya-rate estimate in every profit view.
+- **Physical stock count** (Stock → Inventaire): counting → submitted → approved/rejected; differences applied to today's stock through `stock_movements` (reason `inventaire`) only after approval (`stock.approve`).
+- **Duplicate orders**: scored on creation (same phone/customer, address, items, amount, time), flagged with reasons, never auto-cancelled; keep / merge / cancel / reviewed / ignore; configurable in Paramètres → Alertes.
+- **Order source attribution**: the store remembers the arrival (UTM, ad click ids, referrer, landing) 30 days and counts one visit per session; `orders.source` classified server-side; Statistiques → "D'où viennent les commandes" (orders, revenue, conversion, campaigns).
+- **Failed deliveries** (Expéditions): follow-up queue (contact log in the order history, callbacks with alerts, assignment, escalation).
+- **Courier manifests** (Expéditions → Bordereaux): draft → ready → handed over (orders become "expédiée", stock committed) → confirmed; tracking numbers in bulk, print, CSV. No multi-courier layer (ZR Express API still not connected).
+- **Expenses + business P&L** (Finance): revenue → gross profit → order-level profit (same model as per-order profit) → operating expenses → net profit.
+- Permissions `finance.view`, `finance.edit`, `stock.approve` (granted to the Gérante role by the migration).
+
+## 17. Live site fixes (2026-10-06)
+
+Live at https://henine-boutique.karimmaticmz.workers.dev (Worker `henine-boutique`, D1 `henine-boutique-db`).
+- `PUBLIC_ORIGIN` was a placeholder → 500 on product pages, robots.txt, sitemap: set; the Worker now falls back to the request's own address if it is ever invalid.
+- No secrets were set: generated `AUTH_PEPPER`, `IP_HASH_SALT`, `TRACK_TOKEN_PEPPER`, `SETTINGS_KEY`; Turnstile widget created on the account (site key in `TURNSTILE_SITE_KEY`, secret as `TURNSTILE_SECRET`).
+- No email service → admin sign-in was impossible: accounts invited while email isn't configured use an authenticator app (TOTP, migration `0006_admin_authenticator`); with Resend/Brevo configured, emailed codes as before.
+- Production had no `d1_migrations` table (schema loaded by hand): recorded 0000–0006 so `npm run migrate:remote` works from now on. Scripts use the `DB` binding instead of the old database name.

@@ -1,12 +1,12 @@
 {
   "$schema": "../../node_modules/wrangler/config-schema.json",
-  "name": "henine",
+  "name": "henine-boutique",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "compatibility_flags": [
     "nodejs_compat"
   ],
-  // Storefront (Next static export) + admin SPA, assembled by scripts/assemble-dist.mjs.
+  // Storefront (pre-rendered pages) + admin SPA, assembled by scripts/assemble-dist.mjs.
   // Static files are served free and never count against the Worker request/CPU limits.
   // Only these paths run the Worker first:
   "assets": {
@@ -40,7 +40,10 @@
     {
       "binding": "DB",
       "database_name": "henine-boutique-db",
-      "database_id": "fd580fa9-10fc-4ee0-a64a-edd046116c37"
+      "database_id": "fd580fa9-10fc-4ee0-a64a-edd046116c37",
+      // local development keeps its own database (npm run dev), never the production one
+      "preview_database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "../../packages/db/migrations"
     }
   ],
   "r2_buckets": [
@@ -103,9 +106,9 @@
   },
   "vars": {
     "ENVIRONMENT": "production",
-    "PUBLIC_ORIGIN": "https://henine.<your-subdomain>.workers.dev",
+    "PUBLIC_ORIGIN": "https://henine-boutique.karimmaticmz.workers.dev",
     "MEDIA_ORIGIN": "",
-    "TURNSTILE_SITE_KEY": "",
+    "TURNSTILE_SITE_KEY": "0x4AAAAAAFPeknmAStiuhKG6",
     // "resend" or "brevo" once MAIL_API_KEY is set as a secret; "console" logs codes (development)
     "MAIL_PROVIDER": "console",
     "MAIL_FROM": "Henine Boutique <no-reply@example.com>"

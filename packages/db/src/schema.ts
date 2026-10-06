@@ -703,6 +703,10 @@ export const teamMembers = sqliteTable("team_members", {
   lastSeenAt: integer("last_seen_at"),
   /** the newest order this member has seen (the red "new orders" counter starts after it) */
   ordersSeenAt: integer("orders_seen_at"),
+  /** authenticator app (TOTP) secret, encrypted with SETTINGS_KEY: the sign-in code when no email service is set */
+  totpSecretEnc: text("totp_secret_enc"),
+  /** the last 30-second step used (a code works once) */
+  totpLastStep: integer("totp_last_step"),
   createdAt: createdAt(),
 });
 
@@ -732,6 +736,8 @@ export const authChallenges = sqliteTable(
     /** For reset/invite: the new password hash, applied only once the email code is verified. */
     pendingHash: text("pending_hash"),
     pendingSalt: text("pending_salt"),
+    /** invitation without email: the authenticator secret being set up (encrypted) */
+    pendingTotp: text("pending_totp"),
     remember: bool("remember").notNull().default(false),
     attempts: integer("attempts").notNull().default(0),
     expiresAt: integer("expires_at").notNull(),

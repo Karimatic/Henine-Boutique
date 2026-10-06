@@ -361,7 +361,7 @@ export const ar: Dictionary = {
       already_reviewed: "لقد أعطيت رأيك في هذا المنتج من قبل. شكرا!",
     } as Record<string, string>,
   },
-  look: { title: "أكملي إطلالتك", similar: "قد يعجبك أيضا" },
+  look: { title: "أكملي إطلالتك", similar: "من نفس القسم" },
   arrivals: { title: "وصل حديثا", text: "آخر القطع التي وصلت إلى المحل، من الأحدث إلى الأقدم.", empty: "لا توجد قطع جديدة حاليا." },
   drop: {
     soon: "قريبا",

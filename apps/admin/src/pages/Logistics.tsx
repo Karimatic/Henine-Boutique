@@ -121,7 +121,7 @@ function FollowupQueue() {
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <span className="min-w-0">
                     <span className="flex flex-wrap items-center gap-2">
-                      <b>{f.name}</b>
+                      <b><bdi>{f.name}</bdi></b>
                       <Badge tone={FU_TONE[f.status]}>{tr(FOLLOWUP_STATUS_LABEL[f.status])}</Badge>
                       {!!f.escalated && <Badge tone="bg-red-600 text-white">{tr("Escaladé")}</Badge>}
                     </span>
@@ -438,7 +438,7 @@ function NewManifestSheet({ onClose, onCreated }: { onClose: () => void; onCreat
                     }
                   />
                   <span className="min-w-0 flex-1">
-                    <span className="font-mono text-xs">{r.public_code}</span> · {r.name}
+                    <span className="font-mono text-xs">{r.public_code}</span> · <bdi>{r.name}</bdi>
                     <span className="block text-xs text-ink-soft">
                       {(isAr ? r.wilaya_ar : r.wilaya) ?? "—"} · {r.delivery_type === "bureau" ? tr("Bureau") : tr("Domicile")} · {tr("{0} article(s)", { 0: r.items })} · {statusLabel(r.status)}
                       {r.packed_at ? ` · ✅ ${tr("emballé")}` : ""}
@@ -525,7 +525,7 @@ function ManifestSheet({ id, onClose }: { id: number; onClose: () => void }) {
                     <Link to="/commandes" search={{ o: o.order_id } as never} className="font-mono text-xs text-plum-700 hover:underline">
                       {o.public_code}
                     </Link>{" "}
-                    · {o.name} · {statusLabel(o.status)}
+                    · <bdi>{o.name}</bdi> · {statusLabel(o.status)}
                     <span className="block text-xs text-ink-soft">
                       {(isAr ? o.wilaya_ar : o.wilaya) ?? "—"}
                       {o.commune ? ` · ${o.commune}` : ""} · {o.delivery_type === "bureau" ? tr("Bureau") : tr("Domicile")} · {tr("{0} article(s)", { 0: o.items })}

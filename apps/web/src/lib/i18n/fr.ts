@@ -349,7 +349,7 @@ export const fr = {
       already_reviewed: "Vous avez déjà donné votre avis sur ce produit. Merci !",
     } as Record<string, string>,
   },
-  look: { title: "Complétez le look", similar: "Vous aimerez aussi" },
+  look: { title: "Complétez le look", similar: "Dans la même catégorie" },
   arrivals: { title: "Nouveautés", text: "Les dernières pièces arrivées, de la plus récente à la plus ancienne.", empty: "Aucune nouveauté pour le moment." },
   drop: {
     soon: "Bientôt",

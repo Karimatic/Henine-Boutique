@@ -1,5 +1,6 @@
 /**
- * Admin authentication: email + password, then a 6-digit code sent by email.
+ * Admin authentication: email + password, then a 6-digit code: from the authenticator app
+ * (TOTP) for members who set one up, else sent by email.
  *
  * Password handling (see team_members.password_hash):
  *   browser:  key  = PBKDF2-SHA256(password, "henine-admin|" + email, 600 000 it.) → hex
@@ -11,7 +12,9 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie";
 import { timingSafeEqual } from "@henine/shared";
 import type { AppEnv, Env } from "../env";
 import { isDev } from "../env";
-import { randomCode, randomToken, sha256Hex } from "./crypto";
+import { decryptSecret, randomCode, randomToken, sha256Hex } from "./crypto";
+import { mailProvider } from "./mail";
+import { verifyTotp } from "./totp";
 import { HttpError, ipHash, uaShort } from "./http";
 
 export const SESSION_TTL_SHORT = 12 * 3600_000; // 12 h
@@ -58,11 +61,12 @@ export interface MemberAuthRow {
   failed_logins: number;
   locked_until: number | null;
   email_verified_at: number | null;
+  totp_secret_enc: string | null;
 }
 
 export async function findMemberByEmail(env: Env, email: string): Promise<MemberAuthRow | null> {
   return env.DB.prepare(
-    "SELECT id, email, name, is_active, password_hash, password_salt, failed_logins, locked_until, email_verified_at FROM team_members WHERE email = ?",
+    "SELECT id, email, name, is_active, password_hash, password_salt, failed_logins, locked_until, email_verified_at, totp_secret_enc FROM team_members WHERE email = ?",
   )
     .bind(email.trim().toLowerCase())
     .first<MemberAuthRow>();
@@ -86,7 +90,7 @@ export async function createChallenge(
   env: Env,
   memberId: number,
   purpose: "login" | "reset" | "invite",
-  opts: { remember?: boolean; pendingHash?: string; pendingSalt?: string } = {},
+  opts: { remember?: boolean; pendingHash?: string; pendingSalt?: string; pendingTotp?: string } = {},
 ) {
   const id = randomToken(18);
   const code = randomCode();
@@ -94,8 +98,11 @@ export async function createChallenge(
   await env.DB.batch([
     env.DB.prepare("DELETE FROM auth_challenges WHERE member_id = ? AND purpose = ? AND consumed_at IS NULL").bind(memberId, purpose),
     env.DB.prepare(
-      "INSERT INTO auth_challenges (id, member_id, purpose, code_hash, pending_hash, pending_salt, remember, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    ).bind(id, memberId, purpose, await codeHash(env, id, code), opts.pendingHash ?? null, opts.pendingSalt ?? null, opts.remember ? 1 : 0, Date.now() + CODE_TTL, Date.now()),
+      "INSERT INTO auth_challenges (id, member_id, purpose, code_hash, pending_hash, pending_salt, pending_totp, remember, expires_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    ).bind(
+      id, memberId, purpose, await codeHash(env, id, code), opts.pendingHash ?? null, opts.pendingSalt ?? null, opts.pendingTotp ?? null,
+      opts.remember ? 1 : 0, Date.now() + CODE_TTL, Date.now(),
+    ),
   ]);
   return { id, code };
 }
@@ -107,6 +114,8 @@ interface ChallengeRow {
   code_hash: string;
   pending_hash: string | null;
   pending_salt: string | null;
+  /** invitation without email: the authenticator secret being set up (encrypted) */
+  pending_totp: string | null;
   remember: number;
   attempts: number;
   expires_at: number;
@@ -114,19 +123,43 @@ interface ChallengeRow {
 }
 
 /** Verifies a code; consumes the challenge on success. Throws on failure. */
-export async function consumeChallenge(env: Env, challengeId: string, code: string, purpose: string): Promise<ChallengeRow> {
+export async function consumeChallenge(env: Env, challengeId: string, code: string, purpose: string): Promise<ChallengeRow & { totp_step: number | null }> {
   const ch = await env.DB.prepare("SELECT * FROM auth_challenges WHERE id = ?").bind(challengeId).first<ChallengeRow>();
   if (!ch || ch.purpose !== purpose || ch.consumed_at || ch.expires_at < Date.now()) throw new HttpError(400, "code_expired");
   if (ch.attempts >= MAX_CODE_ATTEMPTS) throw new HttpError(429, "too_many_attempts");
-  const ok = timingSafeEqual(await codeHash(env, ch.id, code.trim()), ch.code_hash);
+  // the authenticator app's code (members who have one, or the invitation setting it up), else the emailed code
+  const totp = await totpOf(env, ch);
+  let step: number | null = null;
+  if (totp) step = await verifyTotp(totp.secret, code.trim(), totp.lastStep);
+  const ok = totp ? step != null : timingSafeEqual(await codeHash(env, ch.id, code.trim()), ch.code_hash);
   if (!ok) {
     await env.DB.prepare("UPDATE auth_challenges SET attempts = attempts + 1 WHERE id = ?").bind(ch.id).run();
     throw new HttpError(400, "code_invalid", { attemptsLeft: MAX_CODE_ATTEMPTS - ch.attempts - 1 });
   }
   const res = await env.DB.prepare("UPDATE auth_challenges SET consumed_at = ? WHERE id = ? AND consumed_at IS NULL").bind(Date.now(), ch.id).run();
   if (!res.meta.changes) throw new HttpError(400, "code_expired"); // lost a race with a parallel request
-  return ch;
+  // an authenticator code works once
+  if (totp && !ch.pending_totp && step != null) await env.DB.prepare("UPDATE team_members SET totp_last_step = ? WHERE id = ?").bind(step, ch.member_id).run();
+  return { ...ch, totp_step: step };
 }
+
+/** The authenticator secret that checks this challenge's code, if any. */
+async function totpOf(env: Env, ch: ChallengeRow): Promise<{ secret: string; lastStep: number | null } | null> {
+  if (ch.pending_totp) {
+    const secret = await decryptSecret(env.SETTINGS_KEY, ch.pending_totp);
+    return secret ? { secret, lastStep: null } : null;
+  }
+  if (ch.purpose !== "login" && ch.purpose !== "reset") return null;
+  const m = await env.DB.prepare("SELECT totp_secret_enc, totp_last_step FROM team_members WHERE id = ?")
+    .bind(ch.member_id)
+    .first<{ totp_secret_enc: string | null; totp_last_step: number | null }>();
+  if (!m?.totp_secret_enc) return null;
+  const secret = await decryptSecret(env.SETTINGS_KEY, m.totp_secret_enc);
+  return secret ? { secret, lastStep: m.totp_last_step } : null;
+}
+
+/** An email service is configured (Resend / Brevo with its key): codes can be emailed. */
+export const mailReady = (env: Env) => mailProvider(env) !== "console";
 
 /* ── sessions ── */
 

@@ -269,7 +269,7 @@ function CodTab({ canEdit }: { canEdit: boolean }) {
               <button type="button" className="min-w-0 flex-1 text-start" onClick={() => canEdit && setEditing(r)} disabled={!canEdit}>
                 <span className="flex flex-wrap items-center gap-2">
                   <span className="font-mono text-xs">{r.code}</span>
-                  <span className="font-medium">{r.name}</span>
+                  <bdi className="font-medium">{r.name}</bdi>
                   <Badge tone={r.outcome === "delivered" ? "bg-emerald-50 text-emerald-800" : "bg-stone-200 text-stone-700"}>{r.outcome === "delivered" ? tr("Livré") : tr("Retourné")}</Badge>
                   <Badge tone={STATUS_TONE[r.status]}>{tr(RECONCILIATION_LABEL[r.status])}</Badge>
                   {r.estimated && <span className="text-xs text-ink-soft">{tr("frais estimés")}</span>}
@@ -434,7 +434,7 @@ function RemittanceSheet({ rows, onClose, onDone }: { rows: CodRow[]; onClose: (
         {rows.map((r) => (
           <li key={r.id} className="flex items-center justify-between gap-3 p-2.5 text-sm">
             <span className="min-w-0">
-              <span className="font-mono text-xs">{r.code}</span> · {r.name}
+              <span className="font-mono text-xs">{r.code}</span> · <bdi>{r.name}</bdi>
               <span className="block text-xs text-ink-soft">{tr("reste {0}", { 0: da(r.outstanding) })}</span>
             </span>
             <input

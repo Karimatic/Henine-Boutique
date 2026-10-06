@@ -15,13 +15,15 @@ import {
   destroySession,
   devEcho,
   findMemberByEmail,
+  mailReady,
   hashPassword,
   INVITE_TTL,
   passwordKeyValid,
   readSession,
   registerFailure,
 } from "../lib/auth";
-import { sha256Hex } from "../lib/crypto";
+import { encryptSecret, sha256Hex } from "../lib/crypto";
+import { newTotpSecret, totpUri } from "../lib/totp";
 import { body, clientIp, HttpError, rateLimit } from "../lib/http";
 import { mailLayout, sendMail } from "../lib/mail";
 
@@ -62,8 +64,11 @@ authRoutes.post("/login", async (c) => {
     throw new HttpError(401, "invalid_credentials");
   }
   const ch = await createChallenge(c.env, m.id, "login", { remember: input.remember });
+  const emailHint = m.email.replace(/^(.).*(@.*)$/, "$1•••$2");
+  // set up with an authenticator app: its code, no email needed
+  if (m.totp_secret_enc) return c.json({ challenge: ch.id, method: "totp", emailHint });
   const mail = await sendCode(c, m.email, m.name, "login", ch.code);
-  return c.json({ challenge: ch.id, emailHint: m.email.replace(/^(.).*(@.*)$/, "$1•••$2"), devCode: devEcho(c, ch.code), provider: mail.provider });
+  return c.json({ challenge: ch.id, method: "email", emailHint, devCode: devEcho(c, ch.code), provider: mail.provider });
 });
 
 /* ── Step 2: emailed code ── */
@@ -92,11 +97,12 @@ authRoutes.post("/forgot", async (c) => {
   const input = await body(c, z.object({ email, key }));
   const m = await findMemberByEmail(c.env, input.email);
   // same response whether or not the account exists
-  if (!m || !m.is_active) return c.json({ challenge: (await sha256Hex(input.email + Date.now())).slice(0, 24) });
+  if (!m || !m.is_active) return c.json({ challenge: (await sha256Hex(input.email + Date.now())).slice(0, 24), method: mailReady(c.env) ? "email" : "totp" });
   const { hash, salt } = await hashPassword(c.env, input.key);
   const ch = await createChallenge(c.env, m.id, "reset", { pendingHash: hash, pendingSalt: salt });
+  if (m.totp_secret_enc) return c.json({ challenge: ch.id, method: "totp" });
   await sendCode(c, m.email, m.name, "reset", ch.code);
-  return c.json({ challenge: ch.id, devCode: devEcho(c, ch.code) });
+  return c.json({ challenge: ch.id, method: "email", devCode: devEcho(c, ch.code) });
 });
 
 authRoutes.post("/reset", async (c) => {
@@ -141,9 +147,17 @@ authRoutes.post("/invite/accept", async (c) => {
   const input = await body(c, z.object({ token: z.string().min(20).max(100), key }));
   const row = await inviteRow(c, input.token);
   const { hash, salt } = await hashPassword(c.env, input.key);
+  if (!mailReady(c.env) && !devEcho(c, "1")) {
+    // no email service: the account is secured with an authenticator app instead (its first code confirms it)
+    const secret = newTotpSecret();
+    const ch = await createChallenge(c.env, row.member_id, "invite", {
+      pendingHash: hash, pendingSalt: salt, remember: true, pendingTotp: await encryptSecret(c.env.SETTINGS_KEY, secret),
+    });
+    return c.json({ challenge: ch.id, method: "totp", totp: { secret, uri: totpUri(secret, row.email) } });
+  }
   const ch = await createChallenge(c.env, row.member_id, "invite", { pendingHash: hash, pendingSalt: salt, remember: true });
   await sendCode(c, row.email, row.name, "invite", ch.code);
-  return c.json({ challenge: ch.id, devCode: devEcho(c, ch.code) });
+  return c.json({ challenge: ch.id, method: "email", devCode: devEcho(c, ch.code) });
 });
 
 authRoutes.post("/invite/verify", async (c) => {
@@ -153,9 +167,9 @@ authRoutes.post("/invite/verify", async (c) => {
   const ch = await consumeChallenge(c.env, input.challenge, input.code, "invite");
   if (ch.member_id !== row.member_id) throw new HttpError(400, "code_invalid");
   await c.env.DB.batch([
-    c.env.DB.prepare("UPDATE team_members SET password_hash = ?, password_salt = ?, email_verified_at = ?, is_active = 1 WHERE id = ?").bind(
-      ch.pending_hash, ch.pending_salt, Date.now(), row.member_id,
-    ),
+    c.env.DB.prepare(
+      "UPDATE team_members SET password_hash = ?, password_salt = ?, email_verified_at = ?, is_active = 1, totp_secret_enc = COALESCE(?, totp_secret_enc), totp_last_step = COALESCE(?, totp_last_step) WHERE id = ?",
+    ).bind(ch.pending_hash, ch.pending_salt, Date.now(), ch.pending_totp, ch.pending_totp ? ch.totp_step : null, row.member_id),
     c.env.DB.prepare("UPDATE auth_challenges SET consumed_at = ? WHERE id = ?").bind(Date.now(), row.id),
     auditStmt(c.env, `member:${row.member_id}`, "invite_accepted", "team_member", row.member_id),
   ]);

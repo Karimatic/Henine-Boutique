@@ -6,10 +6,10 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "migrate:local": "wrangler d1 migrations apply henine-db --local",
-    "migrate:remote": "wrangler d1 migrations apply henine-db --remote",
-    "seed:local": "wrangler d1 execute henine-db --local --file ../../packages/db/seed/geo.sql && wrangler d1 execute henine-db --local --file ../../packages/db/seed/base.sql && wrangler d1 execute henine-db --local --file ../../packages/db/seed/demo.sql",
-    "seed:remote": "wrangler d1 execute henine-db --remote --file ../../packages/db/seed/geo.sql && wrangler d1 execute henine-db --remote --file ../../packages/db/seed/base.sql",
+    "migrate:local": "wrangler d1 migrations apply DB --local",
+    "migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "seed:local": "wrangler d1 execute DB --local --file ../../packages/db/seed/geo.sql && wrangler d1 execute DB --local --file ../../packages/db/seed/base.sql && wrangler d1 execute DB --local --file ../../packages/db/seed/demo.sql",
+    "seed:remote": "wrangler d1 execute DB --remote --file ../../packages/db/seed/geo.sql && wrangler d1 execute DB --remote --file ../../packages/db/seed/base.sql",
     "types": "wrangler types --env-interface CloudflareBindings src/worker-configuration.d.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
