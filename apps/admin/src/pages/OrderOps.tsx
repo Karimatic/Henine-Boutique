@@ -3,6 +3,10 @@
  * manual discount, exchange requests, real profit, SLA and the full change history.
  */
 import {
+  DUPLICATE_REASON_LABEL,
+  type DuplicateAction,
+  type DuplicateReason,
+  type DuplicateStatus,
   CONTACT_KIND_LABEL,
   CONTACT_KINDS,
   CONTACT_TIME_LABEL,
@@ -477,3 +481,113 @@ export function OrderHistory({
   );
 }
 
+
+/* ───────────── Possible duplicate orders ───────────── */
+
+interface DuplicatePair {
+  id: number;
+  order_id: number;
+  other_order_id: number;
+  score: number;
+  reasons: DuplicateReason[];
+  minutes_apart: number;
+  status: DuplicateStatus;
+  decided_by: string | null;
+  decided_at: number | null;
+  thisIsNewer: boolean;
+  other: { id: number; public_code: string; status: OrderStatus; name: string; total: number; created_at: number; wilaya: string | null; address: string | null; items: { name_fr: string; options_label: string | null; qty: number }[] };
+}
+
+const DECIDED_LABEL: Partial<Record<DuplicateStatus, string>> = {
+  kept: "les deux commandes gardées",
+  merged: "commandes fusionnées",
+  cancelled: "doublon annulé",
+  reviewed: "vérifié",
+  ignored: "avertissement ignoré",
+};
+
+const apart = (min: number) => (min < 60 ? tr("{0} min d'écart", { 0: min }) : min < 48 * 60 ? tr("{0} h d'écart", { 0: Math.round(min / 60) }) : tr("{0} j d'écart", { 0: Math.round(min / 1440) }));
+
+/** "Possible duplicate" on the order sheet: why, the other order, and the team's decision. */
+export function DuplicateWarnings({ orderId, code, onChanged, openOther }: { orderId: number; code: string; onChanged: () => void; openOther: (id: number) => void }) {
+  const toast = useToast();
+  const can = useCan();
+  const q = useQuery({ queryKey: ["order-duplicates", orderId], queryFn: () => api<DuplicatePair[]>(`/orders/${orderId}/duplicates`) });
+  const decide = useMutation({
+    mutationFn: ({ id, action }: { id: number; action: DuplicateAction }) => post<{ status: DuplicateStatus }>(`/duplicates/${id}`, { action }),
+    onSuccess: () => {
+      toast(tr("Décision enregistrée"));
+      void q.refetch();
+      onChanged();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  const pairs = q.data ?? [];
+  if (!pairs.length) return null;
+  const editable = (s: OrderStatus) => ["nouvelle", "injoignable", "confirmee", "en_preparation"].includes(s);
+  return (
+    <div className="space-y-2">
+      {pairs.map((p) =>
+        p.status !== "open" ? (
+          <p key={p.id} className="rounded-xl bg-ivory-deep p-2.5 text-xs text-ink-soft">
+            {tr("Doublon possible avec {0} : {1}", { 0: p.other.public_code, 1: tr(DECIDED_LABEL[p.status] ?? p.status) })}
+            {p.decided_by ? ` · ${actorName(p.decided_by)}` : ""}
+          </p>
+        ) : (
+          <div key={p.id} className="rounded-xl border border-amber-400 bg-amber-50 p-3 text-sm text-amber-950">
+            <p className="font-semibold">⚠️ {tr("Doublon possible avec {0}", { 0: p.other.public_code })}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {p.reasons.map((r) => (
+                <Badge key={r} tone="bg-amber-200/70 text-amber-950">
+                  {r === "minutes_apart" || r === "hours_apart" ? apart(p.minutes_apart) : tr(DUPLICATE_REASON_LABEL[r])}
+                </Badge>
+              ))}
+            </div>
+            <button type="button" onClick={() => openOther(p.other.id)} className="mt-2 block w-full rounded-lg bg-white/70 p-2.5 text-start text-ink hover:bg-white">
+              <span className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="font-mono text-xs">{p.other.public_code}</span> · {p.other.name} · <StatusBadge status={p.other.status} /> · <b className="tabular-nums">{da(p.other.total)}</b>
+              </span>
+              <span className="mt-1 block text-xs text-ink-soft">
+                {p.other.items.map((i) => `${i.name_fr}${i.options_label ? ` (${i.options_label})` : ""} × ${i.qty}`).join(" · ")}
+              </span>
+              <span className="mt-0.5 block text-xs text-ink-soft">{dateTime(p.other.created_at)} · {tr("ouvrir →")}</span>
+            </button>
+            {can("orders.edit") && (
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <Button size="sm" loading={decide.isPending} onClick={() => decide.mutate({ id: p.id, action: "keep" })}>
+                  {tr("Garder les deux")}
+                </Button>
+                {can("orders.confirm") && (
+                  <Button
+                    size="sm"
+                    variant="danger"
+                    onClick={() => confirm(tr("Annuler {0} comme doublon ? Son stock réservé est libéré.", { 0: p.thisIsNewer ? code : p.other.public_code })) && decide.mutate({ id: p.id, action: "cancel" })}
+                  >
+                    {p.thisIsNewer ? tr("Annuler celle-ci (doublon)") : tr("Annuler {0} (doublon)", { 0: p.other.public_code })}
+                  </Button>
+                )}
+                {can("orders.confirm") && editable(p.other.status) && (
+                  <Button
+                    size="sm"
+                    onClick={() =>
+                      confirm(tr("Tout regrouper dans la commande la plus ancienne ? Les articles en commun ne sont pas doublés, la plus récente est annulée.")) &&
+                      decide.mutate({ id: p.id, action: "merge" })
+                    }
+                  >
+                    {tr("Fusionner en une commande")}
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => decide.mutate({ id: p.id, action: "reviewed" })}>
+                  {tr("Vérifié")}
+                </Button>
+                <Button size="sm" onClick={() => decide.mutate({ id: p.id, action: "ignore" })}>
+                  {tr("Ignorer")}
+                </Button>
+              </div>
+            )}
+          </div>
+        ),
+      )}
+    </div>
+  );
+}

@@ -2,7 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings } from "@henine/shared";
+import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings, type DuplicateSettings } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -25,7 +25,7 @@ export interface Settings {
   };
   loyalty: { enabled: boolean; points_per_100da: number; redeem_value_da: number; min_redeem: number; expiry_days: number };
   /** order handling: how long each step may take (SLA), packaging cost per parcel (real profit) */
-  operations: { sla: SlaSettings; packaging_cost: number; /** the shop's own new-order sound (R2 key), else the built-in chime */ sound?: string | null; /** how long it plays (s), null = the whole file */ sound_seconds?: number | null };
+  operations: { sla: SlaSettings; packaging_cost: number; /** the shop's own new-order sound (R2 key), else the built-in chime */ sound?: string | null; /** how long it plays (s), null = the whole file */ sound_seconds?: number | null; /** possible duplicate orders */ duplicates?: Partial<DuplicateSettings> };
   maintenance: { active: boolean; message_fr: string; message_ar: string };
   notifications: {
     telegram_new_order: boolean; telegram_status_change: boolean; telegram_low_stock: boolean;

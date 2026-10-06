@@ -27,6 +27,7 @@ const publicRoutes = [
 const printRoutes = [
   createRoute({ getParentRoute: () => rootRoute, path: "/bordereaux", component: lazy(() => import("./pages/Slips"), "SlipsPage") as () => React.ReactNode }),
   createRoute({ getParentRoute: () => rootRoute, path: "/facture", component: lazy(() => import("./pages/Invoice"), "InvoicePage") as () => React.ReactNode }),
+  createRoute({ getParentRoute: () => rootRoute, path: "/manifeste", component: lazy(() => import("./pages/Logistics"), "ManifestPrintPage") as () => React.ReactNode }),
 ];
 
 // Everything else lives inside the authenticated shell
@@ -42,10 +43,13 @@ const appRoutes = [
   page("/produits/$id", lazy(Products, "ProductEditor")),
   page("/stock", lazy(() => import("./pages/Stock"), "StockPage")),
   page("/stock/reception", lazy(() => import("./pages/Stock"), "ReceptionPage")),
+  page("/stock/inventaire", lazy(() => import("./pages/StockCount"), "StockCountsPage")),
+  page("/stock/inventaire/$id", lazy(() => import("./pages/StockCount"), "StockCountPage")),
   page("/ventes", lazy(() => import("./pages/Sales"), "SalesPage")),
   page("/caisse", lazy(() => import("./pages/Cashier"), "CashierPage")),
   page("/preparation", lazy(() => import("./pages/Packing"), "PackingPage")),
   page("/commandes", lazy(() => import("./pages/Orders"), "OrdersPage")),
+  page("/expeditions", lazy(() => import("./pages/Logistics"), "LogisticsPage")),
   page("/clients", lazy(Customers, "CustomersPage")),
   page("/paniers", lazy(Customers, "CartsPage")),
   page("/promos", lazy(Marketing, "PromosPage")),
@@ -57,6 +61,7 @@ const appRoutes = [
   page("/collections", lazy(Marketing, "CollectionsPage")),
   page("/contact", lazy(Marketing, "ContactPage")),
   page("/statistiques", lazy(() => import("./pages/Stats"), "StatsPage")),
+  page("/finance", lazy(() => import("./pages/Finance"), "FinancePage")),
   page("/equipe", lazy(System, "TeamPage")),
   page("/comptes", lazy(() => import("./pages/Accounts"), "AccountsPage")),
   page("/parametres", lazy(Settings, "SettingsPage")),

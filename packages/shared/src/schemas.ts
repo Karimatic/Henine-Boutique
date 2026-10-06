@@ -75,6 +75,12 @@ export const createOrderInput = z
         source: cleanText(64).optional(),
         medium: cleanText(64).optional(),
         campaign: cleanText(64).optional(),
+        /** host of the site the visit came from ("l.instagram.com") */
+        referrer: cleanText(120).optional(),
+        /** the store page where the visit started */
+        landing: cleanText(200).optional(),
+        /** an ad click id was in the address */
+        clickId: z.enum(["fb", "google", "tiktok"]).optional(),
       })
       .optional(),
   })

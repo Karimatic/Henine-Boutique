@@ -30,6 +30,7 @@ import { applyStatusChange, CANCELLED_SQL, createOrder, deleteOrder, noRecordCus
 import { getSetting, getSettings, setSetting } from "../../lib/settings";
 import { permissionFor, syncOrderMessage } from "../../lib/telegram";
 import { actorOf, requireOwner, requirePermission } from "../../middleware/access";
+import { detectDuplicates, OPEN_DUPLICATE_SQL } from "../../lib/duplicates";
 import {
   DEFAULT_SLA,
   hasPermission,
@@ -76,6 +77,8 @@ export function attentionSql(now: number, sla: SlaSettings = DEFAULT_SLA): Recor
     stale_preparing: `o.status = 'en_preparation' AND o.updated_at < ${now - 48 * h}`,
     stale_shipped: `o.status IN ('expediee','en_livraison') AND COALESCE(o.shipped_at, o.updated_at) < ${now - 7 * 24 * h}`,
     returns: "o.status = 'retour'",
+    // flagged as a possible duplicate, not decided yet
+    duplicates: OPEN_DUPLICATE_SQL("o"),
   };
 }
 
@@ -131,7 +134,8 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
       `SELECT o.id, o.public_code, o.status, o.channel, o.name, o.phone, o.total, o.wilaya_code, w.name_fr AS wilaya, o.delivery_type,
               o.created_at, o.risk_score, o.risk_flags, o.confirm_attempts, o.next_callback_at, o.tracking_number, o.outcome_reason,
               (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS items,
-              c.returned_count, c.delivered_count, c.cancelled_count, c.fake_count, c.is_blacklisted
+              c.returned_count, c.delivered_count, c.cancelled_count, c.fake_count, c.is_blacklisted,
+              ${OPEN_DUPLICATE_SQL("o")} AS duplicate
          FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN customers c ON c.id = o.customer_id
          ${whereSql} ORDER BY o.created_at DESC LIMIT 50 OFFSET ?`,
     ).bind(...binds, page * 50),
@@ -254,15 +258,22 @@ orderRoutes.get("/orders/:id", requirePermission("orders.view"), async (c) => {
   const { operations } = await getSettings(c.env, ["operations"]);
   let profit: ProfitResult | null = null;
   if (hasPermission(perms, "cost.view")) {
-    const rate = await c.env.DB.prepare("SELECT home_price, desk_price FROM wilayas WHERE code = ?").bind(o.wilaya_code).first<{ home_price: number | null; desk_price: number | null }>();
+    const rate = await c.env.DB.prepare(
+      "SELECT w.home_price, w.desk_price, f.carrier_fee, f.return_fee FROM wilayas w LEFT JOIN order_finance f ON f.order_id = ? WHERE w.code = ?",
+    )
+      .bind(o.id, o.wilaya_code)
+      .first<{ home_price: number | null; desk_price: number | null; carrier_fee: number | null; return_fee: number | null }>();
     const boutique = o.channel === "boutique";
+    const returned = o.status === "retour" || o.status === "retour_recu";
+    // the courier's real fee once recorded (Finance → Encaissements), else the wilaya's rate
+    const recordedFee = returned ? rate?.return_fee : rate?.carrier_fee;
     profit = orderProfit({
       items: itemRows.map((i) => ({ unitPrice: i.unit_price - i.line_discount, qty: i.qty, unitCost: i.cost_price })),
       discount: o.discount_total as number,
       shippingCharged: o.shipping_price as number,
-      shippingCost: boutique ? 0 : ((o.delivery_type === "bureau" ? rate?.desk_price : rate?.home_price) ?? 0),
+      shippingCost: boutique ? 0 : (recordedFee ?? (o.delivery_type === "bureau" ? rate?.desk_price : rate?.home_price) ?? 0),
       packagingCost: boutique ? 0 : operations.packaging_cost,
-      returned: o.status === "retour" || o.status === "retour_recu",
+      returned,
     });
   } else for (const i of itemRows) delete (i as Partial<typeof i>).cost_price;
 
@@ -463,6 +474,8 @@ orderRoutes.post("/sales/manual", requirePermission("sales.create"), async (c) =
     shippingOverride: input.channel === "boutique" ? 0 : input.shipping,
   });
   await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "manual_sale", "order", order.id, { channel: input.channel, total: order.total })]);
+  // an order taken by phone / Instagram may already exist on the website
+  if (input.channel !== "boutique") c.executionCtx.waitUntil(detectDuplicates(c.env, order.id).catch(() => undefined));
   return c.json(order, 201);
 });
 

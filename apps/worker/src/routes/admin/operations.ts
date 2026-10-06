@@ -6,6 +6,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import {
+  DEFAULT_DUPLICATE_SETTINGS,
   cleanText,
   CONTACT_KIND_LABEL,
   CONTACT_KINDS,
@@ -20,6 +21,7 @@ import { resolveAlertStmt } from "../../lib/alerts";
 import { mediaUrl, variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
 import { LIVE_TAG, liveConnect } from "../../lib/live";
+import { replaceOrderItems } from "../../lib/order-items";
 import { putAudio } from "../../lib/media";
 import { quote } from "../../lib/orders";
 import { dailyReport, dayOf, dayStartOf } from "../../lib/reports";
@@ -114,17 +116,6 @@ operationRoutes.post("/orders/:id/contact", requirePermission("orders.view"), as
 
 /* ───────────── Edit items before shipping ───────────── */
 
-interface ItemRow {
-  id: number;
-  variant_id: number | null;
-  product_id: number | null;
-  name_fr: string;
-  sku: string;
-  options_label: string | null;
-  unit_price: number;
-  qty: number;
-  line_discount: number;
-}
 
 operationRoutes.put("/orders/:id/items", requirePermission("orders.edit"), async (c) => {
   const id = intParam(c, "id");
@@ -138,125 +129,9 @@ operationRoutes.put("/orders/:id/items", requirePermission("orders.edit"), async
       reason: cleanText(300).pipe(z.string().min(2)),
     }),
   );
-  const m = c.get("member");
-  const actor = actorOf(m);
-  const o = await c.env.DB.prepare(
-    "SELECT id, status, wilaya_code, commune_id, delivery_type, subtotal, discount_total, shipping_price, manual_discount FROM orders WHERE id = ?",
-  )
-    .bind(id)
-    .first<{ id: number; status: OrderStatus; wilaya_code: number; commune_id: number | null; delivery_type: "domicile" | "bureau"; subtotal: number; discount_total: number; shipping_price: number; manual_discount: number }>();
-  if (!o) throw new HttpError(404, "not_found");
-  if (!isEditable(o.status)) throw new HttpError(409, "order_locked");
-  const { results: current } = await c.env.DB.prepare(
-    "SELECT id, variant_id, product_id, name_fr, sku, options_label, unit_price, qty, line_discount FROM order_items WHERE order_id = ?",
-  )
-    .bind(id)
-    .all<ItemRow>();
-  const byId = new Map(current.map((i) => [i.id, i]));
-  for (const l of input.lines) if (l.itemId != null && !byId.has(l.itemId)) throw new HttpError(422, "unknown_item");
-
-  // prices and names of the variants (the team may also pick archived-but-active products)
-  const priced = await quote(c.env, {
-    lines: input.lines.map((l) => ({ variantId: l.variantId, qty: l.qty })),
-    wilaya: o.wilaya_code, communeId: o.commune_id, deliveryType: o.delivery_type, admin: true,
-  });
-  const info = new Map(priced.lines.map((l) => [l.variantId, l]));
-  for (const l of input.lines) if (!info.has(l.variantId)) throw new HttpError(422, "unknown_variant");
-
-  const now = Date.now();
-  const stmts: D1PreparedStatement[] = [];
-  const changes: [string, string | null, string | null][] = [];
-  // stock: reserve what is added, release what is removed (the CHECK on variants refuses overselling)
-  const reserved = new Map<number, number>();
-  const bump = (variantId: number | null, delta: number) => {
-    if (variantId == null || delta === 0) return;
-    reserved.set(variantId, (reserved.get(variantId) ?? 0) + delta);
-  };
-  const kept = new Set<number>();
-  let subtotal = 0;
-  for (const l of input.lines) {
-    const q = info.get(l.variantId)!;
-    const old = l.itemId != null ? byId.get(l.itemId)! : null;
-    if (old) {
-      kept.add(old.id);
-      const sameVariant = old.variant_id === l.variantId;
-      // the price agreed at order time stays for the same variant
-      const unit = sameVariant ? old.unit_price : q.unitPrice;
-      subtotal += unit * l.qty - (sameVariant ? old.line_discount : 0);
-      if (!sameVariant) {
-        changes.push(["variant", `${old.name_fr} ${old.options_label ?? ""}`.trim(), `${q.nameFr} ${q.optionsFr}`.trim()]);
-        bump(old.variant_id, -old.qty);
-        bump(l.variantId, l.qty);
-        stmts.push(
-          c.env.DB.prepare(
-            `UPDATE order_items SET variant_id = ?, product_id = ?, name_fr = ?, name_ar = ?, sku = (SELECT sku FROM variants WHERE id = ?),
-               options_label = ?, unit_price = ?, qty = ?, line_discount = 0 WHERE id = ?`,
-          ).bind(l.variantId, q.productId, q.nameFr, q.nameAr, l.variantId, q.optionsFr || null, unit, l.qty, old.id),
-        );
-        if (old.qty !== l.qty) changes.push(["qty", `${old.qty}`, `${l.qty}`]);
-      } else if (old.qty !== l.qty) {
-        changes.push(["qty", `${old.name_fr} ${old.options_label ?? ""} · ${old.qty}`.trim(), `${l.qty}`]);
-        bump(l.variantId, l.qty - old.qty);
-        stmts.push(c.env.DB.prepare("UPDATE order_items SET qty = ? WHERE id = ?").bind(l.qty, old.id));
-      }
-    } else {
-      subtotal += q.unitPrice * l.qty;
-      changes.push(["item_added", null, `${q.nameFr} ${q.optionsFr} × ${l.qty}`.trim()]);
-      bump(l.variantId, l.qty);
-      stmts.push(
-        c.env.DB.prepare(
-          `INSERT INTO order_items (order_id, variant_id, product_id, name_fr, name_ar, sku, options_label, unit_price, qty)
-           VALUES (?, ?, ?, ?, ?, (SELECT sku FROM variants WHERE id = ?), ?, ?, ?)`,
-        ).bind(id, l.variantId, q.productId, q.nameFr, q.nameAr, l.variantId, q.optionsFr || null, q.unitPrice, l.qty),
-      );
-    }
-  }
-  for (const old of current) {
-    if (kept.has(old.id)) continue;
-    changes.push(["item_removed", `${old.name_fr} ${old.options_label ?? ""} × ${old.qty}`.trim(), null]);
-    bump(old.variant_id, -old.qty);
-    stmts.push(c.env.DB.prepare("DELETE FROM order_items WHERE id = ?").bind(old.id));
-  }
-  if (!changes.length) return c.json({ ok: true, changed: 0 });
-
-  for (const [variantId, delta] of reserved) {
-    if (delta === 0) continue;
-    stmts.push(
-      c.env.DB.prepare("UPDATE variants SET stock_reserved = MAX(stock_reserved + ?, 0), updated_at = ? WHERE id = ?").bind(delta, now, variantId),
-      c.env.DB.prepare("INSERT INTO stock_movements (variant_id, delta, reason, order_id, actor, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(
-        variantId, -delta, delta > 0 ? "reservation" : "liberation", id, actor, "Commande modifiée", now,
-      ),
-    );
-  }
-  // discounts stay as they were, but never more than the items
-  const discount = Math.min(o.discount_total, subtotal);
-  stmts.push(
-    c.env.DB.prepare("UPDATE orders SET subtotal = ?, discount_total = ?, manual_discount = MIN(manual_discount, ?), total = ? + shipping_price, updated_at = ? WHERE id = ?").bind(
-      subtotal, discount, discount, subtotal - discount, now, id,
-    ),
-  );
-  if (subtotal !== o.subtotal) changes.push(["subtotal", `${o.subtotal}`, `${subtotal}`]);
-  for (const [field, oldV, newV] of changes) {
-    stmts.push(
-      c.env.DB.prepare("INSERT INTO order_changes (order_id, field, old_value, new_value, reason, actor, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)").bind(
-        id, field, oldV, newV, input.reason, actor, now,
-      ),
-    );
-  }
-  stmts.push(
-    c.env.DB.prepare("INSERT INTO order_events (order_id, kind, actor, source, note, created_at) VALUES (?, 'edit', ?, 'admin', ?, ?)").bind(
-      id, actor, `Articles modifiés · ${input.reason}`, now,
-    ),
-    auditStmt(c.env, actor, "update_items", "order", id, { changes, reason: input.reason }),
-  );
-  try {
-    await c.env.DB.batch(stmts);
-  } catch (err) {
-    if (/CHECK constraint/i.test(String((err as Error).message))) throw new HttpError(409, "stock_insufficient");
-    throw err;
-  }
-  c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
-  return c.json({ ok: true, changed: changes.length });
+  const r = await replaceOrderItems(c.env, id, input.lines, actorOf(c.get("member")), input.reason);
+  if (r.changed) c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
+  return c.json({ ok: true, changed: r.changed });
 });
 
 /* ───────────── Manual discount ───────────── */
@@ -396,6 +271,7 @@ operationRoutes.get("/operations/settings", requirePermission("orders.view"), as
     ...operations,
     soundUrl: operations.sound ? mediaUrl(c.env, operations.sound) : null,
     soundSeconds: operations.sound_seconds === undefined ? 1.5 : operations.sound_seconds,
+    duplicates: { ...DEFAULT_DUPLICATE_SETTINGS, ...(operations.duplicates ?? {}) },
   });
 });
 
@@ -436,12 +312,19 @@ operationRoutes.put("/operations/settings", requirePermission("orders.edit"), as
     z.object({
       sla: z.object({ confirmMinutes: minutes, prepareMinutes: minutes, shipMinutes: minutes }),
       packagingCost: z.number().int().min(0).max(10_000).optional(),
+      /** possible duplicate orders: on / off, how far apart, how sure */
+      duplicates: z.object({ enabled: z.boolean(), windowHours: z.number().int().min(1).max(168), threshold: z.number().int().min(40).max(120) }).optional(),
     }),
   );
   const { operations } = await getSettings(c.env, ["operations"]);
   // the packaging cost feeds the profit: only for those who see costs
   const canCost = hasPermission(c.get("member").permissions, "cost.view");
-  const next = { ...operations, sla: input.sla, packaging_cost: canCost && input.packagingCost != null ? input.packagingCost : operations.packaging_cost };
+  const next = {
+    ...operations,
+    sla: input.sla,
+    packaging_cost: canCost && input.packagingCost != null ? input.packagingCost : operations.packaging_cost,
+    ...(input.duplicates ? { duplicates: input.duplicates } : {}),
+  };
   await c.env.DB.batch([setSettingStmt(c.env, "operations", next), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "operations", next)]);
   return c.json(next);
 });

@@ -58,6 +58,7 @@ interface DashboardData {
   attention: {
     late: number; to_confirm: number; callbacks: number; high_risk: number; stale_confirmed: number; stale_preparing: number; stale_shipped: number; returns: number;
     abandoned: number; abandonedValue: number; restocked: number; outOfStock: number; lowStock: number; pendingReviews: number; newMessages: number; telegramBacklog: number;
+    duplicates?: number; failedDeliveries?: number; followupsDue?: number;
   };
   lowStock: StockLine[];
   restocked: StockLine[];
@@ -96,6 +97,8 @@ function todos(a: DashboardData["attention"]): Todo[] {
     { key: "late", icon: "⏰", label: tr("En retard sur les délais"), hint: tr("confirmation, préparation ou expédition hors délai (Paramètres → Délais)"), count: a.late ?? 0, to: "/commandes", search: { attention: "late" }, urgent: true, perm: "orders.view" },
     { key: "callbacks", icon: "📞", label: tr("À rappeler maintenant"), hint: tr("injoignables dont l'heure de rappel est passée"), count: a.callbacks, to: "/commandes", search: { attention: "callbacks" }, urgent: true, perm: "orders.view" },
     { key: "to_confirm", icon: "🆕", label: tr("Commandes à confirmer"), hint: tr("nouvelles + injoignables"), count: a.to_confirm, to: "/commandes", search: { attention: "to_confirm" }, urgent: true, perm: "orders.view" },
+    { key: "followups", icon: "🚚", label: tr("Livraisons échouées à rappeler"), hint: a.failedDeliveries ? tr("{0} suivi(s) en cours", { 0: a.failedDeliveries }) : undefined, count: a.followupsDue ?? 0, to: "/expeditions", urgent: true, perm: "orders.view" },
+    { key: "duplicates", icon: "⚠️", label: tr("Doublons possibles à vérifier"), hint: tr("même cliente, mêmes articles, à quelques minutes d'écart"), count: a.duplicates ?? 0, to: "/commandes", search: { attention: "duplicates" }, urgent: true, perm: "orders.view" },
     { key: "high_risk", icon: "🔴", label: tr("Risque élevé à vérifier"), hint: tr("historique de retours / annulations : appelez avant de confirmer"), count: a.high_risk, to: "/commandes", search: { attention: "high_risk" }, urgent: true, perm: "orders.view" },
     { key: "stale_confirmed", icon: "⏰", label: tr("Confirmées depuis plus de 24 h"), hint: tr("à mettre en préparation"), count: a.stale_confirmed, to: "/commandes", search: { attention: "stale_confirmed" }, perm: "orders.view" },
     { key: "stale_preparing", icon: "📦", label: tr("En préparation depuis plus de 48 h"), hint: tr("à expédier"), count: a.stale_preparing, to: "/commandes", search: { attention: "stale_preparing" }, perm: "orders.view" },

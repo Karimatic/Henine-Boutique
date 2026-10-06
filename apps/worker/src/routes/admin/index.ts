@@ -8,6 +8,10 @@ import { marketingRoutes } from "./marketing";
 import { operationRoutes } from "./operations";
 import { orderRoutes } from "./orders";
 import { searchRoutes } from "./search";
+import { financeRoutes } from "./finance";
+import { stockCountRoutes } from "./stock-counts";
+import { duplicateRoutes } from "./duplicates";
+import { logisticsRoutes } from "./logistics";
 import { systemRoutes } from "./system";
 
 export const adminRoutes = new Hono<AppEnv>();
@@ -21,3 +25,7 @@ adminRoutes.route("/", marketingRoutes);
 adminRoutes.route("/", instagramRoutes);
 adminRoutes.route("/", insightRoutes);
 adminRoutes.route("/", searchRoutes);
+adminRoutes.route("/", financeRoutes);
+adminRoutes.route("/", stockCountRoutes);
+adminRoutes.route("/", duplicateRoutes);
+adminRoutes.route("/", logisticsRoutes);

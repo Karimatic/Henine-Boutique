@@ -348,6 +348,10 @@ export const orders = sqliteTable(
     utmMedium: text("utm_medium"),
     utmCampaign: text("utm_campaign"),
     referrer: text("referrer"),
+    /** where the order came from (ORDER_SOURCES in @henine/shared): campaign link, ad click, referrer or the team's channel */
+    source: text("source"),
+    /** the store page where that visit started */
+    landingPath: text("landing_path"),
     ipHash: text("ip_hash"),
     uaShort: text("ua_short"),
     // timeline
@@ -366,6 +370,7 @@ export const orders = sqliteTable(
     index("orders_callback_idx").on(t.nextCallbackAt),
     index("orders_created_idx").on(t.createdAt),
     index("orders_wilaya_created_idx").on(t.wilayaCode, t.createdAt),
+    index("orders_source_created_idx").on(t.source, t.createdAt),
   ],
 );
 
@@ -806,6 +811,217 @@ export const rateHits = sqliteTable("rate_hits", {
   count: integer("count").notNull().default(0),
   expiresAt: integer("expires_at").notNull(),
 });
+
+/* ───────────────────────────── Finance ───────────────────────────── */
+
+/**
+ * Cash on delivery, per order: what the courier's statement says (collected, its fees) when it
+ * differs from the estimate, and a dispute flag. No row = nothing recorded (estimates apply).
+ * What the courier paid back is in cod_allocations.
+ */
+export const orderFinance = sqliteTable("order_finance", {
+  orderId: integer("order_id").primaryKey().references(() => orders.id, { onDelete: "cascade" }),
+  collected: integer("collected"),
+  carrierFee: integer("carrier_fee"),
+  returnFee: integer("return_fee"),
+  disputed: bool("disputed").notNull().default(false),
+  note: text("note"),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: updatedAt(),
+});
+
+/** A payment from the courier to the shop (its statement), split over the orders it covers. */
+export const codRemittances = sqliteTable(
+  "cod_remittances",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** YYYY-MM-DD (Algeria) */
+    receivedOn: text("received_on").notNull(),
+    reference: text("reference"),
+    /** = the sum of its allocations */
+    amount: integer("amount").notNull(),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+    voidedAt: integer("voided_at"),
+    voidedBy: text("voided_by"),
+    voidReason: text("void_reason"),
+  },
+  (t) => [index("cod_remittances_date_idx").on(t.receivedOn)],
+);
+
+export const codAllocations = sqliteTable(
+  "cod_allocations",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    remittanceId: integer("remittance_id").notNull().references(() => codRemittances.id, { onDelete: "cascade" }),
+    orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    /** negative: a return fee deducted from the payment */
+    amount: integer("amount").notNull(),
+  },
+  (t) => [uniqueIndex("cod_allocations_uq").on(t.remittanceId, t.orderId), index("cod_allocations_order_idx").on(t.orderId)],
+);
+
+/** Business expenses (EXPENSE_CATEGORIES). Voided, never deleted, except by the owner. */
+export const expenses = sqliteTable(
+  "expenses",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** YYYY-MM-DD (Algeria) */
+    spentOn: text("spent_on").notNull(),
+    amount: integer("amount").notNull(),
+    currency: text("currency").notNull().default("DZD"),
+    category: text("category").notNull(),
+    description: text("description").notNull(),
+    paymentMethod: text("payment_method"),
+    reference: text("reference"),
+    /** photo of the receipt (R2 key) */
+    receiptKey: text("receipt_key"),
+    notes: text("notes"),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+    updatedBy: text("updated_by"),
+    updatedAt: integer("updated_at"),
+    voidedAt: integer("voided_at"),
+    voidedBy: text("voided_by"),
+    voidReason: text("void_reason"),
+  },
+  (t) => [index("expenses_date_idx").on(t.spentOn), index("expenses_category_idx").on(t.category, t.spentOn)],
+);
+
+/* ───────────────────────────── Operations ───────────────────────────── */
+
+/** A physical stock count (inventaire); the stock changes only when it is approved. */
+export const stockCounts = sqliteTable(
+  "stock_counts",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** all | category | product | variants (COUNT_SCOPES) */
+    scope: text("scope").notNull(),
+    scopeRef: text("scope_ref"),
+    title: text("title").notNull(),
+    /** COUNT_STATUSES */
+    status: text("status").notNull().default("counting"),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+    submittedBy: text("submitted_by"),
+    submittedAt: integer("submitted_at"),
+    decidedBy: text("decided_by"),
+    decidedAt: integer("decided_at"),
+    decisionNote: text("decision_note"),
+  },
+  (t) => [index("stock_counts_status_idx").on(t.status, t.createdAt)],
+);
+
+export const stockCountLines = sqliteTable(
+  "stock_count_lines",
+  {
+    countId: integer("count_id").notNull().references(() => stockCounts.id, { onDelete: "cascade" }),
+    variantId: integer("variant_id").notNull().references(() => variants.id),
+    /** what the system had when the count started */
+    systemQty: integer("system_qty").notNull(),
+    countedQty: integer("counted_qty"),
+    /** COUNT_REASONS (required when the count differs) */
+    reason: text("reason"),
+    note: text("note"),
+    countedBy: text("counted_by"),
+    countedAt: integer("counted_at"),
+    /** the correction actually applied on approval */
+    appliedDelta: integer("applied_delta"),
+  },
+  (t) => [primaryKey({ columns: [t.countId, t.variantId] })],
+);
+
+/** Two orders that look like one placed twice; the team decides (nothing is automatic). */
+export const orderDuplicates = sqliteTable(
+  "order_duplicates",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    /** the newer order */
+    orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    otherOrderId: integer("other_order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    score: integer("score").notNull(),
+    reasons: text("reasons", { mode: "json" }).$type<string[]>().notNull(),
+    minutesApart: integer("minutes_apart").notNull(),
+    /** DUPLICATE_STATUSES */
+    status: text("status").notNull().default("open"),
+    decidedBy: text("decided_by"),
+    decidedAt: integer("decided_at"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    uniqueIndex("order_duplicates_pair_uq").on(t.orderId, t.otherOrderId),
+    index("order_duplicates_status_idx").on(t.status, t.createdAt),
+    index("order_duplicates_other_idx").on(t.otherOrderId),
+  ],
+);
+
+/** A delivery that failed: the team calls the customer back until it is sorted out. */
+export const deliveryFollowups = sqliteTable(
+  "delivery_followups",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    /** FAILED_DELIVERY_REASONS (the latest) */
+    reason: text("reason").notNull(),
+    /** FOLLOWUP_STATUSES */
+    status: text("status").notNull().default("needs_contact"),
+    /** failed delivery attempts so far */
+    attempts: integer("attempts").notNull().default(1),
+    lastAttemptAt: integer("last_attempt_at").notNull(),
+    /** when to call again */
+    nextActionAt: integer("next_action_at"),
+    assignedTo: integer("assigned_to").references(() => teamMembers.id),
+    escalated: bool("escalated").notNull().default(false),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    closedAt: integer("closed_at"),
+    closedBy: text("closed_by"),
+  },
+  (t) => [index("delivery_followups_status_idx").on(t.status, t.nextActionAt), index("delivery_followups_order_idx").on(t.orderId)],
+);
+
+/** The courier hand-over sheet: the parcels given to the courier together. */
+export const shipmentManifests = sqliteTable(
+  "shipment_manifests",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    code: text("code").notNull().unique(),
+    /** MANIFEST_STATUSES */
+    status: text("status").notNull().default("draft"),
+    carrier: text("carrier").notNull().default("ZR Express"),
+    /** the courier's receipt / pickup reference, the driver's name… */
+    handoffRef: text("handoff_ref"),
+    note: text("note"),
+    createdBy: text("created_by").notNull(),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+    readyAt: integer("ready_at"),
+    handedAt: integer("handed_at"),
+    handedBy: text("handed_by"),
+    confirmedAt: integer("confirmed_at"),
+    confirmedBy: text("confirmed_by"),
+    cancelledAt: integer("cancelled_at"),
+    cancelledBy: text("cancelled_by"),
+  },
+  (t) => [index("shipment_manifests_status_idx").on(t.status, t.createdAt)],
+);
+
+export const manifestOrders = sqliteTable(
+  "manifest_orders",
+  {
+    manifestId: integer("manifest_id").notNull().references(() => shipmentManifests.id, { onDelete: "cascade" }),
+    orderId: integer("order_id").notNull().references(() => orders.id, { onDelete: "cascade" }),
+    /** cash the courier must collect and its fee (estimate), as they were when added */
+    codAmount: integer("cod_amount").notNull(),
+    fee: integer("fee").notNull(),
+    addedAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.manifestId, t.orderId] }), index("manifest_orders_order_idx").on(t.orderId)],
+);
 
 /* ───────────────────────────── A/B tests ───────────────────────────── */
 

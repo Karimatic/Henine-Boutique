@@ -16,6 +16,8 @@ export const PERMISSIONS = [
   "products.edit",
   "stock.view",
   "stock.edit",
+  /** approve a physical stock count (the stock is corrected only then) */
+  "stock.approve",
   "cost.view",
   "sales.view",
   "sales.create",
@@ -25,6 +27,10 @@ export const PERMISSIONS = [
   "reviews.moderate",
   "contact.view",
   "stats.view",
+  /** cash from the courier, expenses, business profit */
+  "finance.view",
+  /** record courier payments and expenses */
+  "finance.edit",
   "content.edit",
   "delivery.edit",
   "publish",

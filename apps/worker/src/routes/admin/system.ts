@@ -127,6 +127,14 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
   const labels = await variantLabels(c.env, [...low, ...back].map((v) => v.id));
   const withLabel = <T extends { id: number }>(v: T) => ({ ...v, options: labels.get(v.id)?.fr ?? "" });
   const a = (attention!.results[0] ?? {}) as Record<string, number | null>;
+  // failed deliveries to follow up (Expéditions)
+  const fu = await c.env.DB.prepare(
+    `SELECT SUM(CASE WHEN status IN ('needs_contact','contacted','callback','retry_requested','unreachable') THEN 1 ELSE 0 END) AS open,
+            SUM(CASE WHEN status IN ('needs_contact','contacted','callback','retry_requested','unreachable') AND COALESCE(next_action_at, 0) <= ? THEN 1 ELSE 0 END) AS due
+       FROM delivery_followups`,
+  )
+    .bind(now)
+    .first<{ open: number | null; due: number | null }>();
   const cartRow = carts!.results[0] as { n: number; value: number };
   const sc = stockCounts!.results[0] as { out_count: number | null; low_count: number | null };
   // cancelled orders (annulée / doublon / fausse) are never counted as orders or revenue
@@ -152,6 +160,8 @@ systemRoutes.get("/dashboard", requirePermission("dashboard.view"), async (c) =>
       pendingReviews: (reviews!.results[0] as { n: number }).n,
       newMessages: (messages!.results[0] as { n: number }).n,
       telegramBacklog: (outbox!.results[0] as { n: number }).n,
+      failedDeliveries: fu?.open ?? 0,
+      followupsDue: fu?.due ?? 0,
     },
     lowStock: low.map(withLabel),
     restocked: back.map(withLabel),
@@ -203,7 +213,8 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
   const { since, until, label, days } = statsRange((k) => c.req.query(k));
   const inRange = "o.created_at >= ?1 AND o.created_at < ?2";
   const valid = `o.status NOT IN ${CANCELLED_SQL}`;
-  const [totals, daily, statusRows, wilayas, channels, hours, top, reasons, durations, byType, weekdays] = await c.env.DB.batch([
+  const day = (ts: number) => new Date(ts + 3600_000).toISOString().slice(0, 10);
+  const [totals, daily, statusRows, wilayas, channels, hours, top, reasons, durations, byType, weekdays, sources, campaigns, visits] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) AS placed,
               SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders,
@@ -268,6 +279,26 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
       `SELECT CAST(strftime('%w', (o.created_at + 3600000) / 1000, 'unixepoch') AS INTEGER) AS dow, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS revenue
          FROM orders o WHERE ${inRange} AND ${valid} GROUP BY dow`,
     ).bind(since, until),
+    // where orders come from (campaign links, ads, referrers, the team's channels)
+    c.env.DB.prepare(
+      `SELECT COALESCE(o.source, 'direct') AS source, COUNT(*) AS placed,
+              SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders,
+              COALESCE(SUM(CASE WHEN ${valid} THEN o.total ELSE 0 END), 0) AS revenue,
+              SUM(CASE WHEN o.status = 'livree' THEN 1 ELSE 0 END) AS delivered,
+              COALESCE(SUM(CASE WHEN o.status = 'livree' THEN o.total ELSE 0 END), 0) AS delivered_revenue
+         FROM orders o WHERE ${inRange} GROUP BY COALESCE(o.source, 'direct') ORDER BY revenue DESC`,
+    ).bind(since, until),
+    c.env.DB.prepare(
+      `SELECT lower(o.utm_campaign) AS campaign, COUNT(*) AS placed,
+              SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders, COALESCE(SUM(CASE WHEN ${valid} THEN o.total ELSE 0 END), 0) AS revenue,
+              SUM(CASE WHEN o.status = 'livree' THEN 1 ELSE 0 END) AS delivered
+         FROM orders o WHERE ${inRange} AND o.utm_campaign IS NOT NULL AND o.utm_campaign != ''
+        GROUP BY lower(o.utm_campaign) ORDER BY revenue DESC LIMIT 20`,
+    ).bind(since, until),
+    // visits per source and campaign (counted once per browser session by the store)
+    c.env.DB.prepare(
+      "SELECT metric, dim, SUM(value) AS n FROM analytics_daily WHERE metric IN ('visits','visits_campaign') AND date >= ? AND date <= ? GROUP BY metric, dim",
+    ).bind(day(since), day(until - 1)),
   ]);
 
   const t = totals!.results[0] as Record<string, number | null>;
@@ -318,6 +349,17 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
       return { ...w, deliveryRate: pct(delivered, delivered + returned), avg_days: roundDays(w.avg_days as number | null, Number(w.timed ?? 0)) };
     }),
     channels: channels!.results,
+    ...(() => {
+      const v = visits!.results as { metric: string; dim: string; n: number }[];
+      const seen = (metric: string, dim: string) => v.find((x) => x.metric === metric && x.dim === dim)?.n ?? 0;
+      // conversion: orders / visits, once there are enough visits to mean something
+      const conv = (orders: number, n: number) => (n >= MIN_SAMPLE ? Math.round((orders / n) * 1000) / 10 : null);
+      return {
+        sources: (sources!.results as { source: string; orders: number }[]).map((s) => ({ ...s, visits: seen("visits", s.source), conversion: conv(s.orders, seen("visits", s.source)) })),
+        campaigns: (campaigns!.results as { campaign: string; orders: number }[]).map((s) => ({ ...s, visits: seen("visits_campaign", s.campaign), conversion: conv(s.orders, seen("visits_campaign", s.campaign)) })),
+        visits: v.filter((x) => x.metric === "visits").reduce((t, x) => t + x.n, 0),
+      };
+    })(),
     hours: hours!.results,
     weekdays: weekdays!.results,
     topProducts: top!.results,

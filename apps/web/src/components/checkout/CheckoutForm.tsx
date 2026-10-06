@@ -7,6 +7,7 @@ import { useStoreTexts } from "@/lib/storeTexts";
 import { cart, checkoutMemory, pendingCoupon, saveOrder, takePendingCoupon } from "@/lib/stores";
 import { newIdempotencyKey, Turnstile } from "@/lib/turnstile";
 import { Picker } from "./Picker";
+import { visitAttribution } from "@/lib/attribution";
 
 interface Props {
   lines: { variantId: number; qty: number }[];
@@ -159,11 +160,10 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         channel,
         locale,
         turnstileToken: token || "pending",
-        utm: {
-          source: params.get("utm_source") ?? undefined,
-          medium: params.get("utm_medium") ?? undefined,
-          campaign: params.get("utm_campaign") ?? undefined,
-        },
+        // how she arrived (this page's campaign link, else the one remembered from her visit)
+        utm: params.get("utm_source")
+          ? { source: params.get("utm_source") ?? undefined, medium: params.get("utm_medium") ?? undefined, campaign: params.get("utm_campaign") ?? undefined, landing: location.pathname }
+          : visitAttribution(),
       });
       saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
       if (coupon) pendingCoupon.set(null); // used: not offered again

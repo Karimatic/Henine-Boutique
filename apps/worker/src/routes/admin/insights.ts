@@ -182,9 +182,10 @@ insightRoutes.get("/stats/profit", requirePermission("stats.view"), async (c) =>
   const { since, until } = statsRange((k) => c.req.query(k));
   const { results } = await c.env.DB.prepare(
     `SELECT oi.product_id, oi.qty, oi.unit_price, o.id AS order_id, o.status, o.subtotal, o.discount_total, o.shipping_price, o.delivery_type, o.channel,
-            w.home_price, w.desk_price, p.name_fr, p.cost_price, p.slug,
+            w.home_price, w.desk_price, p.name_fr, p.cost_price, p.slug, f.carrier_fee, f.return_fee,
             (SELECT base_key FROM product_images i WHERE i.product_id = oi.product_id ORDER BY sort, id LIMIT 1) AS image_key
        FROM order_items oi JOIN orders o ON o.id = oi.order_id LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN products p ON p.id = oi.product_id
+            LEFT JOIN order_finance f ON f.order_id = o.id
       WHERE o.created_at >= ? AND o.created_at < ? AND o.status IN ('livree','retour','retour_recu') AND oi.product_id IS NOT NULL
       LIMIT 20000`,
   )
@@ -192,7 +193,7 @@ insightRoutes.get("/stats/profit", requirePermission("stats.view"), async (c) =>
     .all<{
       product_id: number; qty: number; unit_price: number; order_id: number; status: string; subtotal: number; discount_total: number; shipping_price: number;
       delivery_type: string; channel: string; home_price: number | null; desk_price: number | null; name_fr: string | null; cost_price: number | null; slug: string | null;
-      image_key: string | null;
+      image_key: string | null; carrier_fee: number | null; return_fee: number | null;
     }>();
   type Row = { id: number; name: string; image: string | null; units: number; revenue: number; cost: number; delivery: number; returns: number; discounts: number; missingCost: boolean; returnedUnits: number };
   const byProduct = new Map<number, Row>();
@@ -203,7 +204,9 @@ insightRoutes.get("/stats/profit", requirePermission("stats.view"), async (c) =>
     };
     const line = r.unit_price * r.qty;
     const share = r.subtotal > 0 ? line / r.subtotal : 0;
-    const rate = r.channel === "boutique" ? 0 : ((r.delivery_type === "bureau" ? r.desk_price : r.home_price) ?? 0);
+    // the courier's fee: recorded from its statement (Finance → Encaissements), else the wilaya's rate
+    const recorded = r.status === "livree" ? r.carrier_fee : r.return_fee;
+    const rate = r.channel === "boutique" ? 0 : (recorded ?? (r.delivery_type === "bureau" ? r.desk_price : r.home_price) ?? 0);
     if (r.status === "livree") {
       p.units += r.qty;
       p.revenue += line;

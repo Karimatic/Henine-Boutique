@@ -2,7 +2,7 @@
  * Paramètres → Alertes & délais: new-order sound and notifications (this device), the order
  * SLA (how long each step may take) and the packaging cost used in the real profit.
  */
-import { DEFAULT_SLA, type SlaSettings } from "@henine/shared";
+import { DEFAULT_DUPLICATE_SETTINGS, DEFAULT_SLA, type DuplicateSettings, type SlaSettings } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, put, upload } from "../api";
@@ -10,7 +10,7 @@ import { tr } from "../i18n";
 import { isInstalled, useInstallOffer } from "../lib/install";
 import { loadPrefs, playTone, savePrefs, setShopSound, SHOP_SOUND_DEFAULT_SECONDS, SOUNDS, unlockSound, useSoundReady, type SoundKey, type SoundPrefs } from "../lib/live";
 import { useCan } from "../Shell";
-import { Button, Card, inputCls, Toggle, useToast } from "../ui";
+import { Button, Card, inputCls, Select, Toggle, useToast } from "../ui";
 
 export function OperationsSettings() {
   const can = useCan();
@@ -245,16 +245,21 @@ function SlaCard() {
   const qc = useQueryClient();
   const toast = useToast();
   const can = useCan();
-  const q = useQuery({ queryKey: ["operations-settings"], queryFn: () => api<{ sla: SlaSettings; packaging_cost: number }>("/operations/settings") });
+  const q = useQuery({
+    queryKey: ["operations-settings"],
+    queryFn: () => api<{ sla: SlaSettings; packaging_cost: number; duplicates?: DuplicateSettings }>("/operations/settings"),
+  });
   const [sla, setSla] = useState<SlaSettings>(DEFAULT_SLA);
   const [packaging, setPackaging] = useState("0");
+  const [dup, setDup] = useState<DuplicateSettings>(DEFAULT_DUPLICATE_SETTINGS);
   useEffect(() => {
     if (!q.data) return;
     setSla(q.data.sla);
     setPackaging(String(q.data.packaging_cost));
+    if (q.data.duplicates) setDup(q.data.duplicates);
   }, [q.data]);
   const save = useMutation({
-    mutationFn: () => put("/operations/settings", { sla, packagingCost: Math.max(0, Math.round(Number(packaging) || 0)) }),
+    mutationFn: () => put("/operations/settings", { sla, packagingCost: Math.max(0, Math.round(Number(packaging) || 0)), duplicates: dup }),
     onSuccess: () => {
       toast(tr("Délais enregistrés"));
       void qc.invalidateQueries({ queryKey: ["operations-settings"] });
@@ -297,6 +302,27 @@ function SlaCard() {
           <span className="mt-1 block text-xs font-normal text-ink-soft">{tr("Compté dans le bénéfice réel de chaque commande.")}</span>
         </label>
       )}
+      <div className="mt-5 border-t border-line pt-4">
+        <p className="text-sm font-semibold">{tr("⚠️ Doublons possibles")}</p>
+        <p className="mb-3 text-xs text-ink-soft">{tr("Une commande qui ressemble à une autre de la même cliente (mêmes articles, même adresse, à quelques minutes d'écart) est signalée. Rien n'est annulé automatiquement.")}</p>
+        <Toggle checked={dup.enabled} onChange={(v) => setDup((d) => ({ ...d, enabled: v }))} label={tr("Signaler les doublons possibles")} />
+        {dup.enabled && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <Select label={tr("Comparer avec les commandes des dernières")} value={String(dup.windowHours)} onChange={(e) => setDup((d) => ({ ...d, windowHours: Number(e.target.value) }))}>
+              {[12, 24, 48, 72, 168].map((h) => (
+                <option key={h} value={h}>
+                  {h < 48 ? tr("{0} heures", { 0: h }) : tr("{0} jours", { 0: h / 24 })}
+                </option>
+              ))}
+            </Select>
+            <Select label={tr("Sensibilité")} value={String(dup.threshold)} onChange={(e) => setDup((d) => ({ ...d, threshold: Number(e.target.value) }))}>
+              <option value="90">{tr("Prudente : seulement les doublons évidents")}</option>
+              <option value="70">{tr("Normale (conseillée)")}</option>
+              <option value="50">{tr("Sensible : plus d'alertes")}</option>
+            </Select>
+          </div>
+        )}
+      </div>
       <Button variant="primary" className="mt-4" loading={save.isPending} disabled={Object.values(sla).some((v) => v < 5)} onClick={() => save.mutate()}>
         {tr("Enregistrer")}
       </Button>

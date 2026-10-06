@@ -58,28 +58,32 @@ function pageEntries(): Plugin {
   };
 }
 
-export default defineConfig(({ isSsrBuild }) => ({
-  resolve: {
-    alias: [
-      { find: /^@\//, replacement: src("") },
-      // React's API, Preact's engine
-      { find: /^react-dom\/client$/, replacement: "preact/compat/client" },
-      { find: /^react-dom\/server$/, replacement: "preact/compat/server" },
-      { find: /^react-dom$/, replacement: "preact/compat" },
-      { find: /^react\/jsx-runtime$/, replacement: "preact/jsx-runtime" },
-      { find: /^react\/jsx-dev-runtime$/, replacement: "preact/jsx-dev-runtime" },
-      { find: /^react$/, replacement: "preact/compat" },
-    ],
-  },
-  plugins: [
-    tailwindcss(),
-    !isSsrBuild && pageEntries(),
-  ].filter(Boolean),
-  // the build-time renderer carries its own copy of everything (no node_modules lookups)
-  ssr: { noExternal: true },
-  build: isSsrBuild
-    ? { outDir: ".ssr", emptyOutDir: true, copyPublicDir: false, minify: false }
-    : {
+export default defineConfig(({ isSsrBuild }) => {
+  const plugins: Plugin[] = [tailwindcss()];
+
+  if (!isSsrBuild) {
+    plugins.push(pageEntries());
+  }
+
+  return {
+    resolve: {
+      alias: [
+        { find: /^@\//, replacement: src("") },
+        // React's API, Preact's engine
+        { find: /^react-dom\/client$/, replacement: "preact/compat/client" },
+        { find: /^react-dom\/server$/, replacement: "preact/compat/server" },
+        { find: /^react-dom$/, replacement: "preact/compat" },
+        { find: /^react\/jsx-runtime$/, replacement: "preact/jsx-runtime" },
+        { find: /^react\/jsx-dev-runtime$/, replacement: "preact/jsx-dev-runtime" },
+        { find: /^react$/, replacement: "preact/compat" },
+      ],
+    },
+    plugins,
+    // the build-time renderer carries its own copy of everything (no node_modules lookups)
+    ssr: { noExternal: true },
+    build: isSsrBuild
+      ? { outDir: ".ssr", emptyOutDir: true, copyPublicDir: false, minify: false }
+      : {
         outDir: "out",
         emptyOutDir: true,
         assetsDir: "assets",
@@ -90,4 +94,5 @@ export default defineConfig(({ isSsrBuild }) => ({
           input: Object.fromEntries(ENTRIES.map((e) => [e, `henine-page:${e}`])),
         },
       },
-}));
+  };
+});

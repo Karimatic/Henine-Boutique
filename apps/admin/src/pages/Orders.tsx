@@ -27,15 +27,19 @@ import {
   OrderHistory,
   PreviousOrders,
   ProfitBlock,
+  DuplicateWarnings,
   SlaBadge,
   type OrderOpsData,
 } from "./OrderOps";
 import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
 import { tr } from "../i18n";
+import { FailedDeliveryButton } from "./Logistics";
 
 interface OrderRow {
   id: number;
+  /** flagged as a possible duplicate, not decided yet */
+  duplicate?: number;
   public_code: string;
   status: OrderStatus;
   channel: string;
@@ -66,6 +70,7 @@ export const ATTENTION_LABEL: Record<string, string> = {
   stale_preparing: tr("En préparation depuis plus de 48 h"),
   stale_shipped: tr("Expédiées depuis plus de 7 jours"),
   returns: tr("Retours à réceptionner"),
+  duplicates: tr("Doublons possibles à vérifier"),
 };
 
 const TABS = [
@@ -213,6 +218,7 @@ export function OrdersPage() {
                   {o.returned_count ? <Badge tone="bg-orange-100 text-orange-800">⚠ {o.returned_count} {tr("retour(s)")}</Badge> : null}
                   {(o.delivered_count ?? 0) >= 2 ? <Badge tone="bg-emerald-100 text-emerald-800">{tr("Fidèle")}</Badge> : null}
                   {o.risk.level !== "low" ? <RiskBadge level={o.risk.level} /> : null}
+                  {o.duplicate ? <Badge tone="bg-amber-200 text-amber-950">{tr("⚠️ Doublon ?")}</Badge> : null}
                   {o.status === "injoignable" ? <Badge tone="bg-amber-100 text-amber-800">📵 {o.confirm_attempts} {tr("appel(s)")}</Badge> : null}
                   {o.outcome_reason ? <Badge tone="bg-stone-100 text-stone-700">{tr(OUTCOME_REASON_LABEL[o.outcome_reason as OutcomeReason]) ?? o.outcome_reason}</Badge> : null}
                 </div>
@@ -480,6 +486,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
               onConfirm={(v) => status.mutate({ to: ask, ...v })}
             />
           )}
+          <DuplicateWarnings orderId={o.id} code={o.public_code} onChanged={refresh} openOther={openOther} />
           <Card>
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -502,6 +509,11 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
             {o.phone && (
               <div className="mt-3">
                 <ContactActions orderId={o.id} phone={o.phone} waText={waText} onLogged={refresh} />
+              </div>
+            )}
+            {(o.status === "expediee" || o.status === "en_livraison") && can("orders.ship") && (
+              <div className="mt-3">
+                <FailedDeliveryButton orderId={o.id} onDone={refresh} />
               </div>
             )}
             {o.customer_note && <p className="mt-3 rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm font-medium text-amber-950">📝 {tr("Note de la cliente :")} {o.customer_note}</p>}

@@ -16,3 +16,8 @@ export * from "./size-advice";
 export * from "./boutique";
 export * from "./operations";
 export * from "./catalog-tree";
+export * from "./finance";
+export * from "./stock-count";
+export * from "./duplicates";
+export * from "./attribution";
+export * from "./logistics";

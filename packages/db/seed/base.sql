@@ -3,7 +3,7 @@
 
 INSERT INTO roles (key, name, permissions) VALUES
 ('owner', 'Propriétaire', '["*"]'),
-('manager', 'Gérante', '["dashboard.view","orders.view","orders.edit","orders.confirm","orders.ship","orders.export","orders.discount","customers.view","customers.edit","customers.export","carts.view","products.view","products.edit","stock.view","stock.edit","cost.view","sales.view","sales.create","promos.edit","loyalty.edit","marketing.edit","reviews.moderate","contact.view","stats.view","content.edit","delivery.edit","publish","errors.view","audit.view"]'),
+('manager', 'Gérante', '["dashboard.view","orders.view","orders.edit","orders.confirm","orders.ship","orders.export","orders.discount","customers.view","customers.edit","customers.export","carts.view","products.view","products.edit","stock.view","stock.edit","stock.approve","cost.view","sales.view","sales.create","promos.edit","loyalty.edit","marketing.edit","reviews.moderate","contact.view","stats.view","finance.view","finance.edit","content.edit","delivery.edit","publish","errors.view","audit.view"]'),
 ('confirmation', 'Confirmatrice', '["dashboard.view","orders.view","orders.edit","orders.confirm","customers.view","carts.view","products.view","stock.view"]'),
 ('fulfilment', 'Préparation / Stock', '["dashboard.view","orders.view","orders.ship","products.view","stock.view","stock.edit","sales.create"]'),
 ('marketing', 'Marketing', '["dashboard.view","products.view","products.edit","promos.edit","loyalty.edit","marketing.edit","reviews.moderate","contact.view","stats.view","content.edit","publish"]'),

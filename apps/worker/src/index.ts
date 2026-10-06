@@ -47,6 +47,8 @@ app.route("/api", api);
 /* ─── Product photos from R2 (edge cached, immutable keys) ─── */
 app.get("/media/*", async (c) => {
   const key = decodeURIComponent(new URL(c.req.url).pathname.slice("/media/".length));
+  // receipts and other private files: only through the admin API
+  if (key.startsWith("private/")) return c.notFound();
   // product videos: streamed with byte ranges (phones seek and buffer, Safari requires it)
   if (/^[a-z0-9/_-]+\.(mp4|webm)$/i.test(key)) {
     const range = c.req.header("Range");

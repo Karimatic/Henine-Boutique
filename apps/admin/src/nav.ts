@@ -22,6 +22,8 @@ import {
   Star,
   TicketPercent,
   TriangleAlert,
+  Truck,
+  Wallet,
   Users,
   UsersRound,
   type LucideIcon,
@@ -57,6 +59,7 @@ export const NAV: NavGroup[] = [
     label: tr("Commandes"),
     items: [
       { path: "/commandes", label: tr("Commandes"), permission: "orders.view", icon: ShoppingBag },
+      { path: "/expeditions", label: tr("Expéditions"), permission: "orders.view", icon: Truck },
       { path: "/clients", label: tr("Clients"), permission: "customers.view", icon: Users },
       { path: "/paniers", label: tr("Paniers"), permission: "carts.view", icon: ShoppingCart },
       { path: "/promos", label: tr("Promos"), permission: "promos.edit", icon: TicketPercent },
@@ -79,6 +82,7 @@ export const NAV: NavGroup[] = [
     label: tr("Analyse"),
     items: [
       { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn },
+      { path: "/finance", label: tr("Finance"), permission: "finance.view", icon: Wallet },
     ],
   },
   {

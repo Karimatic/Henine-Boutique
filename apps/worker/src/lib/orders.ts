@@ -3,7 +3,7 @@
  * status changes (stock effects, customer counters, loyalty). Used by the storefront,
  * the admin (manual sales, status buttons) and the Telegram bot.
  */
-import {
+import { classifySource, sourceOfChannel,
   assessRisk,
   canTransition,
   computeTotals,
@@ -248,7 +248,7 @@ export interface NewOrder {
   lines: { variantId: number; qty: number }[];
   channel: "web" | "express" | "instagram" | "whatsapp" | "boutique" | "telephone";
   locale: "fr" | "ar";
-  utm?: { source?: string; medium?: string; campaign?: string };
+  utm?: { source?: string; medium?: string; campaign?: string; referrer?: string; landing?: string; clickId?: "fb" | "google" | "tiktok" };
   ipHash?: string;
   uaShort?: string;
   /** checkout autosave to mark as recovered */
@@ -347,15 +347,18 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
       env.DB.prepare(
         `INSERT INTO orders (public_code, track_token_hash, idempotency_key, status, channel, locale, customer_id, name, phone, wilaya_code,
             commune_id, commune_text, delivery_type, stop_desk_id, address, subtotal, discount_total, shipping_price, total, coupon_code, points_used,
-            customer_note, internal_note, risk_score, risk_flags, utm_source, utm_medium, utm_campaign, ip_hash, ua_short, created_at, updated_at,
+            customer_note, internal_note, risk_score, risk_flags, utm_source, utm_medium, utm_campaign, referrer, source, landing_path, ip_hash, ua_short, created_at, updated_at,
             confirmed_at, delivered_at, contact_time)
-         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         VALUES (?, ?, ?, ?, ?, ?, (SELECT id FROM customers WHERE phone = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       ).bind(
         code, tokenHash, input.idempotencyKey, status, input.channel, input.locale, input.phone, input.name, input.phone, input.wilaya,
         input.communeId, input.communeText ?? null, input.deliveryType, input.stopDeskId ?? null, input.address ?? null,
         q.subtotal, q.discount, shipping, total, q.couponRow?.code ?? null, q.pointsUsed, input.note ?? null, input.internalNote ?? null, risk,
         riskFlags ? JSON.stringify(riskFlags) : null,
-        input.utm?.source ?? null, input.utm?.medium ?? null, input.utm?.campaign ?? null, input.ipHash ?? null, input.uaShort ?? null,
+        input.utm?.source ?? null, input.utm?.medium ?? null, input.utm?.campaign ?? null, input.utm?.referrer ?? null,
+        // where it came from: the team's channel, else the visit (campaign link, ad click, referrer), classified here
+        sourceOfChannel(input.channel) ?? (isAdmin ? "other" : classifySource({ utmSource: input.utm?.source, utmMedium: input.utm?.medium, referrer: input.utm?.referrer, clickId: input.utm?.clickId })),
+        input.utm?.landing ?? null, input.ipHash ?? null, input.uaShort ?? null,
         now, now, status === "confirmee" || status === "livree" ? now : null, status === "livree" ? now : null, input.contactTime ?? null,
       ),
     ];

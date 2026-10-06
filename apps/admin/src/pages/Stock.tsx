@@ -169,6 +169,9 @@ export function StockPage() {
         subtitle={tr("Chaque produit avec son tableau couleur × taille. Touchez un chiffre pour modifier.")}
         actions={
           <>
+            <Link to="/stock/inventaire" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">
+              {tr("📋 Inventaire")}
+            </Link>
             {can("stock.edit") && (
               <Link to="/stock/reception" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-plum-600 px-3.5 text-sm font-semibold text-white">
                 <PackagePlus className="size-4" /> {tr("Réception")}

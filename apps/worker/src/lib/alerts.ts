@@ -77,7 +77,7 @@ export async function scanAlerts(env: Env): Promise<void> {
   const { operations } = await getSettings(env, ["operations"]);
   const sla = operations.sla;
   const now = Date.now();
-  const [late, ready, low] = await env.DB.batch([
+  const [late, ready, low, callbacks] = await env.DB.batch([
     env.DB.prepare(
       `SELECT o.id, o.public_code, o.status, ${SINCE_SQL} AS since FROM orders o WHERE ${lateOrdersSql(now, sla)} ORDER BY since LIMIT 50`,
     ),
@@ -89,10 +89,15 @@ export async function scanAlerts(env: Env): Promise<void> {
           AND EXISTS (SELECT 1 FROM order_items oi JOIN orders o ON o.id = oi.order_id WHERE oi.variant_id = v.id AND o.created_at > ?)
         LIMIT 30`,
     ).bind(now - 30 * 86400_000),
+    // failed deliveries whose call-back time has come (Expéditions → Échecs de livraison)
+    env.DB.prepare(
+      `SELECT f.id, o.public_code, f.next_action_at FROM delivery_followups f JOIN orders o ON o.id = f.order_id
+        WHERE f.status IN ('needs_contact','contacted','callback','retry_requested','unreachable') AND f.next_action_at <= ? ORDER BY f.next_action_at LIMIT 30`,
+    ).bind(now),
   ]);
 
   const raise: AlertInput[] = [];
-  const open: Record<string, string[]> = { late_order: [], unconfirmed: [], ready_to_ship: [], low_stock: [] };
+  const open: Record<string, string[]> = { late_order: [], unconfirmed: [], ready_to_ship: [], low_stock: [], followup_due: [] };
   const add = (a: AlertInput) => {
     raise.push(a);
     open[a.kind]!.push(a.dedupeKey);
@@ -134,6 +139,14 @@ export async function scanAlerts(env: Env): Promise<void> {
     add({
       kind: "low_stock", priority: v.available <= 0 ? "medium" : "low", entity: "variant", entityId: v.id, dedupeKey: `stock:${v.id}`,
       message: v.available <= 0 ? `Rupture : ${v.name_fr} (${v.sku}) est épuisé.` : `Stock critique : ${v.name_fr} (${v.sku}), plus qu'une pièce.`,
+    });
+  }
+
+  // failed deliveries to call back now
+  for (const f of callbacks!.results as { id: number; public_code: string }[]) {
+    add({
+      kind: "followup_due", priority: "high", entity: "followup", entityId: f.id, dedupeKey: `followup_due:${f.id}`,
+      message: `Livraison échouée ${f.public_code} : c'est l'heure de rappeler la cliente.`,
     });
   }
 

@@ -1,5 +1,6 @@
 import { Hono, type Context } from "hono";
 import {
+  classifySource,
   assistantInput,
   cartSaveInput,
   cleanText,
@@ -39,7 +40,8 @@ import { activeFlash, featuredDrop, getCollection, getProductDetail, imageRef, l
 import { cached } from "../lib/edge-cache";
 import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, validate, verifyTurnstile } from "../lib/http";
 import { designOut, putImage } from "../lib/media";
-import { applyStatusChange, createOrder, quote } from "../lib/orders";
+import { analyticsStmts, applyStatusChange, createOrder, quote } from "../lib/orders";
+import { detectDuplicates } from "../lib/duplicates";
 import { bumpCatalogStmt, getSetting, getSettings } from "../lib/settings";
 import { notifyNewOrder, sendTelegramText, syncOrderMessage } from "../lib/telegram";
 import { exchangeAlert, receiptIssueAlert } from "../lib/alerts";
@@ -176,6 +178,29 @@ publicRoutes.post("/quote", async (c) => {
   return c.json(dto);
 });
 
+/**
+ * One visit (counted once per browser session by the store): where it came from, for the
+ * conversion rate per source in Statistiques. No personal data, only daily counters.
+ */
+publicRoutes.post("/visit", async (c) => {
+  await rateLimit(c.env.RL_LOOKUP, `visit:${clientIp(c)}`);
+  const v = validate(
+    await c.req.json().catch(() => ({})),
+    z.object({
+      source: cleanText(64).optional(),
+      medium: cleanText(64).optional(),
+      campaign: cleanText(64).optional(),
+      referrer: cleanText(120).optional(),
+      clickId: z.enum(["fb", "google", "tiktok"]).optional(),
+    }),
+  );
+  const source = classifySource({ utmSource: v.source, utmMedium: v.medium, referrer: v.referrer, clickId: v.clickId });
+  const metrics: [string, string][] = [["visits", source]];
+  if (v.campaign) metrics.push(["visits_campaign", v.campaign.toLowerCase()]);
+  await c.env.DB.batch(analyticsStmts(c.env, Date.now(), metrics, 1));
+  return c.body(null, 204);
+});
+
 publicRoutes.post("/orders", async (c) => {
   await rateLimit(c.env.RL_WRITE, `order:${clientIp(c)}`);
   const input = await body(c, createOrderInput);
@@ -190,6 +215,8 @@ publicRoutes.post("/orders", async (c) => {
     ipHash: await ipHash(c),
     uaShort: uaShort(c),
   });
+  // a possible duplicate (same customer, same items, minutes apart…) is flagged for the team
+  c.executionCtx.waitUntil(detectDuplicates(c.env, order.id).catch(() => undefined));
   // open admin tabs hear about it right away (sound, notification, counter)
   c.executionCtx.waitUntil(
     c.env.DB.prepare("SELECT o.id, o.name, o.total, w.name_fr AS wilaya FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code WHERE o.public_code = ?")
