@@ -3,8 +3,9 @@
   "name": "henine",
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
-  "compatibility_flags": ["nodejs_compat"],
-
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   // Storefront (Next static export) + admin SPA, assembled by scripts/assemble-dist.mjs.
   // Static files are served free and never count against the Worker request/CPU limits.
   // Only these paths run the Worker first:
@@ -13,37 +14,93 @@
     "binding": "ASSETS",
     "html_handling": "auto-trailing-slash",
     "not_found_handling": "404-page",
-    "run_worker_first": ["/robots.txt", "/sitemap.xml", "/feeds/*", "/api/*", "/admin", "/admin/*", "/media/*", "/l/*", "/produit/*", "/c/*", "/p/*", "/collection/*", "/fr/produit/*", "/fr/c/*", "/fr/p/*", "/fr/collection/*"]
+    "run_worker_first": [
+      "/robots.txt",
+      "/sitemap.xml",
+      "/feeds/*",
+      "/api/*",
+      "/admin",
+      "/admin/*",
+      "/media/*",
+      "/l/*",
+      "/produit/*",
+      "/c/*",
+      "/p/*",
+      "/collection/*",
+      "/fr/produit/*",
+      "/fr/c/*",
+      "/fr/p/*",
+      "/fr/collection/*"
+    ]
   },
-
   // Free *.workers.dev URL until a domain is bought. Then: routes + custom_domain, workers_dev: false.
   "workers_dev": true,
   "preview_urls": false,
-
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "henine-db",
-      "database_id": "00000000-0000-0000-0000-000000000000", // ← replace after `wrangler d1 create henine-db --location weur`
-      "migrations_dir": "../../packages/db/migrations"
+      "database_name": "henine-boutique-db",
+      "database_id": "fd580fa9-10fc-4ee0-a64a-edd046116c37"
     }
   ],
-  "r2_buckets": [{ "binding": "MEDIA", "bucket_name": "henine-media" }],
-
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "henine-media"
+    }
+  ],
   // Live admin (new orders, alerts) over WebSockets. SQLite-backed Durable Objects are on the
   // free plan; hibernation keeps idle admin tabs at zero cost.
-  "durable_objects": { "bindings": [{ "name": "HUB", "class_name": "AdminHub" }] },
-  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AdminHub"] }],
-
-  "ratelimits": [
-    { "name": "RL_WRITE", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
-    { "name": "RL_LOOKUP", "namespace_id": "1002", "simple": { "limit": 60, "period": 60 } },
-    { "name": "RL_AUTH", "namespace_id": "1003", "simple": { "limit": 10, "period": 60 } }
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "HUB",
+        "class_name": "AdminHub"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "AdminHub"
+      ]
+    }
   ],
-
+  "ratelimits": [
+    {
+      "name": "RL_WRITE",
+      "namespace_id": "1001",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    },
+    {
+      "name": "RL_LOOKUP",
+      "namespace_id": "1002",
+      "simple": {
+        "limit": 60,
+        "period": 60
+      }
+    },
+    {
+      "name": "RL_AUTH",
+      "namespace_id": "1003",
+      "simple": {
+        "limit": 10,
+        "period": 60
+      }
+    }
+  ],
   // 21:00 Algiers = 20:00 UTC (Algeria has no DST)
-  "triggers": { "crons": ["*/5 * * * *", "*/30 * * * *", "0 20 * * *"] },
-
+  "triggers": {
+    "crons": [
+      "*/5 * * * *",
+      "*/30 * * * *",
+      "0 20 * * *"
+    ]
+  },
   "vars": {
     "ENVIRONMENT": "production",
     "PUBLIC_ORIGIN": "https://henine.<your-subdomain>.workers.dev",
@@ -53,6 +110,8 @@
     "MAIL_PROVIDER": "console",
     "MAIL_FROM": "Henine Boutique <no-reply@example.com>"
   },
-
-  "observability": { "enabled": true, "head_sampling_rate": 0.1 }
+  "observability": {
+    "enabled": true,
+    "head_sampling_rate": 0.1
+  }
 }
