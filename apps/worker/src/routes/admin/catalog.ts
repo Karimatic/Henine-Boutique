@@ -38,8 +38,9 @@ catalogRoutes.get("/products", requirePermission("products.view"), async (c) => 
     binds.push(status);
   } else where.push("p.status != 'archived'");
   if (category) {
-    where.push("p.category_id = ?");
-    binds.push(Number(category));
+    // a main category also lists its sub-categories' products
+    where.push("(p.category_id = ? OR p.category_id IN (SELECT id FROM categories WHERE parent_id = ?))");
+    binds.push(Number(category), Number(category));
   }
   const stock = c.req.query("stock");
   if (stock === "out") where.push("NOT EXISTS (SELECT 1 FROM variants v WHERE v.product_id = p.id AND v.is_active = 1 AND v.stock_on_hand - v.stock_reserved > 0)");

@@ -1,6 +1,6 @@
 import { formatDzPhone, resolveStoreTexts, STORE_TEXTS, type StoreTexts } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link } from "@tanstack/react-router";
+import { Link, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, daMinus, ltr, waLink } from "../lib/format";
@@ -501,7 +501,12 @@ interface Review {
 }
 
 export function ReviewsPage() {
-  const [status, setStatus] = useState("approved");
+  // ?status= from the search bar (a review waiting for approval opens on "À valider")
+  const linked = (useSearch({ strict: false }) as { status?: string }).status;
+  const [status, setStatus] = useState(linked && ["approved", "pending", "rejected", "all"].includes(linked) ? linked : "approved");
+  useEffect(() => {
+    if (linked && ["approved", "pending", "rejected", "all"].includes(linked)) setStatus(linked);
+  }, [linked]);
   const settings = useQuery({ queryKey: ["reviews-settings"], queryFn: () => api<{ auto_approve_verified: boolean }>("/reviews/settings") });
   const saveSettings = useSave((v: { auto_approve_verified: boolean }) => put("/reviews/settings", v), ["reviews-settings"]);
   const q = useQuery({ queryKey: ["reviews", status], queryFn: () => api<{ rows: Review[]; counts: { status: string; n: number; avg: number }[] }>(`/reviews?status=${status}`) });
@@ -846,7 +851,11 @@ export interface ContactSettings {
 }
 
 export function ContactPage() {
-  const [status, setStatus] = useState("open");
+  const linked = (useSearch({ strict: false }) as { status?: string }).status;
+  const [status, setStatus] = useState(linked && ["open", "done", "spam", "all"].includes(linked) ? linked : "open");
+  useEffect(() => {
+    if (linked && ["open", "done", "spam", "all"].includes(linked)) setStatus(linked);
+  }, [linked]);
   const q = useQuery({ queryKey: ["contact", status], queryFn: () => api<{ rows: Message[]; contact: ContactSettings }>(`/contact?status=${status}`) });
   const setMsg = useSave(({ id, s }: { id: number; s: string }) => patch(`/contact/${id}`, { status: s }), ["contact", "dashboard"], tr("Message mis à jour"));
   return (

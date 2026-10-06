@@ -41,10 +41,13 @@ const SEGMENTS = [
 
 export function CustomersPage() {
   const [segment, setSegment] = useState("all");
-  const [q, setQ] = useState("");
-  // ?c=12 opens that customer (link from the search bar)
+  // ?c=12 opens that customer, ?q= fills the search (links from the search bar)
   const navigate = useNavigate();
-  const search = useSearch({ strict: false }) as { c?: number };
+  const search = useSearch({ strict: false }) as { c?: number; q?: string | number };
+  const [q, setQ] = useState(search.q != null ? String(search.q) : "");
+  useEffect(() => {
+    if (search.q != null) setQ(String(search.q));
+  }, [search.q]);
   const open = search.c ?? null;
   const setOpen = (id: number | null) => void navigate({ to: "/clients", search: (s: Record<string, unknown>) => ({ ...s, c: id ?? undefined }) });
   const list = useQuery({

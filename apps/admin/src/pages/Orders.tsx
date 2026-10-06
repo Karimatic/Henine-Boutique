@@ -81,7 +81,7 @@ const TABS = [
 ];
 
 export function OrdersPage() {
-  const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string };
+  const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string; q?: string | number };
   const navigate = useNavigate();
   // the red "new orders" counter resets while this page is on screen
   const live = useLive();
@@ -94,12 +94,19 @@ export function OrdersPage() {
   const [status, setStatus] = useState(search.status ?? "active");
   const attention = search.attention && tr(ATTENTION_LABEL[search.attention]) ? search.attention : null;
   const clearAttention = () => void navigate({ to: "/commandes", search: (s: Record<string, unknown>) => ({ ...s, attention: undefined }) });
-  const [q, setQ] = useState("");
-  const [debounced, setDebounced] = useState("");
+  // ?q= comes from the search bar's "open in the page" (numbers arrive as numbers)
+  const linked = search.q != null ? String(search.q) : "";
+  const [q, setQ] = useState(linked);
+  const [debounced, setDebounced] = useState(linked);
   useEffect(() => {
     const id = setTimeout(() => setDebounced(q), 300);
     return () => clearTimeout(id);
   }, [q]);
+  useEffect(() => {
+    if (search.q == null) return;
+    setQ(String(search.q));
+    if (search.status) setStatus(search.status);
+  }, [search.q, search.status]);
   // more filters: wilaya and dates (Algiers days)
   const [wilaya, setWilaya] = useState("");
   const [from, setFrom] = useState("");

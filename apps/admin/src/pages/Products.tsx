@@ -1,6 +1,6 @@
 import { imageUrl, slugify, type ImageRef } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate, useParams } from "@tanstack/react-router";
+import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { api, del, errorMessage, post, put, upload } from "../api";
 import { da } from "../lib/format";
@@ -11,7 +11,7 @@ import {
   Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Spinner, TextArea, TextField, useToast,
 } from "../ui";
 import { CategoryOptions, categoryOrder, categoryPath, type CategoryLite } from "../lib/categories";
-import { tr } from "../i18n";
+import { isAr, tr } from "../i18n";
 
 /* ───────────── List ───────────── */
 
@@ -45,12 +45,21 @@ export function ProductsPage() {
   const [status, setStatus] = useState("all");
   const [stock, setStock] = useState("");
   const [sort, setSort] = useState<"recent" | "name" | "stock" | "sold">("recent");
-  const [q, setQ] = useState("");
+  // ?q= / ?category= come from the search bar
+  const search = useSearch({ strict: false }) as { q?: string | number; category?: number };
+  const navigate = useNavigate();
+  const [q, setQ] = useState(search.q != null ? String(search.q) : "");
+  useEffect(() => {
+    if (search.q != null) setQ(String(search.q));
+  }, [search.q]);
+  const category = typeof search.category === "number" ? search.category : null;
   const list = useQuery({
-    queryKey: ["products", status, q, stock],
-    queryFn: () => api<ProductRow[]>(`/products?status=${status}&q=${encodeURIComponent(q)}${stock ? `&stock=${stock}` : ""}`),
+    queryKey: ["products", status, q, stock, category],
+    queryFn: () => api<ProductRow[]>(`/products?status=${status}&q=${encodeURIComponent(q)}${stock ? `&stock=${stock}` : ""}${category ? `&category=${category}` : ""}`),
   });
   const cats = useQuery({ queryKey: ["categories"], queryFn: () => api<CategoryLite[]>("/categories") });
+  const linkedCat = category ? cats.data?.find((x) => x.id === category) : undefined;
+  const categoryName = linkedCat ? (isAr ? linkedCat.name_ar || linkedCat.name_fr : linkedCat.name_fr) : null;
   // promo mode: tick products, then one discount for all of them
   const [picking, setPicking] = useState(false);
   const [sel, setSel] = useState<Set<number>>(new Set());
@@ -104,6 +113,16 @@ export function ProductsPage() {
           { value: "archived", label: tr("Archivés") },
         ]}
       />
+      {category && (
+        <p className="mb-3 flex items-center gap-2 text-sm">
+          <span className="rounded-full bg-rose-100 px-3 py-1 font-medium text-plum-700">
+            {tr("Catégorie : {0}", { 0: categoryName ?? `#${category}` })}
+          </span>
+          <button type="button" className="text-ink-soft underline-offset-2 hover:underline" onClick={() => void navigate({ to: "/produits", search: {} })}>
+            {tr("Toutes les catégories")}
+          </button>
+        </p>
+      )}
       <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_auto_auto]">
         <SearchBox value={q} onChange={setQ} placeholder={tr("Nom, SKU…")} />
         <select className={`${inputCls} h-11 sm:w-44`} value={stock} onChange={(e) => setStock(e.target.value)} aria-label={tr("Stock")}>
