@@ -71,7 +71,10 @@ export default defineConfig(({ isSsrBuild }) => ({
       { find: /^react$/, replacement: "preact/compat" },
     ],
   },
-  plugins: isSsrBuild ? [] : [tailwindcss(), pageEntries()],
+  plugins: [
+    tailwindcss(),
+    !isSsrBuild && pageEntries(),
+  ].filter(Boolean),
   // the build-time renderer carries its own copy of everything (no node_modules lookups)
   ssr: { noExternal: true },
   build: isSsrBuild
