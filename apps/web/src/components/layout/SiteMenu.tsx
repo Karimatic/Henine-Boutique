@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toE164, type CategoryDTO, type SiteConfigDTO, artKey, mainCategories } from "@henine/shared";

@@ -514,7 +514,7 @@ export const fr = {
     },
   },
   common: { loading: "Chargement…", retry: "Réessayer", close: "Fermer", back: "Retour", error: "Impossible de charger. Vérifiez votre connexion." },
-  notFound: { title: "Page introuvable", text: "Cette page n'existe pas ou plus.", cta: "Retour à l'accueil" },
+  notFound: { title: "Page introuvable", text: "Cette page n'existe pas ou plus.", cta: "Retour à l'accueil", browse: "Voir les catégories" },
 };
 
 export type Dictionary = typeof fr;

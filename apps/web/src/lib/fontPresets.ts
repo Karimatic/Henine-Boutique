@@ -1,7 +1,7 @@
 import type { FontPreset } from "@henine/shared";
 
 /**
- * Font presets → the self-hosted fonts' CSS variables (declared in lib/fonts.ts). A plain
+ * Font presets → the self-hosted fonts' CSS variables (declared in styles/fonts.css). A plain
  * module: the theme code only needs these names, not the font loader.
  */
 const VARS: Record<Exclude<FontPreset, "classic">, { display: string; sans: string; arabic: string; arabicDisplay: string }> = {

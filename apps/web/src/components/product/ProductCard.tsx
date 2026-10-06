@@ -1,5 +1,3 @@
-"use client";
-
 import type { ProductCardDTO } from "@henine/shared";
 import { HeartIcon } from "@/components/ui/icons";
 import { Price, ProductImage, Stars } from "@/components/ui/kit";

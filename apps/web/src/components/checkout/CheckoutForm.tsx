@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { CONTACT_TIME_LABEL, CONTACT_TIMES, formatDA, normalizeDzPhone, type CommuneDTO, type ContactTime, type CreatedOrderDTO, type QuoteDTO, type SiteConfigDTO, type WilayaDTO } from "@henine/shared";
 import { inputCls, ProductImage, Spinner } from "@/components/ui/kit";

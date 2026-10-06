@@ -1,5 +1,3 @@
-"use client";
-
 import { artKey, mainCategories, type CategoryDTO, type ProductCardDTO, type ReviewWallDTO } from "@henine/shared";
 import { ProductGrid } from "@/components/product/ProductCard";
 import { InstagramIcon, TRUST_ICONS } from "@/components/ui/icons";

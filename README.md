@@ -4,7 +4,7 @@ Storefront + admin panel for **Henine Boutique** (Boumerdès), running entirely 
 The full product/architecture plan is in [`PLAN.md`](PLAN.md).
 
 ```
-apps/web      Next.js 16 storefront, static export (Arabic at /, French at /fr)
+apps/web      storefront: Preact + Vite, every page pre-rendered (Arabic at /, French at /fr)
 apps/admin    Vite + React admin SPA at /admin (login: email + password + emailed code)
 apps/worker   Cloudflare Worker: Hono API (/api), cron jobs, serves both static builds
 packages/db   Drizzle schema, D1 migrations, seeds (69 wilayas, 1541 communes, roles)
@@ -28,7 +28,7 @@ npm run build                     # storefront + admin → dist/
 npm run dev                       # Worker on http://127.0.0.1:8787 (site, /admin, /api)
 ```
 
-Faster UI iteration: `npm run dev:web` (Next on :3000) or `npm run dev:admin` (Vite on :5174, proxies `/api` to :8787).
+Faster UI iteration: `npm run dev:web` rebuilds the store (≈ 7 s, then restart `npm run dev`), or `npm run dev:admin` (Vite on :5174, proxies `/api` to :8787).
 
 Checks: `npm run typecheck`, `npm test`.
 

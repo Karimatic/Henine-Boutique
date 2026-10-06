@@ -1,5 +1,3 @@
-"use client";
-
 import { Fragment, type ReactNode } from "react";
 import type { CategoryDTO, HomeSectionKey, ProductCardDTO } from "@henine/shared";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";

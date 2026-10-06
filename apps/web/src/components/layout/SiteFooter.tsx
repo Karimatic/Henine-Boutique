@@ -1,5 +1,3 @@
-"use client";
-
 import { useLocale } from "@/lib/locale";
 import { Blossom, InstagramIcon } from "@/components/ui/icons";
 import { ColorModeSwitch } from "./ColorModeSwitch";

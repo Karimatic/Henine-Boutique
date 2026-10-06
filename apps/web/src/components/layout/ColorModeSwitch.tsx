@@ -1,5 +1,3 @@
-"use client";
-
 import { useColorMode, type ColorMode } from "@/lib/colorMode";
 import { useLocale } from "@/lib/locale";
 

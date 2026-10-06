@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * Client-side state kept in localStorage: cart, favourites, orders placed on this device.
  * No server calls, no account; each store is a tiny subscribe/snapshot object for

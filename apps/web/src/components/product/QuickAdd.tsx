@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ProductCardDTO, ProductDetailDTO } from "@henine/shared";

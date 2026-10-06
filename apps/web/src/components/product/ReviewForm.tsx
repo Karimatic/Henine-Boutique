@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { normalizeDzPhone } from "@henine/shared";
 import { inputCls, Spinner } from "@/components/ui/kit";

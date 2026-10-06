@@ -3,6 +3,7 @@ node_modules/
 
 # builds
 .next/
+.ssr/
 out/
 dist/
 build/

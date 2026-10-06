@@ -1,5 +1,3 @@
-"use client";
-
 import type { SiteConfigDTO } from "@henine/shared";
 import { useApi } from "@/lib/api";
 import { useStoreTexts } from "@/lib/storeTexts";

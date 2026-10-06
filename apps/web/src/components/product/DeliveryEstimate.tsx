@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { dateLocale, formatDA, type WilayaDTO } from "@henine/shared";
 import { WhatsAppIcon } from "@/components/layout/FloatingHelp";

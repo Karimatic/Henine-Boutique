@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { formatDA } from "@henine/shared";
 import { useLocale } from "@/lib/locale";

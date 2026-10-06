@@ -1,5 +1,3 @@
-"use client";
-
 import { isNewArrival, type ProductCardDTO } from "@henine/shared";
 import { useLocale } from "@/lib/locale";
 

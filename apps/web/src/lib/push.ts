@@ -1,5 +1,3 @@
-"use client";
-
 import { apiGet, apiPost } from "./api";
 
 /** Browser can receive notifications (Android Chrome, desktop; iPhone only once added to the home screen). */

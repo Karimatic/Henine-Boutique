@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { dateLocale, formatDA, normalizeDzPhone, type ImageRef, type ProductCardDTO, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
 import { FlashPanel } from "@/components/home/HomeExtras";

@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "./fonts.css";
 
 /*
  * Henine design tokens, "bold luxury": a white ground with a blush undertone, near-black plum

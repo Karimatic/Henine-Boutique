@@ -1,5 +1,3 @@
-"use client";
-
 import { createContext, useContext } from "react";
 import { localePath, type Locale } from "@henine/shared";
 import type { Dictionary } from "./i18n/fr";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { formatDA, type CategoryDTO, type ProductCardDTO, type ProductDetailDTO } from "@henine/shared";
 import { ErrorBox, PageTitle, ProductImage } from "@/components/ui/kit";

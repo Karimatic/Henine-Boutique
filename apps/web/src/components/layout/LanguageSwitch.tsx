@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import type { Locale } from "@henine/shared";
 import { useLocale } from "@/lib/locale";

@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * After delivery, from the customer's private tracking link: "did you get it?" (yes, or what
  * went wrong) and asking for an exchange (another size / colour of the same piece).

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 import { DEFAULT_DESIGN, themeVars, themeVarsDark } from "@henine/shared";
 import { presetFontVars } from "@/lib/fontPresets";

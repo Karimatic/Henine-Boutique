@@ -1,5 +1,3 @@
-"use client";
-
 import { ar } from "./i18n/ar";
 import { LocaleProvider } from "./locale";
 

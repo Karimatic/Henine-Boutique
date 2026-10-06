@@ -29,7 +29,7 @@ cpSync(web, dist, { recursive: true });
 cpSync(admin, join(dist, "admin"), { recursive: true });
 
 // Storefront CSP: scripts only from the site itself, Cloudflare Turnstile and the page's own
-// inline scripts (Next's page data, the theme and splash boot scripts), each allowed by its
+// inline scripts (the theme and splash boot scripts), each allowed by its
 // sha256, never 'unsafe-inline'. Data only goes back to the site itself; frames only for
 // Turnstile and the shop's Google Maps card; every font is self-hosted.
 const SCRIPT_SRC = "script-src 'self' https://challenges.cloudflare.com";
@@ -93,7 +93,10 @@ writeFileSync(
   `/*
 ${security}
 
-/_next/static/*
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/fonts/*
   Cache-Control: public, max-age=31536000, immutable
 
 /admin/assets/*
@@ -107,7 +110,7 @@ console.log(`✓ script policies for ${pageRules.length} pages`);
 // Canonical / hreflang links must carry the real public address, never the local one.
 const canonical = /<link rel="canonical" href="([^"]+)"/.exec(readFileSync(join(dist, "index.html"), "utf8"))?.[1] ?? "";
 if (!/^https:\/\//.test(canonical)) {
-  const msg = `canonical links point to ${canonical || "nothing"}: set PUBLIC_ORIGIN in apps/worker/wrangler.jsonc (or NEXT_PUBLIC_SITE_URL)`;
+  const msg = `canonical links point to ${canonical || "nothing"}: set PUBLIC_ORIGIN in apps/worker/wrangler.jsonc (or SITE_URL)`;
   if (process.env.REQUIRE_SITE_URL) {
     console.error(`✗ ${msg}`);
     process.exit(1);

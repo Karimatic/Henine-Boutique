@@ -1,5 +1,3 @@
-"use client";
-
 import { formatDA, imageSrcSet, imageUrl, type ImageRef, artKey } from "@henine/shared";
 import { useLocale } from "@/lib/locale";
 

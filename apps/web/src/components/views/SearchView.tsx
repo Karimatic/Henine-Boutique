@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { formatDA, normalizeSearch, type CategoryDTO, type ProductCardDTO } from "@henine/shared";
 import { openAssistant } from "@/components/layout/FloatingHelp";

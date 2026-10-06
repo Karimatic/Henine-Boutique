@@ -1,5 +1,3 @@
-"use client";
-
 import type { CategoryDTO, ProductCardDTO } from "@henine/shared";
 import { ProductImage } from "@/components/ui/kit";
 import { useLocale } from "@/lib/locale";

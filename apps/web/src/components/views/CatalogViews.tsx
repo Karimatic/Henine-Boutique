@@ -1,5 +1,3 @@
-"use client";
-
 /**
  * The catalogue, organised: main categories with their sub-categories (current season first),
  * a category page with simple filters, and the Promotions page.

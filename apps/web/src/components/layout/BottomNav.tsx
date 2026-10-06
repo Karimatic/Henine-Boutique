@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { BagIcon, GridIcon, HeartIcon, HomeIcon, PackageIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { normalizeDzPhone, toE164, type LinkDTO, type PageDTO, type SiteConfigDTO } from "@henine/shared";
 import { Blossom, InstagramIcon } from "@/components/ui/icons";

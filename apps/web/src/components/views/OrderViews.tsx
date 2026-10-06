@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { CUSTOMER_CANCEL_REASONS, dateLocale, formatDA, normalizeDzPhone, toE164, TRACKING_STEPS, trackingStepIndex, type SiteConfigDTO, type TrackedOrderDTO } from "@henine/shared";
 import { ReviewForm } from "@/components/product/ReviewForm";

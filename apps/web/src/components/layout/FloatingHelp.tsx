@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { formatDA, type AssistantReplyDTO } from "@henine/shared";
 import { ProductImage, Spinner } from "@/components/ui/kit";

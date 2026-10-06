@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect } from "react";
 
 /** Sends uncaught browser errors to Admin → Erreurs (sampled, capped per page view). */

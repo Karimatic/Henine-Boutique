@@ -1,5 +1,3 @@
-"use client";
-
 import type { TrackedOrderDTO } from "@henine/shared";
 import { useApi } from "./api";
 import { useEffect, useState } from "react";

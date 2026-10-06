@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState } from "react";
 import type { ProductCardDTO } from "@henine/shared";
 import { BottomSheet } from "@/components/ui/BottomSheet";

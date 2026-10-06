@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import type { ActivityDTO } from "@henine/shared";
 import { apiGet } from "@/lib/api";

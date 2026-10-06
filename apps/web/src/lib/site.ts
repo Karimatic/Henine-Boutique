@@ -1,5 +1,3 @@
-"use client";
-
 import { DEFAULT_DESIGN, type SiteConfigDTO } from "@henine/shared";
 import { useApi } from "./api";
 

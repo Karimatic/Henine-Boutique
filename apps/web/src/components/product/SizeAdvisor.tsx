@@ -1,5 +1,3 @@
-"use client";
-
 import { useState } from "react";
 import { recommendSize, type SizeAdvice, type SizeGuideDTO } from "@henine/shared";
 import { BottomSheet } from "@/components/ui/BottomSheet";

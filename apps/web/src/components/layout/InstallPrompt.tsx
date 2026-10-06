@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { Blossom } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";

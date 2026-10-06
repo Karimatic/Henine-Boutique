@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLocale } from "@/lib/locale";

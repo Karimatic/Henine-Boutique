@@ -74,7 +74,7 @@
 ```
 henine/
 ├─ apps/
-│  ├─ web/        Next.js 16 storefront, output: 'export'   ← evolved from the cloned repo
+│  ├─ web/        storefront: Preact + Vite, every page pre-rendered (was Next.js 16, see §15)
 │  ├─ admin/      Vite + React 19 SPA (TanStack Router + TanStack Query), base '/admin/'
 │  └─ worker/     Hono API, cron, Telegram bot, serves web/out + admin/dist as assets
 ├─ packages/
@@ -524,7 +524,7 @@ Every `/api/admin/*` request: verify the **`Cf-Access-Jwt-Assertion`** JWT (RS25
 
 **Architecture change vs. §2:** product/category/content pages are pre-built "_" shells that load their data from the API (edge-cached, versioned on every admin change), so admin edits and new products are live instantly with no rebuild. The Worker injects the product's title/OpenGraph tags for link previews.
 
-**Open finding:** the storefront currently ships ~177 KB gz of JS on the home page (Next 16 app-router runtime + React), against the 90 KB budget in §4.5. The pages have no client components yet, so this is framework baseline. To address in Phase 1 (audit chunks, consider trimming the router runtime) before adding interactivity.
+**Resolved (2026-10-06, §15):** the storefront shipped ~173 KB gz of JS on the home page (Next 16 router runtime + React ≈ 135 KB before any of our code), against the 90 KB budget in §4.5. Now 42 KB.
 
 ---
 
@@ -643,3 +643,16 @@ Nouveautés = latest arrivals (published or restocked). `/promotions` = everythi
 discount first; admin "🏷️ Mettre en promo" (−X % on selected products, rounded to 50 DA, undo).
 
 Migrations: `0003_operations`, `0004_category_season`.
+
+## 15. Storefront engine: Next.js → Vite + Preact (2026-10-06)
+
+**Why.** Performance audit: the home page shipped ~173 KB gzipped JS for a 90 KB budget (mid-range Android on 4G). The Next.js App Router runtime + React alone were ~135 KB before any store code, so the budget couldn't be met on Next. The store never used Next's router, links or images (every page change is a full page load; data comes from /api), only `next/font` and the page metadata.
+
+**What changed.**
+- `apps/web` builds with Vite; React's API runs on Preact (`react`/`react-dom` aliased to `preact/compat`). Components are unchanged.
+- `src/pages.ts`: the route table (18 routes × AR/FR + 404). `scripts/build.mjs`: client build (one small entry per page and language, shared chunks), a build-time renderer (`src/server.tsx`, deleted after use), then every page pre-rendered to the same file layout as before (`out/index.html`, `out/fr/boutique.html`, `out/produit/_.html`…), linking only its own scripts and styles. The Worker's shell routing, link previews and `_headers`/CSP flow are unchanged (assets now under `/assets/*`, fonts under `/fonts/*`, both cached a year).
+- Fonts: the same self-hosted subset files and metric-matched fallbacks, now plain CSS (`src/styles/fonts.css`, `public/fonts/`).
+- New branded 404 pages (AR at `/404.html`, FR at `/fr/404.html`). Desktop header: the pill menu starts at 1280 px and shows icons from 1536 px, so the French labels never overlap.
+
+**Result (gzip):** home 42.8 KB JS (was ~173), product page 65.7 KB, checkout 56.6 KB, every page < 66 KB; CSS 20.7 KB. Build ≈ 7 s. All 38 pages checked in a browser (render, hydration, no console errors); cart, quantity, checkout, menu and language switch verified.
+

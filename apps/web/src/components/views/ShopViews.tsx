@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useState } from "react";
 import { formatDA, type ProductCardDTO, type QuoteDTO, type SiteConfigDTO } from "@henine/shared";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";

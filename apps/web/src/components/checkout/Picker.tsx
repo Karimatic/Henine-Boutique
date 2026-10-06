@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import { normalizeSearch } from "@henine/shared";
 import { inputCls, Spinner } from "@/components/ui/kit";

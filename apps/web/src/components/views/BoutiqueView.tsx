@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { boutiqueStatus, DAY_NAMES, DEFAULT_BOUTIQUE, type BoutiqueDTO } from "@henine/shared";
 import { WhatsAppIcon } from "@/components/layout/FloatingHelp";

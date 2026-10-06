@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { imageSrcSet, imageUrl, type ImageRef } from "@henine/shared";
 import { useLocale } from "@/lib/locale";

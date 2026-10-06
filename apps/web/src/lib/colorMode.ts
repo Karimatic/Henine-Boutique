@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { MODE_KEY as KEY } from "./boot";
 

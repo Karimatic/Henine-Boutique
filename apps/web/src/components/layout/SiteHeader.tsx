@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { BagIcon, Blossom, GridIcon, HeartIcon, PackageIcon, PinIcon, SearchIcon, SparkleIcon, TagIcon } from "@/components/ui/icons";
 import { useLocale } from "@/lib/locale";
@@ -59,7 +57,7 @@ export function SiteHeader() {
           <SiteMenu />
         </div>
       </div>
-      {/* phones: the same menu, as a row under the header */}
+      {/* phones, tablets and small laptops: the same menu, as a row under the header */}
       <TopNav />
     </header>
   );
@@ -82,7 +80,7 @@ function TopNav({ inline = false }: { inline?: boolean }) {
     ["/boutique", N.store, PinIcon, (p) => p.startsWith("/boutique")],
   ];
   return (
-    <nav aria-label={t.nav.shop} className={inline ? "hidden md:block" : "border-t border-line/50 bg-ivory/60 md:hidden"}>
+    <nav aria-label={t.nav.shop} className={inline ? "hidden xl:block" : "border-t border-line/50 bg-ivory/60 xl:hidden"}>
       <ul className={inline ? "flex items-center gap-1 rounded-full bg-ivory-deep/70 p-1 ring-1 ring-line/70" : "swipe-row mx-auto flex max-w-6xl gap-2 overflow-x-auto px-3 py-2"}>
         {items.map(([to, label, Icon, active]) => {
           const on = path !== "" && active(path);
@@ -100,7 +98,8 @@ function TopNav({ inline = false }: { inline?: boolean }) {
                       : `bg-surface text-ink ring-1 ring-line hover:ring-plum-600/40 ${promo ? "text-rose-700" : ""}`
                 }`}
               >
-                <Icon size={16} className={on ? "text-white" : promo ? "text-rose-600" : "text-plum-600"} />
+                {/* in the header line the words alone until there is room for the icons (French labels are long) */}
+                <Icon size={16} className={`${inline ? "hidden 2xl:block" : ""} ${on ? "text-white" : promo ? "text-rose-600" : "text-plum-600"}`} />
                 {label}
               </a>
             </li>

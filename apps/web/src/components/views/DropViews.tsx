@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import type { CollectionDTO, DropTeaserDTO, ProductCardDTO } from "@henine/shared";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
