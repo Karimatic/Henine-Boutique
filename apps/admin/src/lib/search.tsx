@@ -14,6 +14,10 @@ import {
   CornerDownLeft,
   FolderTree,
   History,
+  LayoutList,
+  MousePointerClick,
+  PanelTop,
+  SlidersHorizontal,
   MessageSquare,
   PackageCheck,
   PackagePlus,
@@ -58,7 +62,12 @@ interface SearchResult {
   totals: { orders: number; products: number; customers: number };
 }
 
-type Kind = "orders" | "products" | "customers" | "coupons" | "categories" | "messages" | "reviews" | "pages" | "settings";
+type Kind = "orders" | "products" | "customers" | "coupons" | "categories" | "messages" | "reviews" | "pages" | "settings" | "features";
+
+/** One feature of the admin, from the build-time index (virtual:feature-index). */
+type Feature = { p: string; s?: { tab: string }; f: string; k: "section" | "setting" | "tab" | "action" };
+const FEATURE_ICON: Record<Feature["k"], LucideIcon> = { section: LayoutList, setting: SlidersHorizontal, tab: PanelTop, action: MousePointerClick };
+const FEATURE_WEIGHT: Record<Feature["k"], number> = { setting: 3, section: 3, tab: 2, action: 1 };
 type Filter = "all" | Kind;
 
 interface Target {
@@ -77,6 +86,7 @@ const KINDS: Record<Kind, { label: string; icon: LucideIcon; inAll: number }> = 
   reviews: { label: tr("Avis"), icon: Star, inAll: 3 },
   pages: { label: tr("Pages"), icon: Zap, inAll: 4 },
   settings: { label: tr("Paramètres"), icon: Settings, inAll: 3 },
+  features: { label: tr("Fonctionnalités"), icon: SlidersHorizontal, inAll: 5 },
 };
 
 /** Where the "open in the page" line of a section goes, with the search already typed in. */
@@ -225,6 +235,11 @@ function SearchDialog({ groups, permissions, onClose }: { groups: NavGroup[]; pe
   const [filter, setFilter] = useState<Filter>("all");
   const [active, setActive] = useState(0);
   const [history, setHistory] = useState(loadHistory);
+  // every feature of the admin: loaded when the search opens (≈ 30 KB), not with the page
+  const [features, setFeatures] = useState<Feature[]>([]);
+  useEffect(() => {
+    void import("virtual:feature-index").then((m) => setFeatures(m.default as Feature[]));
+  }, []);
   const can = (p: Permission) => hasPermission(permissions, p);
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 220);
@@ -488,6 +503,40 @@ function SearchDialog({ groups, permissions, onClose }: { groups: NavGroup[]; pe
       add("settings", { key: `setting${s.tab}${s.label}`, icon: Settings, title: hl(s.label), sub: tab, go: open(target, { key: `setting${s.label}`, kind: "settings", title: s.label, sub: tab }) });
     }
 
+    // every feature of the admin (sections, settings, switches, tabs, buttons), on the pages this member may open
+    if (words.length) {
+      const navOf = (path: string) =>
+        pages.filter((x) => x.path !== "/" && (path === x.path || path.startsWith(`${x.path}/`))).sort((a, b) => b.path.length - a.path.length)[0] ?? (path === "/" ? pages[0] : undefined);
+      const shown = new Set([...(sections.get("settings") ?? []), ...(sections.get("pages") ?? [])].map((h) => h.key));
+      const found: { e: Feature; score: number; where: string }[] = [];
+      for (const e of features) {
+        const nav = navOf(e.p);
+        if (!nav) continue; // a page this member can't open
+        const tab = e.s ? SETTINGS_TABS.find((t) => t.key === e.s!.tab) : undefined;
+        if (tab && !can(tab.perm)) continue;
+        const label = tr(e.f);
+        const where = tab ? `${nav.label} › ${tab.label}` : nav.label;
+        const text = fold(`${label} ${e.f}`);
+        if (!words.every((w) => text.includes(w) || fold(where).includes(w))) continue;
+        if (shown.has(`setting${e.s?.tab ?? ""}${label}`)) continue;
+        const starts = words.some((w) => text.startsWith(w)) ? 2 : 0;
+        const inTitle = words.every((w) => text.includes(w)) ? 2 : 0;
+        found.push({ e, score: FEATURE_WEIGHT[e.k] + starts + inTitle, where });
+      }
+      found.sort((a, b) => b.score - a.score);
+      for (const { e, where } of found.slice(0, 40)) {
+        const label = tr(e.f);
+        const target = { to: e.p, search: { ...(e.s ?? {}), find: e.f } };
+        add("features", {
+          key: `feature${e.p}${e.s?.tab ?? ""}${e.f}`,
+          icon: FEATURE_ICON[e.k],
+          title: hl(label),
+          sub: where,
+          go: open(target, { key: `feature${e.p}${e.f}`, kind: "features", title: label, sub: where }),
+        });
+      }
+    }
+
     // orders, products and customers: the server's full count (the lists stop at 8)
     const counts = new Map<Kind, number>();
     for (const [kind, list] of sections) {
@@ -496,7 +545,7 @@ function SearchDialog({ groups, permissions, onClose }: { groups: NavGroup[]; pe
     }
     return { sections, counts };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [q, debounced, remote.data, groups, permissions, words, history]);
+  }, [q, debounced, remote.data, groups, permissions, words, history, features]);
 
   useEffect(() => {
     if (filter !== "all" && !sections.has(filter)) setFilter("all");

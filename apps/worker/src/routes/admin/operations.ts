@@ -392,7 +392,20 @@ operationRoutes.get("/reports/daily", requirePermission("stats.view"), async (c)
 
 operationRoutes.get("/operations/settings", requirePermission("orders.view"), async (c) => {
   const { operations } = await getSettings(c.env, ["operations"]);
-  return c.json({ ...operations, soundUrl: operations.sound ? mediaUrl(c.env, operations.sound) : null });
+  return c.json({
+    ...operations,
+    soundUrl: operations.sound ? mediaUrl(c.env, operations.sound) : null,
+    soundSeconds: operations.sound_seconds === undefined ? 1.5 : operations.sound_seconds,
+  });
+});
+
+/** How long the shop's sound plays: 0.5 – 30 s, or null for the whole file. */
+operationRoutes.put("/operations/sound/duration", requirePermission("orders.edit"), async (c) => {
+  const { seconds } = await body(c, z.object({ seconds: z.number().min(0.5).max(30).multipleOf(0.5).nullable() }));
+  const { operations } = await getSettings(c.env, ["operations"]);
+  const next = { ...operations, sound_seconds: seconds };
+  await c.env.DB.batch([setSettingStmt(c.env, "operations", next), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "operations.sound_seconds", { seconds })]);
+  return c.json({ soundSeconds: seconds });
 });
 
 /** The shop's own new-order sound: one file for the whole team (replaces the built-in chime). */

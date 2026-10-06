@@ -5,6 +5,8 @@ import { createRoot } from "react-dom/client";
 import { ApiError } from "./api";
 import { applyLangToDocument } from "./i18n";
 import { applyColorMode } from "./lib/colorMode";
+// listens for the browser's "install as an app" offer from the very start
+import "./lib/install";
 import { router } from "./router";
 import { ToastProvider } from "./ui";
 import "./styles.css";

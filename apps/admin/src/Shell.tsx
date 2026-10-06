@@ -9,9 +9,10 @@ import { Wordmark } from "./brand";
 import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
 import { useColorMode } from "./lib/colorMode";
 import { UpdateBar } from "./lib/update";
-import { LiveProvider, SoundUnlock, useLive } from "./lib/live";
+import { LiveProvider, useLive } from "./lib/live";
 import { AlertsBell } from "./lib/alerts";
 import { GlobalSearch } from "./lib/search";
+import { useFindOnPage } from "./lib/find";
 import { tr } from "./i18n";
 
 export function useMe() {
@@ -198,6 +199,8 @@ export function Shell() {
   useDevTelegramPolling(me.data);
   const path = useAdminPath();
   const crumbs = useCrumbs(path);
+  // ?find=… (from the search bar): scroll to that feature and make it glow
+  useFindOnPage();
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
@@ -308,7 +311,6 @@ export function Shell() {
             {/* phones: the shop link is in the profile menu, the light / dark switch in Mon compte */}
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               <GlobalSearch groups={groups} permissions={me.data.permissions} />
-              <SoundUnlock />
               {canOrders && <AlertsBell />}
               <DarkToggle />
               <a

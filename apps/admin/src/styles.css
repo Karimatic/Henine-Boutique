@@ -358,3 +358,20 @@ html[lang="ar"] body {
 :root:not([data-theme="light"]) .text-success { color: #72dfa9; }
 }
 }
+
+/* the section / setting opened from the search bar glows for a moment (lib/find.ts) */
+.find-glow {
+  outline: 2px solid var(--color-plum-600);
+  outline-offset: 4px;
+  border-radius: 0.75rem;
+  animation: find-glow 2.6s ease-out;
+}
+@keyframes find-glow {
+  0%,
+  60% {
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-plum-600) 25%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}

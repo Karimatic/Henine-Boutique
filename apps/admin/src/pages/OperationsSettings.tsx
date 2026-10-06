@@ -7,7 +7,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, put, upload } from "../api";
 import { tr } from "../i18n";
-import { loadPrefs, playTone, savePrefs, setShopSound, SOUNDS, unlockSound, type SoundKey, type SoundPrefs } from "../lib/live";
+import { isInstalled, useInstallOffer } from "../lib/install";
+import { loadPrefs, playTone, savePrefs, setShopSound, SHOP_SOUND_DEFAULT_SECONDS, SOUNDS, unlockSound, useSoundReady, type SoundKey, type SoundPrefs } from "../lib/live";
 import { useCan } from "../Shell";
 import { Button, Card, inputCls, Toggle, useToast } from "../ui";
 
@@ -48,35 +49,33 @@ function OrderAlertsCard() {
         {tr("Quand une commande arrive, l'administration ouverte la signale tout de suite, sans recharger. Réglages propres à cet appareil.")}
       </p>
       <div className="space-y-4">
-        <Toggle checked={p.sound} onChange={(v) => update({ sound: v })} label={tr("Son")} hint={tr("Un seul son par commande, même avec plusieurs onglets ouverts.")} />
-        {p.sound && (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-sm font-medium">
-              {tr("Volume")}
-              <input
-                type="range"
-                min={0.1}
-                max={1}
-                step={0.05}
-                value={p.volume}
-                onChange={(e) => update({ volume: Number(e.target.value) })}
-                className="mt-2 block h-10 w-full accent-plum-600"
-              />
-            </label>
-            <label className="text-sm font-medium">
-              {tr("Son")}
-              <select className={`${inputCls} mt-1`} value={p.tone} onChange={(e) => update({ tone: e.target.value as SoundKey })}>
-                {Object.entries(SOUNDS).map(([k, s]) => (
-                  <option key={k} value={k}>{tr(s.label)}</option>
-                ))}
-              </select>
-            </label>
-            <div>
-              <Button onClick={() => void test()}>{tr("🔊 Tester le son")}</Button>
-            </div>
+        <SoundStatus />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-medium">
+            {tr("Volume")}
+            <input
+              type="range"
+              min={0.1}
+              max={1}
+              step={0.05}
+              value={p.volume}
+              onChange={(e) => update({ volume: Number(e.target.value) })}
+              className="mt-2 block h-10 w-full accent-plum-600"
+            />
+          </label>
+          <label className="text-sm font-medium">
+            {tr("Son")}
+            <select className={`${inputCls} mt-1`} value={p.tone} onChange={(e) => update({ tone: e.target.value as SoundKey })}>
+              {Object.entries(SOUNDS).map(([k, s]) => (
+                <option key={k} value={k}>{tr(s.label)}</option>
+              ))}
+            </select>
+          </label>
+          <div>
+            <Button onClick={() => void test()}>{tr("🔊 Tester le son")}</Button>
           </div>
-        )}
-        <ShopSound onSent={() => update({ tone: "boutique", sound: true })} volume={p.volume} />
+        </div>
+        <ShopSound onSent={() => update({ tone: "boutique" })} volume={p.volume} />
         <Toggle checked={p.flash} onChange={(v) => update({ flash: v })} label={tr("Faire clignoter l'onglet")} hint={tr("Quand l'administration est ouverte dans un autre onglet.")} />
         <Toggle
           checked={p.browser && perm === "granted"}
@@ -95,15 +94,63 @@ function OrderAlertsCard() {
   );
 }
 
+/**
+ * The sound is always on. Browsers only let a page play sound after the first click on it, so
+ * the first touch of anything turns it on; installed as an app, it works from the start.
+ */
+function SoundStatus() {
+  const ready = useSoundReady();
+  const install = useInstallOffer();
+  const toast = useToast();
+  return (
+    <div className={`rounded-xl p-3.5 text-sm ${ready ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-900"}`}>
+      <p className="font-semibold">{ready ? tr("🔊 Son activé : chaque nouvelle commande sonne.") : tr("🔊 Le son s'active au premier clic sur la page.")}</p>
+      <p className="mt-0.5 text-xs opacity-90">
+        {isInstalled()
+          ? tr("Administration installée comme application : le son marche dès l'ouverture.")
+          : tr("Les navigateurs bloquent le son tant qu'on n'a pas touché la page. Installée comme application, l'administration sonne dès l'ouverture, sans clic.")}
+      </p>
+      {install && !isInstalled() && (
+        <Button
+          className="mt-2"
+          onClick={() =>
+            void install().then((ok) => ok && toast(tr("Application installée : ouvrez-la depuis son icône.")))
+          }
+        >
+          {tr("📲 Installer l'administration comme application")}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /** One sound file for the whole team: every admin plays it for a new order (instead of the chime). */
 function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
   const qc = useQueryClient();
   const toast = useToast();
   const can = useCan();
-  const q = useQuery({ queryKey: ["operations-settings"], queryFn: () => api<{ soundUrl: string | null }>("/operations/settings") });
+  const q = useQuery({ queryKey: ["operations-settings"], queryFn: () => api<{ soundUrl: string | null; soundSeconds?: number | null }>("/operations/settings") });
   const url = q.data?.soundUrl ?? null;
+  const saved = q.data?.soundSeconds === undefined ? SHOP_SOUND_DEFAULT_SECONDS : q.data.soundSeconds;
+  // the length being chosen (saved shortly after the slider stops)
+  const [seconds, setSeconds] = useState<number | null>(saved);
+  useEffect(() => setSeconds(saved), [saved]);
+  const duration = useMutation({
+    mutationFn: (s: number | null) => put<{ soundSeconds: number | null }>("/operations/sound/duration", { seconds: s }),
+    onSuccess: (r) => {
+      setShopSound(url, r.soundSeconds);
+      void qc.invalidateQueries({ queryKey: ["operations-settings"] });
+      toast(r.soundSeconds == null ? tr("Le fichier sonne en entier") : tr("Durée du son : {0} s", { 0: String(r.soundSeconds).replace(".", ",") }));
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  useEffect(() => {
+    if (seconds === saved || !url) return;
+    const t = setTimeout(() => duration.mutate(seconds), 600);
+    return () => clearTimeout(t);
+  }, [seconds]); // eslint-disable-line react-hooks/exhaustive-deps
   const done = (soundUrl: string | null, message: string) => {
-    setShopSound(soundUrl);
+    setShopSound(soundUrl, seconds);
     void qc.invalidateQueries({ queryKey: ["operations-settings"] });
     toast(message);
   };
@@ -127,6 +174,7 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
     onError: (e) => toast(errorMessage(e), "error"),
   });
   async function listen() {
+    setShopSound(url, seconds);
     await unlockSound();
     if (!playTone("boutique", volume)) toast(tr("Le navigateur bloque le son : cliquez d'abord sur la page, puis réessayez."), "error");
   }
@@ -135,8 +183,37 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
       <p className="text-sm font-semibold">{tr("🎵 Son de la boutique (pour toute l'équipe)")}</p>
       <p className="mt-0.5 text-xs text-ink-soft">
         {url ? tr("Votre fichier sonne à chaque nouvelle commande, sur tous les appareils de l'équipe.") : tr("Aucun fichier : le carillon intégré est utilisé.")}{" "}
-        {tr("MP3, WAV, OGG ou M4A, 1 Mo au plus ; joué 1,5 seconde au maximum.")}
+        {tr("MP3, WAV, OGG ou M4A, 1 Mo au plus ; vous choisissez combien de temps il sonne.")}
       </p>
+      {url && (
+        <div className="mt-3 rounded-lg bg-surface p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm font-medium">
+            <span>{tr("Durée du son")}</span>
+            <b className="tabular-nums text-plum-700">{seconds == null ? tr("Fichier entier") : tr("{0} s", { 0: String(seconds).replace(".", ",") })}</b>
+          </div>
+          <input
+            type="range"
+            min={0.5}
+            max={30}
+            step={0.5}
+            value={seconds ?? 30}
+            disabled={seconds == null || !can("orders.edit")}
+            onChange={(e) => setSeconds(Number(e.target.value))}
+            aria-label={tr("Durée du son")}
+            className="mt-2 block h-10 w-full accent-plum-600 disabled:opacity-40"
+          />
+          <label className="mt-1 flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              className="size-4 accent-plum-600"
+              checked={seconds == null}
+              disabled={!can("orders.edit")}
+              onChange={(e) => setSeconds(e.target.checked ? null : SHOP_SOUND_DEFAULT_SECONDS)}
+            />
+            {tr("Jouer le fichier en entier")}
+          </label>
+        </div>
+      )}
       <div className="mt-2.5 flex flex-wrap gap-2">
         {url && <Button onClick={() => void listen()}>{tr("▶ Écouter")}</Button>}
         {can("orders.edit") && (

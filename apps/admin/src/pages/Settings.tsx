@@ -69,28 +69,6 @@ function SettingsSearch({ tabs, onPick }: { tabs: { key: TabKey; label: string }
   );
 }
 
-/** Scrolls to the setting whose title is `find` and makes it glow for a moment. */
-function useFindSetting(find: string | undefined, tab: string) {
-  useEffect(() => {
-    if (!find) return;
-    const target = tr(find);
-    let tries = 0;
-    const id = setInterval(() => {
-      tries++;
-      const el = [...document.querySelectorAll("main h2, main h3, main legend, main label, main p, main span")].find(
-        (x) => (x.textContent ?? "").trim() === target || (x.textContent ?? "").trim() === find,
-      );
-      if (el || tries > 30) clearInterval(id);
-      if (!el) return;
-      const box = (el.closest(".grid.gap-3, section, [class*='rounded-xl']") as HTMLElement | null) ?? (el as HTMLElement);
-      box.scrollIntoView({ behavior: "smooth", block: "center" });
-      box.classList.add("ring-2", "ring-plum-600", "rounded-xl");
-      setTimeout(() => box.classList.remove("ring-2", "ring-plum-600"), 2200);
-    }, 100);
-    return () => clearInterval(id);
-  }, [find, tab]);
-}
-
 export function SettingsPage() {
   const can = useCan();
   const navigate = useNavigate();
@@ -98,7 +76,6 @@ export function SettingsPage() {
   const tabs = TABS.filter((t) => can(t.perm));
   const tab = tabs.find((t) => t.key === search.tab)?.key ?? tabs[0]?.key ?? "compte";
   const setTab = (k: TabKey) => void navigate({ to: "/parametres", search: { tab: k } });
-  useFindSetting(search.find, tab);
 
   return (
     <div>

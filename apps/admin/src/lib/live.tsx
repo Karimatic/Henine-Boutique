@@ -42,7 +42,8 @@ export const DEFAULT_PREFS: SoundPrefs = { sound: true, volume: 0.8, tone: "bout
 
 export function loadPrefs(): SoundPrefs {
   try {
-    return { ...DEFAULT_PREFS, ...(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Partial<SoundPrefs>) };
+    // the new-order sound is always on (only its volume and tone are chosen)
+    return { ...DEFAULT_PREFS, ...(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Partial<SoundPrefs>), sound: true };
   } catch {
     return DEFAULT_PREFS;
   }
@@ -135,12 +136,17 @@ function playChime(c: AudioContext, volume: number) {
 
 /* ── The shop's own sound (an audio file), played 1.5 s at most with a short fade ── */
 
-const SHOP_SOUND_MAX = 1.5;
+/** Default length of the shop's sound; the owner sets her own in Paramètres → Alertes (null = whole file). */
+export const SHOP_SOUND_DEFAULT_SECONDS = 1.5;
 let shopSound: HTMLAudioElement | null = null;
 let shopSoundUrl: string | null = null;
+let shopSoundSeconds: number | null = SHOP_SOUND_DEFAULT_SECONDS;
 let fadeTimer: ReturnType<typeof setInterval> | undefined;
+/** an order rang before the page could make sound: it rings at the first click */
+let missedRing = false;
 
-export function setShopSound(url: string | null) {
+export function setShopSound(url: string | null, seconds: number | null = SHOP_SOUND_DEFAULT_SECONDS) {
+  shopSoundSeconds = seconds;
   if (url === shopSoundUrl) return;
   shopSoundUrl = url;
   shopSound = url ? Object.assign(new Audio(url), { preload: "auto" }) : null;
@@ -153,13 +159,17 @@ function playShopSound(a: HTMLAudioElement, volume: number, c: AudioContext) {
   a.volume = Math.min(1, Math.max(0, volume));
   // a file that can't play (deleted, blocked) still rings: the chime instead
   void a.play().catch(() => playChime(c, volume));
+  // whole file, or stopped at the chosen length with a short fade
+  const max = shopSoundSeconds;
+  if (max == null) return true;
+  const fade = Math.min(0.3, max / 3);
   const started = performance.now();
   fadeTimer = setInterval(() => {
     const t = (performance.now() - started) / 1000;
-    if (t >= SHOP_SOUND_MAX) {
+    if (t >= max) {
       a.pause();
       clearInterval(fadeTimer);
-    } else if (t > SHOP_SOUND_MAX - 0.3) a.volume = Math.max(0, (volume * (SHOP_SOUND_MAX - t)) / 0.3);
+    } else if (t > max - fade) a.volume = Math.max(0, (volume * (max - t)) / fade);
   }, 30);
   return true;
 }
@@ -261,9 +271,14 @@ export const useLive = () => useContext(Ctx);
 export function LiveProvider({ enabled, children }: { enabled: boolean; children: ReactNode }) {
   const qc = useQueryClient();
   // the shop's own new-order sound, if one was sent
-  const ops = useQuery({ queryKey: ["operations-settings"], queryFn: () => api<{ soundUrl: string | null }>("/operations/settings"), enabled, staleTime: 5 * 60_000 });
+  const ops = useQuery({
+    queryKey: ["operations-settings"],
+    queryFn: () => api<{ soundUrl: string | null; soundSeconds?: number | null }>("/operations/settings"),
+    enabled,
+    staleTime: 5 * 60_000,
+  });
   useEffect(() => {
-    if (ops.data) setShopSound(ops.data.soundUrl ?? null);
+    if (ops.data) setShopSound(ops.data.soundUrl ?? null, ops.data.soundSeconds === undefined ? SHOP_SOUND_DEFAULT_SECONDS : ops.data.soundSeconds);
   }, [ops.data]);
   const navigate = useNavigate();
   const [connected, setConnected] = useState(false);
@@ -291,12 +306,23 @@ export function LiveProvider({ enabled, children }: { enabled: boolean; children
   useEffect(() => {
     if (!enabled || !prefs.sound) return setNeedsUnlock(false);
     setNeedsUnlock(!soundReady());
-    const onFirst = () => void unlockSound().then((ok) => setNeedsUnlock(!ok));
-    window.addEventListener("pointerdown", onFirst, { once: true });
-    window.addEventListener("keydown", onFirst, { once: true });
+    // installed as an app (or a site the browser already trusts): sound works with no click at all
+    void unlockSound().then((ok) => ok && setNeedsUnlock(false));
+    // otherwise the first touch of anything on the page turns it on, silently
+    const events = ["pointerdown", "touchstart", "keydown", "click"] as const;
+    const onFirst = () =>
+      void unlockSound().then((ok) => {
+        setNeedsUnlock(!ok);
+        if (!ok) return;
+        for (const e of events) window.removeEventListener(e, onFirst, true);
+        if (missedRing) {
+          missedRing = false;
+          playTone(prefsRef.current.tone, prefsRef.current.volume);
+        }
+      });
+    for (const e of events) window.addEventListener(e, onFirst, { capture: true, passive: true });
     return () => {
-      window.removeEventListener("pointerdown", onFirst);
-      window.removeEventListener("keydown", onFirst);
+      for (const e of events) window.removeEventListener(e, onFirst, true);
     };
   }, [enabled, prefs.sound]);
 
@@ -338,7 +364,10 @@ export function LiveProvider({ enabled, children }: { enabled: boolean; children
       // sound + system notification: one tab only
       if (!(await claim(`o${e.id}`))) return;
       const p = prefsRef.current;
-      if (p.sound && !playTone(p.tone, p.volume)) setNeedsUnlock(true);
+      if (p.sound && !playTone(p.tone, p.volume)) {
+        missedRing = true;
+        setNeedsUnlock(true);
+      }
       if (p.browser && "Notification" in window && Notification.permission === "granted" && document.hidden) {
         try {
           const n = new Notification(tr("🛍️ Nouvelle commande {0}", { 0: e.code }), { body: text, tag: `order-${e.id}`, icon: "/icon.svg" });
@@ -481,17 +510,7 @@ export function LiveProvider({ enabled, children }: { enabled: boolean; children
 }
 
 /** Topbar button shown until the browser allows sound. */
-export function SoundUnlock() {
-  const { needsUnlock, unlock } = useLive();
-  if (!needsUnlock) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => void unlock()}
-      className="inline-flex h-9 items-center gap-1.5 whitespace-nowrap rounded-lg bg-amber-100 px-2.5 text-xs font-semibold text-amber-900 hover:bg-amber-200"
-      title={tr("Les navigateurs n'autorisent le son qu'après un clic sur la page.")}
-    >
-      🔊 <span className="hidden sm:inline">{tr("Activer les sons")}</span>
-    </button>
-  );
+/** Is the sound ready on this page (false until the first click, unless installed as an app). */
+export function useSoundReady() {
+  return !useLive().needsUnlock;
 }
