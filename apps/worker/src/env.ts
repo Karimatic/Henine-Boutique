@@ -31,7 +31,7 @@ export interface Env {
   /** base64 32-byte key: encrypts secrets stored in D1 settings (Telegram token…). */
   SETTINGS_KEY: string;
 
-  /** "console" (dev: codes shown on screen/logs) | "resend" | "brevo" */
+  /** "console" (dev: codes shown on screen/logs) | "resend" */
   MAIL_PROVIDER?: string;
   MAIL_API_KEY?: string;
   MAIL_FROM?: string;

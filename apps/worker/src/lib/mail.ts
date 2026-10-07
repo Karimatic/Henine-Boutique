@@ -2,7 +2,6 @@
  * Transactional email (admin login codes, password resets, invitations).
  * Providers are plain HTTPS APIs, so no SDK is bundled:
  *  - "resend": resend.com (free 3,000/month; sending to anyone needs a verified domain)
- *  - "brevo" : brevo.com (free 300/day; works with a verified single sender address)
  *  - "console" (default in development): nothing is sent; the code is logged and,
  *    on localhost only, shown on screen.
  */
@@ -22,15 +21,10 @@ export interface MailResult {
   error?: string;
 }
 
-export function mailProvider(env: Env): "resend" | "brevo" | "console" {
+export function mailProvider(env: Env): "resend" | "console" {
   const p = (env.MAIL_PROVIDER ?? "").toLowerCase();
-  if ((p === "resend" || p === "brevo") && env.MAIL_API_KEY && env.MAIL_FROM) return p;
+  if (p === "resend" && env.MAIL_API_KEY && env.MAIL_FROM) return p;
   return "console";
-}
-
-function parseFrom(from: string): { name: string; email: string } {
-  const m = /^(.*)<([^>]+)>$/.exec(from.trim());
-  return m ? { name: m[1]!.trim().replace(/^"|"$/g, ""), email: m[2]!.trim() } : { name: "Henine Boutique", email: from.trim() };
 }
 
 export async function sendMail(env: Env, msg: MailMessage): Promise<MailResult> {
@@ -43,15 +37,6 @@ export async function sendMail(env: Env, msg: MailMessage): Promise<MailResult> 
         body: JSON.stringify({ from: env.MAIL_FROM, to: [msg.to], subject: msg.subject, text: msg.text, html: msg.html }),
       });
       if (!res.ok) return { delivered: false, provider, error: `resend ${res.status}` };
-      return { delivered: true, provider };
-    }
-    if (provider === "brevo") {
-      const res = await fetch("https://api.brevo.com/v3/smtp/email", {
-        method: "POST",
-        headers: { "api-key": env.MAIL_API_KEY!, "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({ sender: parseFrom(env.MAIL_FROM!), to: [{ email: msg.to }], subject: msg.subject, textContent: msg.text, htmlContent: msg.html }),
-      });
-      if (!res.ok) return { delivered: false, provider, error: `brevo ${res.status}` };
       return { delivered: true, provider };
     }
     // console

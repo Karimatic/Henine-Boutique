@@ -158,7 +158,7 @@ async function totpOf(env: Env, ch: ChallengeRow): Promise<{ secret: string; las
   return secret ? { secret, lastStep: m.totp_last_step } : null;
 }
 
-/** An email service is configured (Resend / Brevo with its key): codes can be emailed. */
+/** An email service is configured (Resend with its key): codes can be emailed. */
 export const mailReady = (env: Env) => mailProvider(env) !== "console";
 
 /* ── sessions ── */

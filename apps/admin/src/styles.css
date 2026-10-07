@@ -24,7 +24,7 @@
   /* same "bold luxury" palette as the store: near-black plum ink, deep raspberry accent */
   --color-ink: #170a10;
   --color-ink-soft: #5c4852;
-  --color-line: #ecdde4;
+  --color-line: #d6bfca; /* visible hairlines on white, like the dark theme */
   --color-plum-600: #8e1048;
   --color-plum-700: #6a0c36;
   --color-rose-100: #fbe4ec;

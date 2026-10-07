@@ -674,12 +674,12 @@ Audited first; reused what existed (order lifecycle, stock history, contact log,
 Live at https://henine-boutique.karimmaticmz.workers.dev (Worker `henine-boutique`, D1 `henine-boutique-db`).
 - `PUBLIC_ORIGIN` was a placeholder → 500 on product pages, robots.txt, sitemap: set; the Worker now falls back to the request's own address if it is ever invalid.
 - No secrets were set: generated `AUTH_PEPPER`, `IP_HASH_SALT`, `TRACK_TOKEN_PEPPER`, `SETTINGS_KEY`; Turnstile widget created on the account (site key in `TURNSTILE_SITE_KEY`, secret as `TURNSTILE_SECRET`).
-- No email service → admin sign-in was impossible: accounts invited while email isn't configured use an authenticator app (TOTP, migration `0006_admin_authenticator`); with Resend/Brevo configured, emailed codes as before.
+- No email service → admin sign-in was impossible: accounts invited while email isn't configured use an authenticator app (TOTP, migration `0006_admin_authenticator`); (Brevo removed 2026-10-07; Resend still possible).
 - Production had no `d1_migrations` table (schema loaded by hand): recorded 0000–0006 so `npm run migrate:remote` works from now on. Scripts use the `DB` binding instead of the old database name.
 
 ## 18. Real AI assistant + default order sound (2026-10-06)
 
 - Assistant: rules (`assistant-intents.ts`) find the facts; `lib/assistant-ai.ts` has Gemma 4 (`@cf/google/gemma-4-26b-a4b-it`, Workers AI free allocation) word the answer in Arabic / Darija / French with the last 4 exchanges. Guards: amounts not in the facts → rules' answer; error, 9 s timeout, quota used up, `RL_AI` (10/min/IP) → rules alone. `ASSISTANT_MODEL=off` disables it. Verified live: ~1–2 s, stays on topic.
 - Admin new-order sound: `apps/admin/public/sounds/annonce.mp3` is the built-in default (5 s, adjustable without uploading); an uploaded file still overrides it. The live shop's old uploaded sound (`sounds/order-mux1gzxk14xqcgq.mp3`, 3.5 s) was unset so the announcement plays; the R2 file is kept.
-- Still needs the owner: set the password via the invitation link; Telegram bot token in Paramètres → Connexions; Resend/Brevo key for email; logo file; team list; ZR Express API credentials; one real test order; Google Search Console (submit /sitemap.xml); Instagram bio → /liens.
+- Still needs the owner: set the password via the invitation link; Telegram bot token in Paramètres → Connexions; logo file; team list; ZR Express API credentials; one real test order; Google Search Console (submit /sitemap.xml); Instagram bio → /liens.
 - 2026-10-07: assistant answers only shop questions (off-topic → one-line redirect, no products; rules return no products when nothing about clothes is asked); storefront "just ordered" popup and `/api/activity` removed (admins have live alerts); categories without piece counts; category page filters reduced to "Tout/Promos" toggle + price row.

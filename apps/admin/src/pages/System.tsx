@@ -318,13 +318,15 @@ export function IntegrationsSection() {
 
       <Card title={tr("✉️ Emails (codes de connexion, invitations)")}>
         <p className="text-sm">
-          {tr("Fournisseur :")} <b>{q.data.mail.provider === "console" ? tr("aucun (mode développement : codes affichés à l'écran)") : q.data.mail.provider}</b>
+          {tr("Fournisseur :")} <b>{q.data.mail.provider === "console" ? tr("aucun") : q.data.mail.provider}</b>
           {q.data.mail.from && q.data.mail.provider !== "console" ? tr(" · expéditeur {0}", { 0: q.data.mail.from }) : ""}
         </p>
         {q.data.mail.provider === "console" && (
-          <p className="mt-2 text-xs text-ink-soft">{tr("En ligne : créez un compte gratuit Brevo (300 emails/jour) ou Resend, puis ajoutez la clé comme secret Cloudflare (MAIL_PROVIDER, MAIL_API_KEY, MAIL_FROM). Voir README.")}</p>
+          <p className="mt-2 text-xs text-ink-soft">{tr("Pas besoin : la connexion et les invitations se font avec une application d'authentification (Google Authenticator).")}</p>
         )}
-        <Button size="sm" className="mt-2" onClick={() => run(() => post("/integrations/mail/test"), tr("Email de test envoyé (vérifiez votre boîte)"))}>{tr("M'envoyer un email de test")}</Button>
+        {q.data.mail.provider !== "console" && (
+          <Button size="sm" className="mt-2" onClick={() => run(() => post("/integrations/mail/test"), tr("Email de test envoyé (vérifiez votre boîte)"))}>{tr("M'envoyer un email de test")}</Button>
+        )}
       </Card>
 
       <Card title={tr("🚚 ZR Express")}>

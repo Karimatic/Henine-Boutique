@@ -122,7 +122,7 @@
     "PUBLIC_ORIGIN": "https://henine-boutique.karimmaticmz.workers.dev",
     "MEDIA_ORIGIN": "",
     "TURNSTILE_SITE_KEY": "0x4AAAAAAFPeknmAStiuhKG6",
-    // "resend" or "brevo" once MAIL_API_KEY is set as a secret; "console" logs codes (development)
+    // "console": no email service, admins sign in with an authenticator app
     "MAIL_PROVIDER": "console",
     "MAIL_FROM": "Henine Boutique <no-reply@example.com>",
     // "off" = assistant without AI
