@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { assistantInput, type AssistantReplyDTO } from "@henine/shared";
 import type { Env } from "../env";
-import { testDb } from "../test/db";
+import { seedShop, testDb } from "../test/db";
+import { answer } from "./assistant-intents";
 import { amountsIn, parseModelReply, withAiVoice } from "./assistant-ai";
 
 const product = (price: number) =>
@@ -66,5 +67,16 @@ describe("assistant AI voice", () => {
     const blind = { ...ruled, understood: [] };
     expect((await withAiVoice(envWith(off).env, input("tu aimes le foot ?"), blind, "ip")).products).toEqual([]);
     expect((await withAiVoice(envWith(off).env, input("pyjama noir"), ruled, "ip")).products).toHaveLength(1);
+  });
+
+  it("shows no products for a message that is not about clothes", async () => {
+    const db = testDb();
+    seedShop(db);
+    const env = { DB: db } as unknown as Env;
+    const offTopic = await answer(env, assistantInput.parse({ q: "هل انت ai حقيقي", locale: "ar" }));
+    expect(offTopic.products).toEqual([]);
+    expect(offTopic.reply).toContain("Henine");
+    const search = await answer(env, assistantInput.parse({ q: "بيجامة", locale: "ar" }));
+    expect(search.products.map((p) => p.slug)).toEqual(["pyjama"]);
   });
 });

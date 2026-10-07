@@ -52,12 +52,11 @@ export function CategoriesView() {
               const sample = catalog.data?.find((p) => p.categorySlug && slugs.has(p.categorySlug));
               return (
                 <li key={c.id} className="rounded-3xl border border-line bg-surface p-3">
-                  {/* compact row: the picture, the name, how many pieces */}
+                  {/* compact row: the picture and the name */}
                   <a href={href(`/c/${c.slug}`)} className="group flex items-center gap-3">
                     <ProductImage image={sample?.image ?? null} alt="" category={c.slug} color={sample?.colors[0]} sizes="96px" className="aspect-[4/5] w-20 shrink-0 rounded-2xl" />
                     <span className="min-w-0 flex-1">
                       <span className="heading-display block text-xl leading-snug">{ar ? c.nameAr : c.nameFr}</span>
-                      <span className="text-sm text-ink-soft">{t.categories.count(c.productCount ?? 0)}</span>
                     </span>
                     <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-on-ink transition group-hover:bg-plum-600 rtl:rotate-180">→</span>
                   </a>
@@ -72,7 +71,6 @@ export function CategoriesView() {
                             }`}
                           >
                             {chipLabel(s, ar)}
-                            <span className="text-xs text-ink-soft" dir="ltr">{s.productCount ?? 0}</span>
                           </a>
                         </li>
                       ))}
@@ -88,9 +86,8 @@ export function CategoriesView() {
   );
 }
 
-/* ───────── /c/<slug>: a category (with its sub-categories) and simple filters ───────── */
+/* ───────── /c/<slug>: a category (with its sub-categories) and two filters: on sale, price ───────── */
 
-type Sort = "new" | "price_asc" | "price_desc";
 type Price = "any" | "low" | "mid" | "high";
 const LOW = 2000;
 const HIGH = 4000;
@@ -103,34 +100,27 @@ export function CategoryView() {
   const categories = useApi<CategoryDTO[]>("/categories");
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   const season = useSite().data?.season;
-  const [sort, setSort] = useState<Sort>("new");
   const [price, setPrice] = useState<Price>("any");
-  const [inStockOnly, setInStockOnly] = useState(false);
   const [saleOnly, setSaleOnly] = useState(false);
 
   const all = categories.data ?? [];
   const category = all.find((c) => c.slug === slug);
   const parent = parentOf(all, category);
-  const main = parent ?? category;
-  const subs = main ? subCategories(all, main.id, season).filter((s) => (s.productCount ?? 0) > 0) : [];
   const seasonal = new Set(all.filter((c) => c.season && c.season === season).map((c) => c.slug));
 
   const products = useMemo(() => {
     if (!slug) return [];
     const slugs = categorySlugs(all, slug);
     let list = (catalog.data ?? []).filter((p) => p.categorySlug && slugs.has(p.categorySlug));
-    if (inStockOnly) list = list.filter((p) => p.inStock);
     if (saleOnly) list = list.filter(onSale);
     if (price === "low") list = list.filter((p) => p.price < LOW);
     if (price === "mid") list = list.filter((p) => p.price >= LOW && p.price <= HIGH);
     if (price === "high") list = list.filter((p) => p.price > HIGH);
     // newest first, this season's pieces before the other season's
     const inSeason = (p: ProductCardDTO) => Number(seasonal.has(p.categorySlug ?? ""));
-    return [...list].sort((a, b) =>
-      sort === "price_asc" ? a.price - b.price : sort === "price_desc" ? b.price - a.price : inSeason(b) - inSeason(a) || b.createdAt - a.createdAt,
-    );
+    return [...list].sort((a, b) => inSeason(b) - inSeason(a) || b.createdAt - a.createdAt);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [catalog.data, categories.data, slug, sort, price, inStockOnly, saleOnly, season]);
+  }, [catalog.data, categories.data, slug, price, saleOnly, season]);
 
   useEffect(() => {
     if (category) document.title = `${ar ? category.nameAr : category.nameFr} · Henine Boutique`;
@@ -138,7 +128,6 @@ export function CategoryView() {
 
   const money = (n: number) => formatDA(n, locale);
   const chip = (on: boolean) => `h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition ${on ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface hover:border-plum-600/40"}`;
-  const filtered = price !== "any" || inStockOnly || saleOnly;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -154,71 +143,24 @@ export function CategoryView() {
       </nav>
       <PageTitle>{category ? (ar ? category.nameAr : category.nameFr) : <span className="skeleton inline-block h-9 w-40" />}</PageTitle>
 
-      {/* sub-categories: one tap to narrow down */}
-      {main && subs.length > 0 && (
-        <div className="swipe-row -mx-4 mb-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          <a href={href(`/c/${main.slug}`)} aria-current={category?.id === main.id ? "page" : undefined} className={`${chip(category?.id === main.id)} inline-flex items-center`}>
-            {t.categories.everything}
-          </a>
-          {subs.map((s) => (
-            <a key={s.id} href={href(`/c/${s.slug}`)} aria-current={category?.id === s.id ? "page" : undefined} className={`${chip(category?.id === s.id)} inline-flex items-center gap-1.5`}>
-              {chipLabel(s, ar)}
-              {s.season && s.season === season && category?.id !== s.id && (
-                <span className="rounded-full bg-rose-100 px-1.5 text-[10px] font-semibold text-plum-700">{t.categories.inSeason}</span>
-              )}
-            </a>
-          ))}
-        </div>
-      )}
-
-      {/* filters: sort, price, in stock, on sale */}
-      <div className="mb-5 space-y-2">
-        <div className="swipe-row -mx-4 flex gap-2 overflow-x-auto px-4 pb-1">
-          {([["new", ar ? "الأحدث" : "Nouveautés"], ["price_asc", ar ? "السعر ↑" : "Prix ↑"], ["price_desc", ar ? "السعر ↓" : "Prix ↓"]] as [Sort, string][]).map(([k, label]) => (
-            <button key={k} type="button" aria-pressed={sort === k} onClick={() => setSort(k)} className={chip(sort === k)}>
-              {label}
-            </button>
-          ))}
-          <span className="mx-1 w-px shrink-0 bg-line" aria-hidden="true" />
-          <button type="button" aria-pressed={saleOnly} onClick={() => setSaleOnly((v) => !v)} className={chip(saleOnly)}>
-            🏷️ {F.onSale}
+      {/* filters: on sale, price */}
+      <div className="swipe-row -mx-4 mb-5 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label={F.price}>
+        <button type="button" aria-pressed={saleOnly} onClick={() => setSaleOnly((v) => !v)} className={chip(saleOnly)}>
+          🏷️ {F.onSale}
+        </button>
+        <span className="mx-1 w-px shrink-0 bg-line" aria-hidden="true" />
+        {(
+          [
+            ["any", F.any],
+            ["low", F.under(money(LOW))],
+            ["mid", F.between(money(LOW), money(HIGH))],
+            ["high", F.over(money(HIGH))],
+          ] as [Price, string][]
+        ).map(([k, label]) => (
+          <button key={k} type="button" aria-pressed={price === k} onClick={() => setPrice(k)} className={chip(price === k)}>
+            <span dir={k === "any" ? undefined : "auto"}>{label}</span>
           </button>
-          <button type="button" aria-pressed={inStockOnly} onClick={() => setInStockOnly((v) => !v)} className={chip(inStockOnly)}>
-            ✓ {t.product.inStock}
-          </button>
-        </div>
-        <div className="swipe-row -mx-4 flex gap-2 overflow-x-auto px-4 pb-1" role="group" aria-label={F.price}>
-          {(
-            [
-              ["any", F.any],
-              ["low", F.under(money(LOW))],
-              ["mid", F.between(money(LOW), money(HIGH))],
-              ["high", F.over(money(HIGH))],
-            ] as [Price, string][]
-          ).map(([k, label]) => (
-            <button key={k} type="button" aria-pressed={price === k} onClick={() => setPrice(k)} className={chip(price === k)}>
-              <span dir={k === "any" ? undefined : "auto"}>{label}</span>
-            </button>
-          ))}
-        </div>
-        {catalog.data && (
-          <p className="flex items-center gap-3 text-sm text-ink-soft">
-            {t.categories.count(products.length)}
-            {filtered && (
-              <button
-                type="button"
-                onClick={() => {
-                  setPrice("any");
-                  setInStockOnly(false);
-                  setSaleOnly(false);
-                }}
-                className="font-semibold text-plum-600"
-              >
-                {F.reset}
-              </button>
-            )}
-          </p>
-        )}
+        ))}
       </div>
 
       {catalog.error ? (

@@ -222,6 +222,9 @@ export async function recommend(env: Env, q: string, locale: "fr" | "ar"): Promi
   };
 
   const pool = cards.filter((p) => p.inStock).map(evaluate);
+  // nothing about clothes in the message ("are you a real AI?"): no products at all
+  const asked = wish.colors.length + wish.sizes.length + wish.categories.length + Number(wish.occasion != null) + Number(wish.maxPrice != null) + Number(wish.minPrice != null);
+  if (!asked && !pool.some((e) => e.words > 0)) return { understood: [], relaxed: false, products: [] };
   // everything asked for; otherwise loosen, the least important first
   const tiers: (keyof ReturnType<typeof evaluate>["checks"])[][] = [
     ["price", "color", "category", "size"],
@@ -239,7 +242,7 @@ export async function recommend(env: Env, q: string, locale: "fr" | "ar"): Promi
     picked = pool.filter((e) => need.every((k) => e.checks[k].ok) && (tierIndex > 0 || !wish.words.length || e.words > 0));
     if (picked.length) break;
   }
-  if (!picked.length) picked = pool; // never an empty answer: the shop's best pieces
+  if (!picked.length) picked = pool; // something was asked: the shop's closest pieces
   picked.sort((a, b) => b.score - a.score || a.p.price - b.p.price);
 
   const understood: string[] = [];

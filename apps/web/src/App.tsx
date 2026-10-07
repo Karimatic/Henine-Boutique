@@ -1,5 +1,4 @@
 import type { ComponentType, ReactNode } from "react";
-import { ActivityToast } from "@/components/layout/ActivityToast";
 import { AnnouncementBar } from "@/components/layout/AnnouncementBar";
 import { BottomNav } from "@/components/layout/BottomNav";
 import { ErrorReporter } from "@/components/layout/ErrorReporter";
@@ -43,7 +42,6 @@ export function App({ Provider, children }: { Provider: LanguageProvider; childr
         </main>
         <SiteFooter />
         <BottomNav />
-        <ActivityToast />
         <FloatingHelp />
         <InstallPrompt />
         <ThemeStyle />

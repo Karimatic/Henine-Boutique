@@ -25,7 +25,6 @@ import {
   timingSafeEqual,
   trackLookupInput,
   type CommuneDTO,
-  type ActivityDTO,
   type CreatedOrderDTO,
   type LinkDTO,
   type PageDTO,
@@ -590,28 +589,6 @@ publicRoutes.get("/reviews", (c) =>
       })),
     };
     return c.json(dto);
-  }),
-);
-
-/** Last real orders (48 h, not cancelled): product + wilaya + how long ago. Cached 2 min. */
-publicRoutes.get("/activity", (c) =>
-  cached(new Request(new URL(c.req.url)), c.executionCtx, 120, async () => {
-    const now = Date.now();
-    const { results } = await c.env.DB.prepare(
-      `SELECT o.created_at, w.name_fr AS wf, w.name_ar AS wa,
-              (SELECT p.slug FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id AND p.status = 'published' ORDER BY oi.id LIMIT 1) AS slug,
-              (SELECT p.name_fr FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id AND p.status = 'published' ORDER BY oi.id LIMIT 1) AS nf,
-              (SELECT p.name_ar FROM order_items oi JOIN products p ON p.id = oi.product_id WHERE oi.order_id = o.id AND p.status = 'published' ORDER BY oi.id LIMIT 1) AS na
-         FROM orders o JOIN wilayas w ON w.code = o.wilaya_code
-        WHERE o.created_at > ? AND o.status NOT IN ('annulee','doublon','fausse')
-        ORDER BY o.created_at DESC LIMIT 8`,
-    )
-      .bind(now - 48 * 3600_000)
-      .all<{ created_at: number; wf: string; wa: string; slug: string | null; nf: string | null; na: string | null }>();
-    const list: ActivityDTO[] = results
-      .filter((r) => r.slug)
-      .map((r) => ({ productSlug: r.slug!, productFr: r.nf!, productAr: r.na!, wilayaFr: r.wf, wilayaAr: r.wa, minutesAgo: Math.max(1, Math.round((now - r.created_at) / 60_000)) }));
-    return c.json(list);
   }),
 );
 

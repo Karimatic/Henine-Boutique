@@ -32,15 +32,11 @@ export const ar: Dictionary = {
     reviews: { eyebrow: "آراء موثقة", title: "زبوناتنا يتكلمن عنا", based: (n: number) => `${arCount(n, { one: "رأي واحد", two: "رأيان", few: "آراء", many: "رأيًا", other: "رأي" })} من زبونات استلمن طلباتهن`, verified: "شراء موثق" },
   },
   quickAdd: { open: "إضافة سريعة", add: "أضيفي إلى السلة", added: "تمت الإضافة ✓", viewCart: "عرض السلة", details: "عرض المنتج" },
-  activity: { ordered: (city: string) => `زبونة من ${city} طلبت الآن`, ago: (m: number) =>
-      `منذ ${m < 60 ? arCount(m, { one: "دقيقة", two: "دقيقتين", few: "دقائق", many: "دقيقة", other: "دقيقة" }) : arCount(Math.round(m / 60), { one: "ساعة", two: "ساعتين", few: "ساعات", many: "ساعة", other: "ساعة" })}`,
-  },
   freeShip: { left: (amount: string) => `بقي ${amount} للحصول على توصيل مجاني`, done: "رائع، التوصيل مجاني 🎉" },
   categories: {
     title: "عالمنا", all: "كل الأقسام", products: "منتج", empty: "لا توجد منتجات في هذا القسم حاليا.",
     everything: "الكل", summer: "☀️ صيفي", winter: "❄️ شتوي", inSeason: "موسمي",
     filters: { price: "السعر", any: "كل الأسعار", under: (n: string) => `أقل من ${n}`, between: (a: string, b: string) => `${a} – ${b}`, over: (n: string) => `أكثر من ${n}`, onSale: "تخفيضات", reset: "مسح الفلاتر" },
-    count: (n: number) => arCount(n, { one: "قطعة واحدة", two: "قطعتان", few: "قطع", many: "قطعة", other: "قطعة" }),
   },
   promos: {
     title: "التخفيضات",

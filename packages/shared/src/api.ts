@@ -133,16 +133,6 @@ export interface ReviewWallDTO {
   reviews: (ReviewDTO & { productSlug: string; productFr: string; productAr: string })[];
 }
 
-/** Recent real orders for the discreet "just ordered" note: no names, no phones. */
-export interface ActivityDTO {
-  productSlug: string;
-  productFr: string;
-  productAr: string;
-  wilayaFr: string;
-  wilayaAr: string;
-  minutesAgo: number;
-}
-
 /** Size chart: same columns in both languages, cells are sizes / measurements. */
 export interface SizeGuideDTO {
   headersFr: string[];

@@ -30,13 +30,11 @@ export const fr = {
     reviews: { eyebrow: "Avis vérifiés", title: "Elles nous ont fait confiance", based: (n: number) => `${n} avis de clientes livrées`, verified: "Achat vérifié" },
   },
   quickAdd: { open: "Ajout rapide", add: "Ajouter au panier", added: "Ajouté ✓", viewCart: "Voir le panier", details: "Voir la fiche" },
-  activity: { ordered: (city: string) => `Une cliente de ${city} vient de commander`, ago: (m: number) => (m < 60 ? `il y a ${m} min` : `il y a ${Math.round(m / 60)} h`) },
   freeShip: { left: (amount: string) => `Plus que ${amount} pour la livraison offerte`, done: "Bravo, la livraison est offerte 🎉" },
   categories: {
     title: "Nos univers", all: "Toutes les catégories", products: "articles", empty: "Aucun article dans cette catégorie pour le moment.",
     everything: "Tout", summer: "☀️ Été", winter: "❄️ Hiver", inSeason: "de saison",
     filters: { price: "Prix", any: "Tous les prix", under: (n: string) => `Moins de ${n}`, between: (a: string, b: string) => `${a} – ${b}`, over: (n: string) => `Plus de ${n}`, onSale: "En promo", reset: "Effacer les filtres" },
-    count: (n: number) => `${n} article${n > 1 ? "s" : ""}`,
   },
   promos: {
     title: "Promotions",

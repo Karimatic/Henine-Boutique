@@ -289,6 +289,8 @@ export async function answer(env: Env, input: Input): Promise<AssistantReplyDTO>
     intent: "search",
     reply: found.products.length
       ? undefined
-      : T(ar, "لم أجد قطعة متوفرة بهذه المواصفات. جربي لونًا أو مقاسًا آخر، أو اسأليني عن الجديد أو التخفيضات.", "Je n'ai rien trouvé en stock avec ces critères. Essayez une autre couleur ou taille, ou demandez-moi les nouveautés ou les promos."),
+      : found.understood.length
+        ? T(ar, "لم أجد قطعة متوفرة بهذه المواصفات. جربي لونًا أو مقاسًا آخر، أو اسأليني عن الجديد أو التخفيضات.", "Je n'ai rien trouvé en stock avec ces critères. Essayez une autre couleur ou taille, ou demandez-moi les nouveautés ou les promos.")
+        : T(ar, "أنا مساعدة Henine 🌸 أساعدك فقط في ما يخص المحل: البحث عن قطعة (لون، مقاس، ميزانية)، سعر التوصيل إلى ولايتك، طلبك، التبديل، أو عنوان المحل وأوقاته.", "Je suis l'assistante Henine 🌸 Je réponds seulement à ce qui concerne la boutique : trouver une pièce (couleur, taille, budget), le prix de livraison vers votre wilaya, votre commande, les échanges, l'adresse et les horaires."),
   };
 }
