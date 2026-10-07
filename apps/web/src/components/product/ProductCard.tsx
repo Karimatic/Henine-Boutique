@@ -18,7 +18,7 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
       {/* plain <a>: product pages are separate static shells (full navigation, cached at the edge) */}
       <a href={href(`/produit/${p.slug}`)} className="block">
         <div className="relative">
-          <ProductImage image={p.image} alt={name} category={p.categorySlug} color={p.colors[0]} priority={priority} className="aspect-[4/5] rounded-card transition duration-300 group-hover:shadow-soft" />
+          <ProductImage image={p.image} alt={name} category={p.categorySlug} color={p.colors[0]} priority={priority} className="aspect-[4/5] rounded-card border border-line transition duration-300 group-hover:shadow-soft" />
           <div className="pointer-events-none absolute start-2 top-2 flex flex-col items-start gap-1">
             {p.flash && p.inStock && (
               <span className="rounded-full bg-gradient-to-r from-plum-600 to-rose-500 px-2 py-0.5 text-[11px] font-bold text-white shadow-sm" dir="ltr">

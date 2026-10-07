@@ -1,9 +1,9 @@
-import { ROLE_PRESETS, SIZE_GUIDE_TEMPLATE } from "@henine/shared";
+import { SIZE_GUIDE_TEMPLATE } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
-import { ago, da, dateTime } from "../lib/format";
+import { ago, dateTime } from "../lib/format";
 import { derivePasswordKey, passwordProblems } from "../lib/password";
 import { useCan, useMe } from "../Shell";
 import {
@@ -12,7 +12,6 @@ import {
 import { lang, setLang, tr } from "../i18n";
 import { useColorMode, type ColorMode } from "../lib/colorMode";
 import { mainsOf, subsOf } from "../lib/categories";
-import { MemberOwnerPanel } from "./MemberDetails";
 
 function useSave<T>(fn: (v: T) => Promise<unknown>, keys: string[], ok = "Enregistré ✓") {
   const qc = useQueryClient();
@@ -53,11 +52,15 @@ export const PERMISSION_LABEL: Record<string, string> = {
 export function TeamPage() {
   const me = useMe();
   const q = useQuery({ queryKey: ["team"], queryFn: () => api<{ members: Member[]; roles: { key: string; name: string; permissions: string[] }[] }>("/team") });
-  const [invite, setInvite] = useState(false);
   const [edit, setEdit] = useState<Member | null>(null);
   return (
     <div className="space-y-4">
-      <PageHeader group={tr("Système")} title={tr("Équipe")} subtitle={tr("Chaque membre se connecte avec son email + mot de passe + code reçu par email.")} actions={<Button variant="primary" onClick={() => setInvite(true)}>{tr("+ Inviter")}</Button>} />
+      <PageHeader
+        group={tr("Système")}
+        title={tr("Équipe")}
+        subtitle={tr("Qui fait partie de l'équipe et ce que chaque rôle peut faire. Créer un compte, changer les droits ou envoyer une invitation : dans Comptes.")}
+        actions={<a href="/admin/comptes" className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">{tr("Gérer les accès → Comptes")}</a>}
+      />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : (
         <>
           <ul className="divide-y divide-line overflow-hidden rounded-xl border border-line bg-surface">
@@ -89,70 +92,25 @@ export function TeamPage() {
           </Card>
         </>
       )}
-      {invite && <InviteSheet onClose={() => setInvite(false)} />}
       {edit && <MemberSheet member={edit} onClose={() => setEdit(null)} />}
     </div>
   );
 }
 
-function InviteSheet({ onClose }: { onClose: () => void }) {
-  const [form, setForm] = useState({ email: "", name: "", role: "confirmation" });
-  const [result, setResult] = useState<{ inviteUrl: string; emailed: boolean } | null>(null);
-  const save = useSave(() => post<{ inviteUrl: string; emailed: boolean }>("/team", form).then(setResult), ["team"], tr("Invitation créée"));
-  return (
-    <Sheet open onClose={onClose} title={tr("Inviter un membre")}>
-      {result ? (
-        <div className="space-y-3">
-          <p className="text-sm">{result.emailed ? tr("✉️ L'invitation a été envoyée par email.") : tr("Envoyez ce lien à la personne (WhatsApp, Telegram…). Il est valable 7 jours et utilisable une seule fois :")}</p>
-          <textarea readOnly className={`${inputCls} h-24 py-2 font-mono text-xs`} value={result.inviteUrl} onFocus={(e) => e.target.select()} />
-          <Button onClick={() => navigator.clipboard?.writeText(result.inviteUrl)}>{tr("Copier le lien")}</Button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          <TextField label={tr("Prénom / nom")} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <TextField label={tr("Email")} type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-          <Select label={tr("Rôle")} value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-            {Object.entries(ROLE_PRESETS).map(([k, r]) => <option key={k} value={k}>{r.name}</option>)}
-          </Select>
-          <Button variant="primary" className="w-full" loading={save.isPending} onClick={() => save.mutate(undefined)}>{tr("Créer l'invitation")}</Button>
-        </div>
-      )}
-    </Sheet>
-  );
-}
-
+/** A team member's name and Telegram ID; access (rights, invitation, sessions) is in Comptes. */
 function MemberSheet({ member, onClose }: { member: Member; onClose: () => void }) {
-  const [role, setRole] = useState(member.role);
   const [name, setName] = useState(member.name);
   const [tg, setTg] = useState<number | null>(member.telegram_user_id);
-  const [link, setLink] = useState<string | null>(null);
-  // the level only changes if a different ready-made level is picked ("Sur mesure" is edited in Comptes)
-  const save = useSave(() => patch(`/team/${member.id}`, { name, telegramUserId: tg, ...(role !== member.role ? { role } : {}) }), ["team"]);
-  const toggleActive = useSave(() => patch(`/team/${member.id}`, { isActive: !member.is_active }), ["team"], member.is_active ? tr("Accès désactivé") : tr("Accès réactivé"));
-  const reinvite = useSave(() => post<{ inviteUrl: string }>(`/team/${member.id}/invite`).then((r) => setLink(r.inviteUrl)), [], tr("Nouveau lien créé"));
-  const revoke = useSave(() => del(`/team/${member.id}/sessions`), ["team"], tr("Déconnecté de tous les appareils"));
+  const save = useSave(() => patch(`/team/${member.id}`, { name, telegramUserId: tg }), ["team"]);
   return (
     <Sheet open onClose={onClose} title={member.name} footer={<Button variant="primary" className="w-full" loading={save.isPending} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>{tr("Enregistrer")}</Button>}>
       <div className="space-y-3">
-        <p className="text-sm text-ink-soft">{member.email} · {member.sessions} {tr("appareil(s) connecté(s)")}</p>
+        <p className="text-sm text-ink-soft">{member.email} · {member.role_name}</p>
         <TextField label={tr("Nom")} value={name} onChange={(e) => setName(e.target.value)} />
-        <Select label={tr("Rôle")} value={role} onChange={(e) => setRole(e.target.value)}>
-          {member.role.startsWith("custom-") && <option value={member.role}>{tr("Sur mesure (droits réglés dans Comptes)")}</option>}
-          {Object.entries(ROLE_PRESETS).map(([k, r]) => <option key={k} value={k}>{tr(r.name)}</option>)}
-        </Select>
-        <p className="text-xs text-ink-soft">
-          {tr("Pour choisir les droits un par un :")} <a href="/admin/comptes" className="font-semibold text-plum-600">{tr("Comptes")}</a>
-        </p>
         <NumberField label={tr("ID Telegram")} hint={tr("envoyez /id au bot pour l'obtenir")} value={tg} onChange={setTg} />
-        <div className="flex flex-wrap gap-2 border-t border-line pt-3">
-          <Button size="sm" onClick={() => reinvite.mutate(undefined)}>{member.has_password ? tr("Lien de réinitialisation") : tr("Renvoyer l'invitation")}</Button>
-          <Button size="sm" onClick={() => revoke.mutate(undefined)}>{tr("Déconnecter partout")}</Button>
-          <Button size="sm" variant="danger" onClick={() => confirm(member.is_active ? tr("Désactiver l'accès de ce membre ?") : tr("Réactiver ce membre ?")) && toggleActive.mutate(undefined, { onSuccess: onClose })}>
-            {member.is_active ? tr("Désactiver l'accès") : tr("Réactiver")}
-          </Button>
-        </div>
-        {link && <textarea readOnly className={`${inputCls} h-20 py-2 font-mono text-xs`} value={link} onFocus={(e) => e.target.select()} />}
-        <MemberOwnerPanel id={member.id} onDeleted={onClose} />
+        <p className="border-t border-line pt-3 text-sm text-ink-soft">
+          {tr("Droits, invitation, déconnexion ou désactivation :")} <a href="/admin/comptes" className="font-semibold text-plum-600">{tr("Comptes")}</a>
+        </p>
       </div>
     </Sheet>
   );
@@ -413,18 +371,18 @@ function InstagramCard() {
 
 /* ───────────── Contenu ───────────── */
 
-type ContentTab = "livraison" | "pages" | "categories" | "tailles" | "boutique";
+type ContentTab = "livraison" | "pages" | "categories" | "tailles";
 
 export function ContentPage() {
   const can = useCan();
   const navigate = useNavigate();
   const search = useSearch({ strict: false }) as { tab?: string };
-  const tabs: ContentTab[] = ["livraison", "pages", "categories", "tailles", "boutique"];
+  const tabs: ContentTab[] = ["livraison", "pages", "categories", "tailles"];
   const tab: ContentTab = tabs.includes(search.tab as ContentTab) ? (search.tab as ContentTab) : can("delivery.edit") ? "livraison" : "pages";
   const setTab = (t: ContentTab) => void navigate({ to: "/contenu", search: { tab: t } });
   return (
     <div>
-      <PageHeader group={tr("Système")} title={tr("Contenu")} subtitle={tr("Tarifs de livraison, pages d'information, catégories et identité de la boutique.")} />
+      <PageHeader group={tr("Système")} title={tr("Contenu")} subtitle={tr("Tarifs de livraison, pages d'information, catégories et guides des tailles.")} />
       <Pills
         value={tab}
         onChange={setTab}
@@ -433,14 +391,12 @@ export function ContentPage() {
           { value: "pages", label: tr("📄 Pages") },
           { value: "categories", label: tr("🗂 Catégories") },
           ...(can("products.edit") ? [{ value: "tailles" as const, label: tr("📏 Guides des tailles") }] : []),
-          { value: "boutique", label: tr("🌸 Boutique") },
         ]}
       />
       {tab === "livraison" && <DeliveryPrices />}
       {tab === "pages" && <PagesEditor />}
       {tab === "categories" && <CategoriesEditor />}
       {tab === "tailles" && <SizeGuidesEditor />}
-      {tab === "boutique" && <StoreIdentity />}
     </div>
   );
 }
@@ -861,24 +817,6 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
         </div>
       </div>
     </Sheet>
-  );
-}
-
-function StoreIdentity() {
-  const q = useQuery({ queryKey: ["home"], queryFn: () => api<{ store: { name: string } }>("/home") });
-  const [s, setS] = useState<{ name: string } | null>(null);
-  useEffect(() => {
-    if (q.data) setS({ name: q.data.store.name });
-  }, [q.data]);
-  const save = useSave(() => put("/content/store", s), ["home"]);
-  if (!s) return <ListSkeleton rows={2} />;
-  return (
-    <Card title={tr("Identité de la boutique")}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <TextField label={tr("Nom")} value={s.name} onChange={(e) => setS({ ...s, name: e.target.value })} className="sm:col-span-2" />
-      </div>
-      <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate(undefined)}>{tr("Enregistrer")}</Button>
-    </Card>
   );
 }
 

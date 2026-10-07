@@ -76,6 +76,11 @@ export function SettingsPage() {
   const tabs = TABS.filter((t) => can(t.perm));
   const tab = tabs.find((t) => t.key === search.tab)?.key ?? tabs[0]?.key ?? "compte";
   const setTab = (k: TabKey) => void navigate({ to: "/parametres", search: { tab: k } });
+  // the store's texts live on Page d'accueil only (one place per setting)
+  const toTexts = () => void navigate({ to: "/accueil", hash: "textes" });
+  useEffect(() => {
+    if (search.tab === "textes") toTexts();
+  }, [search.tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div>
@@ -109,7 +114,7 @@ export function SettingsPage() {
           <IntegrationsSection />
         </div>
       ) : (
-        <StoreSettings tab={tab} goTo={setTab} />
+        <StoreSettings tab={tab} goTo={(k) => (k === "textes" ? toTexts() : setTab(k))} />
       )}
     </div>
   );
@@ -334,11 +339,15 @@ export const HomeRedirect = () => <SettingsRedirect tab="boutique" />;
 export const AccountRedirect = () => <SettingsRedirect tab="compte" />;
 
 /**
- * Page d'accueil: everything customers see on the home page, on one page: the banner,
- * the order pause and every text (title, banner messages, questions, pause message).
+ * Page d'accueil: what customers see on the home page (logo, photos, sections, banners) and
+ * every text of the store (title, banner messages, questions, pause message). The switches
+ * (banner on/off, order pause, store name, season) are in Paramètres → Boutique.
  */
 export function HomeSettingsPage() {
   const toTexts = () => document.getElementById("textes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  useEffect(() => {
+    if (location.hash === "#textes") setTimeout(toTexts, 300);
+  }, []);
   return (
     <div className="space-y-4">
       <PageHeader
@@ -351,7 +360,6 @@ export function HomeSettingsPage() {
           </a>
         }
       />
-      <StoreSettings tab="boutique" goTo={toTexts} />
       <DesignEditor />
       <div id="textes" className="scroll-mt-20">
         <StoreSettings tab="textes" goTo={toTexts} />

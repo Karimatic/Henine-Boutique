@@ -1,6 +1,6 @@
 /** The settings tabs and every setting in them: used by Paramètres and by the search bar at the top. */
 import type { Permission } from "@henine/shared";
-import { BellRing, KeyRound, Plug, Phone, ShoppingBag, Store, Type, type LucideIcon } from "lucide-react";
+import { BellRing, KeyRound, Plug, Phone, ShoppingBag, Store, type LucideIcon } from "lucide-react";
 import { tr } from "../i18n";
 
 export type TabKey = "boutique" | "commandes" | "alertes" | "textes" | "contact" | "compte" | "connexions";
@@ -9,7 +9,6 @@ export const SETTINGS_TABS: { key: TabKey; label: string; icon: LucideIcon; perm
   { key: "boutique", label: tr("Boutique"), icon: Store, perm: "marketing.edit" },
   { key: "commandes", label: tr("Commandes & livraison"), icon: ShoppingBag, perm: "marketing.edit" },
   { key: "alertes", label: tr("Alertes & délais"), icon: BellRing, perm: "orders.view" },
-  { key: "textes", label: tr("Textes"), icon: Type, perm: "marketing.edit" },
   { key: "contact", label: tr("Contact & réseaux"), icon: Phone, perm: "marketing.edit" },
   { key: "compte", label: tr("Mon compte"), icon: KeyRound, perm: "dashboard.view" },
   { key: "connexions", label: tr("Connexions"), icon: Plug, perm: "integrations.manage" },

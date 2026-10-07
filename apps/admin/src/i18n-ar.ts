@@ -2034,4 +2034,13 @@ export const AR: Record<string, string> = {
   "Copiée ✓": "تم النسخ ✓",
   "Tapez le code à 6 chiffres affiché par l'application :": "اكتبي الرمز المكوَّن من 6 أرقام الظاهر في التطبيق:",
   "Tapez le code à 6 chiffres de votre application d'authentification.": "اكتبي الرمز المكوَّن من 6 أرقام من تطبيق المصادقة.",
+  "Instagram, WhatsApp, téléphone": "إنستغرام، واتساب، الهاتف",
+  "Tarifs de livraison, pages d'information, catégories et guides des tailles.": "أسعار التوصيل، صفحات المعلومات، الأقسام وجداول المقاسات.",
+  "Codes promo et codes influenceuses. La livraison offerte automatique se règle dans Paramètres → Commandes & livraison.": "أكواد التخفيض وأكواد المؤثرات. التوصيل المجاني التلقائي يُضبط في الإعدادات ← الطلبات والتوصيل.",
+  "Qui fait partie de l'équipe et ce que chaque rôle peut faire. Créer un compte, changer les droits ou envoyer une invitation : dans Comptes.": "من هم أعضاء الفريق وما يمكن لكل دور فعله. إنشاء حساب، تغيير الصلاحيات أو إرسال دعوة: في الحسابات.",
+  "Gérer les accès → Comptes": "إدارة الصلاحيات ← الحسابات",
+  "Droits, invitation, déconnexion ou désactivation :": "الصلاحيات، الدعوة، تسجيل الخروج أو التعطيل:",
+  "Vente au magasin :": "البيع في المحل:",
+  "Les ventes de la Caisse et les commandes reçues sur Instagram, WhatsApp ou par téléphone apparaissent ici.": "تظهر هنا مبيعات الصندوق والطلبيات الواردة عبر إنستغرام أو واتساب أو الهاتف.",
+  "Performance par produit, par canal, et commandes reçues sur Instagram, WhatsApp ou par téléphone.": "الأداء حسب المنتج والقناة، والطلبيات الواردة عبر إنستغرام أو واتساب أو الهاتف.",
 };

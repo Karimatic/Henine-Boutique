@@ -173,7 +173,7 @@ function QuickActions({ toConfirm }: { toConfirm: number }) {
   const actions: { to: string; search?: Record<string, string>; label: string; hint: string; icon: LucideIcon; perm: string; strong?: boolean }[] = [
     { to: "/commandes", search: { status: "a_confirmer" }, label: toConfirm ? tr("{0} à confirmer", { 0: toConfirm }) : tr("Commandes"), hint: toConfirm ? tr("appeler / confirmer") : tr("tout est à jour"), icon: PhoneCall, perm: "orders.view", strong: toConfirm > 0 },
     { to: "/produits/nouveau", label: tr("Nouveau produit"), hint: tr("photos, tailles, prix"), icon: Plus, perm: "products.edit" },
-    { to: "/ventes", search: { nouvelle: "1" }, label: tr("Vente manuelle"), hint: tr("boutique, Instagram…"), icon: Receipt, perm: "sales.create" },
+    { to: "/ventes", search: { nouvelle: "1" }, label: tr("Vente manuelle"), hint: tr("Instagram, WhatsApp, téléphone"), icon: Receipt, perm: "sales.create" },
     { to: "/stock", label: tr("Stock"), hint: tr("ajuster les quantités"), icon: Boxes, perm: "stock.view" },
   ];
   return (

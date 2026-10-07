@@ -56,8 +56,7 @@ export function PromosPage() {
   const [edit, setEdit] = useState<Partial<Coupon> | null>(null);
   return (
     <div>
-      <PageHeader group={tr("Commandes")} title={tr("Promos")} subtitle={tr("Codes promo, codes influenceuses et livraison offerte.")} actions={<Button variant="primary" onClick={() => setEdit({ type: "percent", value: 10, is_active: 1 })}>{tr("+ Nouveau code")}</Button>} />
-      <FreeShipping current={q.data?.freeShippingOver ?? null} />
+      <PageHeader group={tr("Commandes")} title={tr("Promos")} subtitle={tr("Codes promo et codes influenceuses. La livraison offerte automatique se règle dans Paramètres → Commandes & livraison.")} actions={<Button variant="primary" onClick={() => setEdit({ type: "percent", value: 10, is_active: 1 })}>{tr("+ Nouveau code")}</Button>} />
       <FlashSales />
       <InfluencerReport />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.coupons.length === 0 ? <Empty title={tr("Aucun code promo")} icon="🏷" /> : (
@@ -179,29 +178,6 @@ function InfluencerReport() {
           </p>
         </>
       )}
-    </Card>
-  );
-}
-
-function FreeShipping({ current }: { current: number | null }) {
-  const home = useQuery({ queryKey: ["home"], queryFn: () => api<{ checkout: { express_on_product: boolean; desk_enabled: boolean; free_shipping_over: number | null; max_orders_per_phone_per_hour: number } } & Record<string, unknown>>("/home") });
-  const [value, setValue] = useState<number | null>(current);
-  useEffect(() => {
-    setValue(current);
-  }, [current]);
-  const save = useSave(
-    async (v: number | null) => {
-      const h = home.data!;
-      await put("/home", { announcement: h.announcement, hero: h.hero, maintenance: h.maintenance, checkout: { ...h.checkout, free_shipping_over: v } });
-    },
-    ["coupons", "home"],
-  );
-  return (
-    <Card title={tr("🚚 Livraison offerte automatique")} className="mb-4">
-      <div className="flex flex-wrap items-end gap-2">
-        <NumberField label={tr("Dès un panier de")} suffix={tr("DA")} value={value} onChange={setValue} hint={tr("vide = jamais")} className="w-48" />
-        <Button onClick={() => save.mutate(value)} loading={save.isPending} disabled={!home.data}>{tr("Enregistrer")}</Button>
-      </div>
     </Card>
   );
 }

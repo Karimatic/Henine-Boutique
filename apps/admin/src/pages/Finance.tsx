@@ -20,6 +20,7 @@ import { api, del, errorMessage, patch, post, put, upload } from "../api";
 import { isAr, tr } from "../i18n";
 import { da, daMinus, dateTime } from "../lib/format";
 import { usePeriod } from "../lib/period";
+import { ProfitSection } from "./Insights";
 import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, confirmAction, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Sheet, Stat, TextArea, TextField, Toggle, useToast } from "../ui";
 
@@ -188,6 +189,7 @@ function ResultTab() {
               </Button>
             </Card>
           </div>
+          <ProfitSection query={query} />
         </>
       )}
     </div>

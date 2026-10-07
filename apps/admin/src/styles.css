@@ -1,4 +1,5 @@
 @import "tailwindcss";
+
 /* self-hosted (the admin CSP only allows fonts from 'self') */
 @import "@fontsource-variable/dm-sans/wght.css";
 @import "@fontsource/playfair-display/latin-600.css";
@@ -18,6 +19,8 @@
  * template's black becomes the store's deep pink, plus the store's fonts and blossom.
  */
 @theme {
+  /* thicker outlines for cards, inputs, chips and separators (border, border-t…, divide-y), both themes */
+  --default-border-width: 2px;
   --color-ivory: #fffbfc; /* same grounds and hairlines as the store */
   --color-ivory-deep: #f8eef2;
   --color-sidebar: #faf7f8;

@@ -8,6 +8,8 @@
  * rose-700 6.4:1 (all AA ✓). rose-300/500 are decorative only, never text.
  */
 @theme {
+  /* thicker outlines for cards, inputs, chips and separators (border, border-t…, divide-y), both themes */
+  --default-border-width: 2px;
   --color-ivory: #fffbfc;
   --color-ivory-deep: #f8eef2;
   --color-ink: #170a10;

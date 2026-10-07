@@ -30,7 +30,7 @@ export function SalesPage() {
       <PageHeader
         group={tr("Catalogue")}
         title={tr("Ventes")}
-        subtitle={tr("Performance par produit + ventes réalisées en boutique, sur Instagram ou par téléphone.")}
+        subtitle={tr("Performance par produit, par canal, et commandes reçues sur Instagram, WhatsApp ou par téléphone.")}
         actions={can("sales.create") && <Button variant="primary" onClick={() => setOpen(true)}>{tr("+ Vente manuelle")}</Button>}
       />
       <Pills value={days} onChange={setDays} options={[{ value: "7", label: tr("7 jours") }, { value: "30", label: tr("30 jours") }, { value: "90", label: tr("90 jours") }, { value: "365", label: tr("1 an") }]} />
@@ -80,7 +80,7 @@ export function SalesPage() {
             )}
           </Card>
           <Card title={tr("Dernières ventes manuelles")}>
-            {d.recentManual.length === 0 ? <p className="text-sm text-ink-soft">{tr("Enregistrez ici les ventes faites en boutique à Boumerdès ou en message privé Instagram : le stock se met à jour.")}</p> : (
+            {d.recentManual.length === 0 ? <p className="text-sm text-ink-soft">{tr("Les ventes de la Caisse et les commandes reçues sur Instagram, WhatsApp ou par téléphone apparaissent ici.")}</p> : (
               <ul className="space-y-2 text-sm">
                 {d.recentManual.map((o) => (
                   <li key={o.id} className="flex items-center justify-between gap-2">
@@ -113,7 +113,8 @@ function ManualSale({ onClose }: { onClose: () => void }) {
     () => (stock.data?.rows ?? []).map((r) => ({ id: r.id, label: `${r.name_fr} · ${r.options}`, price: r.price, available: r.stock_on_hand - r.stock_reserved })),
     [stock.data],
   );
-  const [channel, setChannel] = useState<"boutique" | "instagram" | "whatsapp" | "telephone">("boutique");
+  // in-store sales are made in the Caisse; here: orders received by message or phone
+  const [channel, setChannel] = useState<"instagram" | "whatsapp" | "telephone">("instagram");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [lines, setLines] = useState<{ variantId: number; qty: number }[]>([]);
@@ -123,10 +124,9 @@ function ManualSale({ onClose }: { onClose: () => void }) {
   const [address, setAddress] = useState("");
   const [shipping, setShipping] = useState<number | null>(null);
   const wilayas = useQuery({ queryKey: ["wilayas-public"], queryFn: () => fetch("/api/geo/wilayas").then((r) => r.json() as Promise<{ code: number; fr: string; home: number | null; desk: number | null }[]>) });
-  const boutique = channel === "boutique";
   const subtotal = lines.reduce((s, l) => s + (variants.find((v) => v.id === l.variantId)?.price ?? 0) * l.qty, 0);
   const w = wilayas.data?.find((x) => x.code === wilaya);
-  const ship = boutique ? 0 : shipping ?? (deliveryType === "bureau" ? w?.desk : w?.home) ?? 0;
+  const ship = shipping ?? (deliveryType === "bureau" ? w?.desk : w?.home) ?? 0;
 
   const save = useMutation({
     mutationFn: () =>
@@ -135,24 +135,23 @@ function ManualSale({ onClose }: { onClose: () => void }) {
         name: name.trim() || undefined,
         phone: phone.trim() ? phone : undefined,
         lines,
-        status: boutique ? "livree" : "confirmee",
-        wilaya: boutique ? 35 : wilaya,
+        status: "confirmee",
+        wilaya,
         communeId: null,
-        deliveryType: boutique ? "bureau" : deliveryType,
-        address: !boutique && deliveryType === "domicile" ? address : undefined,
-        shipping: boutique ? 0 : ship,
+        deliveryType,
+        address: deliveryType === "domicile" ? address : undefined,
+        shipping: ship,
       }),
     onSuccess: () => {
-      toast(boutique ? tr("Vente enregistrée, stock mis à jour ✓") : tr("Commande créée (confirmée) ✓"));
+      toast(tr("Commande créée (confirmée) ✓"));
       void qc.invalidateQueries();
       onClose();
     },
     onError: (e) => toast(errorMessage(e), "error"),
   });
 
-  // in the shop, a walk-in customer needs no name or number
-  const contactOk = boutique ? !phone.trim() || !!normalizeDzPhone(phone) : name.trim().length >= 2 && !!normalizeDzPhone(phone);
-  const valid = contactOk && lines.length > 0 && (boutique || deliveryType === "bureau" || address.trim().length >= 4);
+  const contactOk = name.trim().length >= 2 && !!normalizeDzPhone(phone);
+  const valid = contactOk && lines.length > 0 && (deliveryType === "bureau" || address.trim().length >= 4);
 
   return (
     <Sheet
@@ -167,8 +166,11 @@ function ManualSale({ onClose }: { onClose: () => void }) {
       }
     >
       <div className="space-y-4">
-        <Pills value={channel} onChange={setChannel} options={(["boutique", "instagram", "whatsapp", "telephone"] as const).map((c) => ({ value: c, label: tr(CHANNEL_LABEL[c])! }))} />
-        <p className="text-xs text-ink-soft">{boutique ? tr("Vente en boutique : marquée « livrée », le stock est retiré immédiatement.") : tr("Commande reçue par message/téléphone : créée « confirmée » et suivie comme les commandes du site.")}</p>
+        <Pills value={channel} onChange={setChannel} options={(["instagram", "whatsapp", "telephone"] as const).map((c) => ({ value: c, label: tr(CHANNEL_LABEL[c])! }))} />
+        <p className="text-xs text-ink-soft">
+          {tr("Commande reçue par message/téléphone : créée « confirmée » et suivie comme les commandes du site.")} {tr("Vente au magasin :")}{" "}
+          <a href="/admin/caisse" className="font-semibold text-plum-600">{tr("Caisse")}</a>
+        </p>
         <div className="grid gap-3 sm:grid-cols-2">
           <TextField label={tr("Nom de la cliente")} value={name} onChange={(e) => setName(e.target.value)} />
           <TextField label={tr("Téléphone")} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} error={phone && !normalizeDzPhone(phone) ? "Numéro invalide" : null} />
@@ -200,21 +202,19 @@ function ManualSale({ onClose }: { onClose: () => void }) {
             </ul>
           )}
         </Card>
-        {!boutique && (
-          <Card title={tr("Livraison")}>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Select label={tr("Wilaya")} value={wilaya} onChange={(e) => { setWilaya(Number(e.target.value)); setShipping(null); }}>
-                {wilayas.data?.map((x) => <option key={x.code} value={x.code}>{x.code} - {x.fr}</option>)}
-              </Select>
-              <Select label={tr("Mode")} value={deliveryType} onChange={(e) => { setDeliveryType(e.target.value as "domicile" | "bureau"); setShipping(null); }}>
-                <option value="domicile">{tr("Domicile")}</option>
-                <option value="bureau">{tr("Bureau (stop-desk)")}</option>
-              </Select>
-              {deliveryType === "domicile" && <TextField label={tr("Adresse")} value={address} onChange={(e) => setAddress(e.target.value)} className="sm:col-span-2" />}
-              <TextField label={tr("Frais de livraison (DA)")} type="number" value={shipping ?? ship} onChange={(e) => setShipping(Number(e.target.value) || 0)} />
-            </div>
-          </Card>
-        )}
+        <Card title={tr("Livraison")}>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Select label={tr("Wilaya")} value={wilaya} onChange={(e) => { setWilaya(Number(e.target.value)); setShipping(null); }}>
+              {wilayas.data?.map((x) => <option key={x.code} value={x.code}>{x.code} - {x.fr}</option>)}
+            </Select>
+            <Select label={tr("Mode")} value={deliveryType} onChange={(e) => { setDeliveryType(e.target.value as "domicile" | "bureau"); setShipping(null); }}>
+              <option value="domicile">{tr("Domicile")}</option>
+              <option value="bureau">{tr("Bureau (stop-desk)")}</option>
+            </Select>
+            {deliveryType === "domicile" && <TextField label={tr("Adresse")} value={address} onChange={(e) => setAddress(e.target.value)} className="sm:col-span-2" />}
+            <TextField label={tr("Frais de livraison (DA)")} type="number" value={shipping ?? ship} onChange={(e) => setShipping(Number(e.target.value) || 0)} />
+          </div>
+        </Card>
       </div>
     </Sheet>
   );

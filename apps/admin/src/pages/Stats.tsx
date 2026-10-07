@@ -2,12 +2,12 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
 import { ORDER_SOURCE_LABEL, OUTCOME_REASON_LABEL, type OrderSource, type OutcomeReason } from "@henine/shared";
-import { CHANNEL_LABEL, da, ltr } from "../lib/format";
+import { da, ltr } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
 import { tr } from "../i18n";
 import { usePeriod } from "../lib/period";
 import { DailyReportCard } from "./DailyReport";
-import { ProfitSection, ReturnsSection } from "./Insights";
+import { ReturnsSection } from "./Insights";
 import { ColumnChart, shortDA, StackBar, TrendChart } from "../lib/charts";
 
 interface StatsData {
@@ -235,7 +235,6 @@ export function StatsPage() {
   const d = q.data;
   const csvDays = d ? Math.min(365, Math.ceil((Date.now() - d.range.since) / 86400_000)) : 30;
   const cancelReasons = d?.reasons.filter((r) => r.kind === "cancel") ?? [];
-  const returnReasons = d?.reasons.filter((r) => r.kind === "return") ?? [];
   const dl = d?.delivery;
   return (
     <div className="space-y-4">
@@ -273,7 +272,6 @@ export function StatsPage() {
               ]}
             />
           </Card>
-          <ProfitSection query={query} />
           <ReturnsSection query={query} />
           <div className="grid gap-4 md:grid-cols-2">
             {d.range.days > 1 && <CumulativeChart data={d.daily} since={d.range.since} days={d.range.days} />}
@@ -291,28 +289,13 @@ export function StatsPage() {
               ]}
             />
           </Card>
-          <div className="grid gap-4 md:grid-cols-[1fr_1.4fr]">
-            <Card title={tr("Top wilayas")}>
-              <BarList
-                rows={[...d.wilayas]
-                  .sort((a, b) => b.orders - a.orders)
-                  .slice(0, 8)
-                  .map((w) => ({ label: `${w.code} - ${w.name}`, value: w.orders, display: String(w.orders), sub: da(w.revenue) }))}
-              />
-            </Card>
-            <Card title={tr("Wilayas")}>
-              <WilayaTable rows={d.wilayas} />
-            </Card>
-          </div>
+          <Card title={tr("Wilayas")}>
+            <WilayaTable rows={d.wilayas} />
+          </Card>
           <SourcesCard sources={d.sources ?? []} campaigns={d.campaigns ?? []} visits={d.visits ?? 0} />
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card title={tr("Pourquoi les retours ?")}>
-              <BarList rows={returnReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
-            </Card>
-            <Card title={tr("Pourquoi les annulations ?")}>
-              <BarList rows={cancelReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
-            </Card>
-          </div>
+          <Card title={tr("Pourquoi les annulations ?")}>
+            <BarList rows={cancelReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
+          </Card>
           <Card title={tr("Livraison")}>
             {dl && (
               <>
@@ -345,17 +328,9 @@ export function StatsPage() {
               </>
             )}
           </Card>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card title={tr("Produits les plus vendus")}>
-              <BarList rows={d.topProducts.map((p) => ({ label: p.name_fr, value: p.units, display: `${p.units} pcs`, sub: da(p.revenue) }))} />
-            </Card>
-            <Card title={tr("Canaux")}>
-              <BarList rows={d.channels.map((c) => ({ label: tr(CHANNEL_LABEL[c.channel]) ?? c.channel, value: c.revenue, display: da(c.revenue), sub: `${c.orders} cmd` }))} />
-            </Card>
-            <Card title={tr("Heures des commandes (Algérie)")}>
-              <HoursChart hours={d.hours} />
-            </Card>
-          </div>
+          <Card title={tr("Heures des commandes (Algérie)")}>
+            <HoursChart hours={d.hours} />
+          </Card>
         </>
       )}
     </div>
