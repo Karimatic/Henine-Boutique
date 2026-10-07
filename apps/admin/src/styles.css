@@ -387,3 +387,12 @@ html[lang="ar"] body {
   0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-plum-600) 45%, transparent); }
   100% { box-shadow: 0 0 0 3px transparent; }
 }
+
+/* no scroll bars anywhere in the admin (the owner's choice): pages, sidebar and rows still
+   scroll with the wheel, the touchpad or a finger */
+* {
+  scrollbar-width: none;
+}
+*::-webkit-scrollbar {
+  display: none;
+}

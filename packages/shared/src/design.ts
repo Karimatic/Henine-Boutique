@@ -65,7 +65,10 @@ export const COLOR_PRESETS = [
 
 export interface BannerDTO {
   id: string;
+  /** picture (media URL); empty for a video-only banner */
   image: string;
+  /** a short video instead of the picture (media URL), muted in a loop */
+  video?: string | null;
   titleFr: string;
   titleAr: string;
   subtitleFr: string;
@@ -83,6 +86,8 @@ export interface DesignDTO {
   heroImage: string | null;
   /** media URL of the big home page video (plays over the photo, muted, in a loop), null = none */
   heroVideo: string | null;
+  /** background behind product pictures: "theme" (the soft colour) or a key of PRODUCT_BACKGROUNDS */
+  productBg: string;
   banners: BannerDTO[];
   featured: { titleFr: string; titleAr: string; productIds: number[] };
   footerFr: string;
@@ -96,6 +101,7 @@ export const DEFAULT_DESIGN: DesignDTO = {
   font: "classic",
   heroImage: null,
   heroVideo: null,
+  productBg: "theme",
   banners: [],
   featured: { titleFr: "Notre sélection", titleAr: "اختياراتنا لكِ", productIds: [] },
   footerFr: "",
@@ -173,6 +179,22 @@ export function themeVarsDark(colors: DesignDTO["colors"]): Record<string, strin
     "--color-line": mixHex(accent, "#2a1d24", 0.86),
     "--color-accent-text": mixHex(accent, "#ffffff", 0.58),
   };
+}
+
+/** Backgrounds behind product pictures: the colour themes' soft tones, plus white. */
+export const PRODUCT_BACKGROUNDS: { key: string; label: string; accent: string; soft: string }[] = [
+  ...COLOR_PRESETS.map((p) => ({ key: p.key, label: p.label, accent: p.accent, soft: p.soft })),
+  { key: "white", label: "Blanc", accent: "#8a8a8a", soft: "#ffffff" },
+];
+
+/** CSS variables of the product background (none for "theme": the soft colour is used). */
+export function productBgVars(key: string | undefined, dark: boolean): Record<string, string> {
+  const bg = PRODUCT_BACKGROUNDS.find((b) => b.key === key);
+  if (!bg) return {};
+  if (bg.key === "white") return dark ? { "--tile-from": "#211b1e", "--tile-to": "#2a2327" } : { "--tile-from": "#ffffff", "--tile-to": "#f6f3f4" };
+  return dark
+    ? { "--tile-from": mixHex(bg.accent, "#1a1015", 0.92), "--tile-to": mixHex(bg.accent, "#140c10", 0.78) }
+    : { "--tile-from": mixHex(bg.soft, "#ffffff", 0.45), "--tile-to": bg.soft };
 }
 
 /** Google Fonts stylesheet for a font preset (null = the self-hosted default). */

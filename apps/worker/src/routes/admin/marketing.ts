@@ -3,7 +3,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { cleanText, DEFAULT_DESIGN, HOME_SECTIONS, isHexColor, isSafeLink, slugify, type DesignDTO } from "@henine/shared";
+import { ANNOUNCEMENT_ANIMATIONS, cleanText, DEFAULT_DESIGN, HOME_SECTIONS, isHexColor, isSafeLink, slugify, type DesignDTO } from "@henine/shared";
 import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { mediaUrl, parseFlashConfig, reviewPhotos, variantLabels } from "../../lib/catalog";
@@ -160,12 +160,14 @@ marketingRoutes.put("/home", requirePermission("marketing.edit"), async (c) => {
   const input = await body(
     c,
     z.object({
-      announcement: z.object({ active: z.boolean() }),
-      checkout: z.object({
-        express_on_product: z.boolean(), desk_enabled: z.boolean(), free_shipping_over: z.number().int().min(0).nullable(),
-        max_orders_per_phone_per_hour: z.number().int().min(1).max(20),
-      }),
-      maintenance: z.object({ active: z.boolean() }),
+      announcement: z.object({ active: z.boolean().optional(), animation: z.enum(ANNOUNCEMENT_ANIMATIONS).optional() }),
+      checkout: z
+        .object({
+          express_on_product: z.boolean(), desk_enabled: z.boolean(), free_shipping_over: z.number().int().min(0).nullable(),
+          max_orders_per_phone_per_hour: z.number().int().min(1).max(20),
+        })
+        .optional(),
+      maintenance: z.object({ active: z.boolean() }).optional(),
     }),
   );
   const current = await getSettings(c.env, ["checkout", "announcement", "maintenance"]);
@@ -669,23 +671,27 @@ marketingRoutes.delete("/flash-sales/:id", requirePermission("promos.edit"), asy
 /* ───────────── Apparence: logo, colours, fonts, banners, home sections ───────────── */
 
 const mediaKey = z.string().trim().max(200).regex(/^design\/[a-z0-9_-]+\.(webp|jpg)$/i);
+const videoKey = z.string().trim().max(200).regex(/^design\/[a-z0-9_-]+\.(mp4|webm)$/i);
 const designInput = z.object({
   logo: mediaKey.nullable(),
   colors: z.object({ accent: z.string().refine(isHexColor, "color"), soft: z.string().refine(isHexColor, "color") }),
   font: z.enum(["classic", "elegant", "modern", "soft"]),
   heroImage: mediaKey.nullable(),
-  heroVideo: z.string().trim().max(200).regex(/^design\/[a-z0-9_-]+\.(mp4|webm)$/i).nullable().default(null),
+  productBg: z.string().trim().max(20).default("theme"),
+  heroVideo: videoKey.nullable().default(null),
   banners: z
     .array(
       z.object({
         id: z.string().trim().min(1).max(40),
-        image: mediaKey,
+        // a picture, a video, or both (the picture shows while the video loads)
+        image: mediaKey.or(z.literal("")),
+        video: videoKey.nullable().optional(),
         titleFr: cleanText(80).default(""),
         titleAr: cleanText(80).default(""),
         subtitleFr: cleanText(140).default(""),
         subtitleAr: cleanText(140).default(""),
         link: z.string().trim().max(300).refine((l) => l === "" || isSafeLink(l), "link"),
-      }),
+      }).refine((b) => !!b.image || !!b.video, "banner_media"),
     )
     .max(6),
   featured: z.object({ titleFr: cleanText(60), titleAr: cleanText(60), productIds: z.array(z.number().int().positive()).max(24) }),
@@ -703,10 +709,11 @@ marketingRoutes.put("/design", requirePermission("marketing.edit"), async (c) =>
   const input = (await body(c, designInput)) as DesignDTO;
   const before = (await getSetting(c.env, "design")) as Partial<DesignDTO>;
   await c.env.DB.batch([setSettingStmt(c.env, "design", input), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "design")]);
-  // a replaced or removed home video is deleted from storage (videos are heavy)
-  if (before.heroVideo && before.heroVideo !== input.heroVideo && /^design\//.test(before.heroVideo)) {
-    c.executionCtx.waitUntil(c.env.MEDIA.delete(before.heroVideo).catch(() => undefined));
-  }
+  // videos no longer used (replaced or removed) are deleted from storage: they are heavy
+  const videos = (d: Partial<DesignDTO>) => [d.heroVideo, ...(d.banners ?? []).map((b) => b.video)].filter((k): k is string => !!k && /^design\//.test(k));
+  const kept = new Set(videos(input));
+  const gone = videos(before).filter((k) => !kept.has(k));
+  if (gone.length) c.executionCtx.waitUntil(c.env.MEDIA.delete(gone).catch(() => undefined));
   return c.json(input);
 });
 

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { DEFAULT_DESIGN, themeVars, themeVarsDark } from "@henine/shared";
+import { DEFAULT_DESIGN, productBgVars, themeVars, themeVarsDark } from "@henine/shared";
 import { presetFontVars } from "@/lib/fontPresets";
 import { DESIGN_KEY as KEY } from "@/lib/boot";
 import { useDesign } from "@/lib/site";
@@ -15,6 +15,7 @@ export function ThemeStyle() {
   const design = useDesign();
   const { accent, soft } = design.colors;
   const font = design.font;
+  const productBg = design.productBg;
   useEffect(() => {
     const isDefault = accent.toLowerCase() === DEFAULT_DESIGN.colors.accent && soft.toLowerCase() === DEFAULT_DESIGN.colors.soft;
     const fonts = presetFontVars(font);
@@ -23,6 +24,14 @@ export function ThemeStyle() {
       const dark = rules(themeVarsDark({ accent, soft }));
       css +=
         `:root:root{${rules(themeVars({ accent, soft }))}}` +
+        `@media screen{:root:root[data-theme="dark"]{${dark}}@media (prefers-color-scheme: dark){:root:root:not([data-theme="light"]){${dark}}}}`;
+    }
+    // background behind product pictures (Apparence → Fond des produits)
+    const tile = productBgVars(productBg, false);
+    if (Object.keys(tile).length) {
+      const dark = rules(productBgVars(productBg, true));
+      css +=
+        `:root:root{${rules(tile)}}` +
         `@media screen{:root:root[data-theme="dark"]{${dark}}@media (prefers-color-scheme: dark){:root:root:not([data-theme="light"]){${dark}}}}`;
     }
     let style = document.getElementById("henine-theme");
@@ -40,6 +49,6 @@ export function ThemeStyle() {
     } catch {
       /* private mode */
     }
-  }, [accent, soft, font]);
+  }, [accent, soft, font, productBg]);
   return null;
 }

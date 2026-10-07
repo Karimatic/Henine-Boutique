@@ -295,6 +295,11 @@
   to { transform: translateX(50%); }
 }
 .announce-sparkle { animation: sparkle 2.4s ease-in-out infinite; display: inline-block; }
+/* one message at a time (Admin → Textes → animation of the banner) */
+.announce-fade { animation: announce-fade 0.6s ease-out both; }
+.announce-slide { animation: announce-slide 0.5s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes announce-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes announce-slide { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: none; } }
 @keyframes sparkle {
   0%, 100% { opacity: 0.55; transform: scale(0.85) rotate(0deg); }
   50% { opacity: 1; transform: scale(1.15) rotate(20deg); }
@@ -349,7 +354,7 @@
 .faq-item[open] .faq-plus { transform: rotate(45deg); background: var(--color-plum-600); color: #fff; }
 
 @media (prefers-reduced-motion: reduce) {
-  .announce, .announce-track, .announce-sparkle, .ig-card, .ig-btn::after, .hero-zoom-img, .story-ring, .toast-in { animation: none; }
+  .announce, .announce-track, .announce-sparkle, .announce-fade, .announce-slide, .ig-card, .ig-btn::after, .hero-zoom-img, .story-ring, .toast-in { animation: none; }
   .brand-mark { opacity: 1; transform: none; animation: none; color: var(--color-accent-text); background: none; }
   .story { opacity: 1; animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }

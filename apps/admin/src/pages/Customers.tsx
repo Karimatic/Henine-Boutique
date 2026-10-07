@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, patch, post, put } from "../api";
-import { ago, da, date, telLink, waLink } from "../lib/format";
+import { ago, da, date, ltr, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Sheet, Stat, StatusBadge, TextArea, TextField, Toggle, useToast } from "../ui";
@@ -430,16 +430,32 @@ export function LoyaltyPage() {
       </div>
       <Card title={tr("Règles du programme")}>
         <Toggle label={tr("Programme actif")} hint={tr("Les points sont crédités automatiquement quand une commande passe à « Livrée ».")} checked={s.enabled} onChange={(v) => setS({ ...s, enabled: v })} />
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <NumberField label={tr("Points gagnés par tranche de 100 DA")} value={s.points_per_100da} onChange={(v) => setS({ ...s, points_per_100da: v ?? 0 })} />
-          <NumberField label={tr("Valeur d'un point")} suffix={tr("DA")} value={s.redeem_value_da} onChange={(v) => setS({ ...s, redeem_value_da: v ?? 0 })} />
-          <NumberField label={tr("Minimum pour utiliser ses points")} suffix={tr("pts")} value={s.min_redeem} onChange={(v) => setS({ ...s, min_redeem: v ?? 0 })} />
-          <NumberField label={tr("Expiration")} suffix={tr("jours")} value={s.expiry_days} onChange={(v) => setS({ ...s, expiry_days: v ?? 0 })} />
+        <p className="mt-4 text-sm font-medium">{tr("Ce que la cliente récupère sur chaque commande livrée")}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {[2, 3, 5, 10].map((pct) => (
+            <button
+              key={pct}
+              type="button"
+              aria-pressed={pctBack === pct}
+              onClick={() => setS({ ...s, points_per_100da: 1, redeem_value_da: pct })}
+              className={`h-11 min-w-20 rounded-xl border px-4 text-sm font-semibold transition ${pctBack === pct ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface hover:border-plum-600/40"}`}
+            >
+              {ltr(`${pct} %`)}
+            </button>
+          ))}
         </div>
         <p className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-plum-700">
-          {tr("Exemple : une commande de 10 000 DA livrée rapporte")} <b>{Math.floor(10000 / 100) * s.points_per_100da} {tr("points")}</b>{tr(", soit")} {da(Math.floor(10000 / 100) * s.points_per_100da * s.redeem_value_da)} {tr("de réduction (")}{pctBack} {tr("% reversé).")}
+          {tr("Exemple : pour une commande de 10 000 DA livrée, la cliente gagne")} <b>{da(Math.floor(10000 / 100) * s.points_per_100da * s.redeem_value_da)}</b>{" "}
+          {tr("à déduire d'une prochaine commande, dès")} {da(s.min_redeem * s.redeem_value_da)} {tr("cumulés.")}
         </p>
-        <p className="mt-2 text-xs text-ink-soft">{tr("L'utilisation des points au paiement arrive dans une prochaine étape ; en attendant, appliquez-les manuellement (fiche cliente → points).")}</p>
+        <details className="mt-3 text-sm">
+          <summary className="cursor-pointer font-medium text-ink-soft">{tr("Réglages avancés")}</summary>
+          <div className="mt-3 grid gap-3 sm:grid-cols-3">
+            <NumberField label={tr("Points gagnés par tranche de 100 DA")} value={s.points_per_100da} onChange={(v) => setS({ ...s, points_per_100da: v ?? 0 })} />
+            <NumberField label={tr("Valeur d'un point")} suffix={tr("DA")} value={s.redeem_value_da} onChange={(v) => setS({ ...s, redeem_value_da: v ?? 0 })} />
+            <NumberField label={tr("Minimum pour utiliser ses points")} suffix={tr("pts")} value={s.min_redeem} onChange={(v) => setS({ ...s, min_redeem: v ?? 0 })} />
+          </div>
+        </details>
         <Button variant="primary" className="mt-3" loading={save.isPending} onClick={() => save.mutate()}>{tr("Enregistrer")}</Button>
       </Card>
       <Card title={tr("Meilleures clientes")}>

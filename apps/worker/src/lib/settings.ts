@@ -2,7 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings, type DuplicateSettings } from "@henine/shared";
+import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings, type DuplicateSettings, type AnnouncementAnimation } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -17,7 +17,7 @@ export interface Settings {
     /** Instagram follower count shown on the home page ("+89K"); hidden when empty. */
     followers: string | null;
   };
-  announcement: { active: boolean; messages_fr: string[]; messages_ar: string[] };
+  announcement: { active: boolean; messages_fr: string[]; messages_ar: string[]; /** how the messages move: see ANNOUNCEMENT_ANIMATIONS */ animation?: AnnouncementAnimation };
   hero: { eyebrow_fr: string; eyebrow_ar: string; title_fr: string; title_ar: string; subtitle_fr: string; subtitle_ar: string };
   checkout: {
     cod: boolean; express_on_product: boolean; require_turnstile: boolean; max_orders_per_phone_per_hour: number;

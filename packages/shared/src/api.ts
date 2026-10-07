@@ -204,9 +204,13 @@ export interface CollectionDTO extends DropTeaserDTO {
  * FAQ, opening hours…) are built into the storefront in both languages, so the visitor
  * always sees them in the language of the page.
  */
+/** How the top banner's messages move: scrolling (default), fading, sliding up, or still. */
+export const ANNOUNCEMENT_ANIMATIONS = ["scroll", "fade", "slide", "static"] as const;
+export type AnnouncementAnimation = (typeof ANNOUNCEMENT_ANIMATIONS)[number];
+
 export interface SiteConfigDTO {
   store: { name: string };
-  announcement: { active: boolean };
+  announcement: { active: boolean; animation: AnnouncementAnimation };
   contact: {
     phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null;
     /** Instagram follower count as the shop writes it ("+89K"); null = not shown */

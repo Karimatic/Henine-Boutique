@@ -95,7 +95,7 @@ export function ProductImage({
   const path = SILHOUETTES[artKey(category)] ?? SILHOUETTES.robes!;
   const fill = color ?? "#e8b4bc";
   return (
-    <div className={`${pos} overflow-hidden bg-gradient-to-b from-ivory-deep to-rose-100 ${className}`} role="img" aria-label={alt}>
+    <div className={`${pos} overflow-hidden bg-gradient-to-b from-[var(--tile-from,var(--color-ivory-deep))] to-[var(--tile-to,var(--color-rose-100))] ${className}`} role="img" aria-label={alt}>
       <svg viewBox="0 0 120 130" className="absolute inset-0 m-auto h-[78%] w-[78%]" aria-hidden="true">
         <path d={path} fill={fill} stroke="rgb(42 26 36 / .18)" strokeWidth="1.2" strokeLinejoin="round" />
         <path d={path} fill={`url(#${sheen})`} opacity=".35" />

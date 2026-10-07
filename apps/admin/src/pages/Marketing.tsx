@@ -353,6 +353,7 @@ export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overri
             <h3 className="text-sm font-semibold uppercase tracking-[0.1em] text-ink-soft">{tr("📣 Messages du bandeau")}</h3>
             {resetBtn("announcement")}
           </div>
+          <BannerAnimation />
           <ul className="space-y-2">
             {draft.announcement.map((m, i) => (
               <li key={i} className="flex gap-2">
@@ -1256,5 +1257,37 @@ function BroadcastCard({ subscribers, campaigns }: { subscribers: number; campai
         </ul>
       )}
     </Card>
+  );
+}
+
+/** How the top banner's messages move (both languages); saved at once. */
+function BannerAnimation() {
+  const q = useQuery({ queryKey: ["home"], queryFn: () => api<{ announcement: { active: boolean; animation?: string } }>("/home") });
+  const save = useSave((animation: string) => put("/home", { announcement: { animation } }), ["home"], tr("Animation du bandeau enregistrée ✓"));
+  const current = q.data?.announcement.animation ?? "scroll";
+  const OPTIONS: [string, string][] = [
+    ["scroll", tr("➡️ Défilement")],
+    ["fade", tr("✨ Fondu, une par une")],
+    ["slide", tr("⬆️ Glissement, une par une")],
+    ["static", tr("⏸ Fixe")],
+  ];
+  return (
+    <div className="mb-3">
+      <p className="mb-1.5 text-xs font-medium text-ink-soft">{tr("Animation")}</p>
+      <div className="flex flex-wrap gap-1.5">
+        {OPTIONS.map(([value, label]) => (
+          <button
+            key={value}
+            type="button"
+            aria-pressed={current === value}
+            disabled={!q.data || save.isPending}
+            onClick={() => save.mutate(value)}
+            className={`h-9 rounded-full border px-3.5 text-sm font-medium transition ${current === value ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface hover:border-plum-600/40"}`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }

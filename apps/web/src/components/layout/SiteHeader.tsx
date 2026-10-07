@@ -16,7 +16,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-ivory/90 backdrop-blur supports-[backdrop-filter]:bg-ivory/75">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-3 md:h-16 md:gap-3 md:px-4">
-        <div className="flex min-w-0 items-center">
+        <div className="flex min-w-0 items-center xl:shrink-0">
           <a href={href("/")} className="flex min-w-0 items-center gap-1.5 overflow-hidden" aria-label="Henine Boutique">
             {logo ? (
               // the shop's own logo (Admin → Page d'accueil → Apparence)
@@ -99,8 +99,8 @@ function TopNav({ inline = false }: { inline?: boolean }) {
                       : `bg-surface text-ink ring-1 ring-line hover:ring-plum-600/40 ${promo ? "text-rose-700" : ""}`
                 }`}
               >
-                {/* in the header line the words alone until there is room for the icons (French labels are long) */}
-                <Icon size={16} className={`${inline ? "hidden 2xl:block" : ""} ${on ? "text-white" : promo ? "text-rose-600" : "text-plum-600"}`} />
+                {/* in the header line the words alone: the header keeps its width on big screens, and the French labels are long */}
+                {!inline && <Icon size={16} className={on ? "text-white" : promo ? "text-rose-600" : "text-plum-600"} />}
                 {label}
               </a>
             </li>

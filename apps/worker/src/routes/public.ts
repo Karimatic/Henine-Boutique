@@ -79,7 +79,7 @@ publicRoutes.get("/site", (c) =>
     ]);
     const dto: SiteConfigDTO = {
       store: { name: s.store.name },
-      announcement: { active: s.announcement.active },
+      announcement: { active: s.announcement.active, animation: s.announcement.animation ?? "scroll" },
       contact: {
         phone: s.contact.phone, whatsapp: s.contact.whatsapp, instagram: s.contact.instagram, tiktok: s.contact.tiktok,
         facebook: s.contact.facebook, maps: s.contact.maps,

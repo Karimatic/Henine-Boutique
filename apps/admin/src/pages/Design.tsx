@@ -1,6 +1,7 @@
 import {
   COLOR_PRESETS,
   contrastRatio,
+  PRODUCT_BACKGROUNDS,
   DEFAULT_DESIGN,
   FONT_PRESETS,
   fontStylesheet,
@@ -222,6 +223,25 @@ export function DesignEditor() {
               <b style={{ color: d.colors.accent }}>2 500 DA</b>
             </span>
           </div>
+          <p className="mt-5 text-sm font-medium">{tr("Fond des produits")}</p>
+          <p className="mb-2 text-xs text-ink-soft">{tr("La couleur derrière les photos des produits.")}</p>
+          <div className="flex flex-wrap gap-2">
+            {[{ key: "theme", label: "Comme le thème", accent: d.colors.accent, soft: d.colors.soft }, ...PRODUCT_BACKGROUNDS].map((b) => {
+              const on = (d.productBg ?? "theme") === b.key;
+              return (
+                <button
+                  key={b.key}
+                  type="button"
+                  onClick={() => set({ productBg: b.key })}
+                  aria-pressed={on}
+                  className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium ${on ? "border-ink ring-2 ring-ink/10" : "border-line bg-surface"}`}
+                >
+                  <span className="size-6 rounded-lg border border-line" style={{ background: `linear-gradient(to bottom, #ffffff, ${b.soft})` }} aria-hidden="true" />
+                  {tr(b.label)}
+                </button>
+              );
+            })}
+          </div>
           {!colorOk && (
             <p className="mt-2 text-sm font-medium text-danger">
               {tr("Couleur principale trop claire : le texte blanc des boutons serait illisible (contraste {0}:1, il faut au moins 4.5:1). Choisissez une teinte plus foncée.", { 0: contrast.toFixed(1) })}
@@ -355,13 +375,17 @@ function BannersCard({ d, set, media }: { d: DesignDTO; set: (p: Partial<DesignD
   const [adding, setAdding] = useState(false);
   return (
     <Card title={tr("🏷️ Bannières")}>
-      <p className="mb-3 text-sm text-ink-soft">{tr("Grandes images cliquables sur l'accueil (promo, nouvelle collection…). 6 au maximum. Lien : une page de la boutique (/c/robes, /collection/ete) ou un lien https.")}</p>
+      <p className="mb-3 text-sm text-ink-soft">{tr("Grandes images ou vidéos cliquables sur l'accueil (promo, nouvelle collection…). 6 au maximum. Lien : une page de la boutique (/c/robes, /collection/ete) ou un lien https.")}</p>
       <ul className="space-y-3">
         {d.banners.map((b, i) => (
           <li key={b.id} className="rounded-xl border border-line p-3">
             <div className="flex flex-wrap gap-3">
               <div className="relative aspect-[16/9] w-44 shrink-0 overflow-hidden rounded-lg bg-ivory-deep">
-                {b.image && <img src={media(b.image) ?? ""} alt="" className="size-full object-cover" />}
+                {b.video ? (
+                  <video src={media(b.video) ?? ""} muted loop autoPlay playsInline className="size-full object-cover" />
+                ) : (
+                  b.image && <img src={media(b.image) ?? ""} alt="" className="size-full object-cover" />
+                )}
               </div>
               <div className="grid min-w-[14rem] flex-1 gap-2 sm:grid-cols-2">
                 <TextField label={tr("Titre (français)")} value={b.titleFr} onChange={(e) => update(i, { titleFr: e.target.value })} maxLength={80} />
@@ -383,29 +407,41 @@ function BannersCard({ d, set, media }: { d: DesignDTO; set: (p: Partial<DesignD
         ))}
       </ul>
       {d.banners.length < 6 && (
-        <label className="mt-3 inline-flex h-10 cursor-pointer items-center rounded-lg border border-dashed border-plum-600 px-4 text-sm font-semibold text-plum-700">
-          {adding ? tr("Envoi…") : tr("+ Ajouter une bannière (image)")}
-          <input
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            disabled={adding}
-            onChange={async (e) => {
-              const f = e.target.files?.[0];
-              e.target.value = "";
-              if (!f) return;
-              setAdding(true);
-              try {
-                const { key } = await uploadDesignImage(f);
-                set({ banners: [...d.banners, { id: Math.random().toString(36).slice(2, 10), image: key, titleFr: "", titleAr: "", subtitleFr: "", subtitleAr: "", link: "" }] });
-              } catch (err) {
-                toast(errorMessage(err), "error");
-              } finally {
-                setAdding(false);
-              }
-            }}
-          />
-        </label>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(["image", "video"] as const).map((kind) => (
+            <label key={kind} className={`inline-flex h-10 cursor-pointer items-center rounded-lg border border-dashed border-plum-600 px-4 text-sm font-semibold text-plum-700 ${adding ? "pointer-events-none opacity-60" : ""}`}>
+              {adding ? tr("Envoi…") : kind === "image" ? tr("+ Bannière photo") : tr("+ Bannière vidéo")}
+              <input
+                type="file"
+                accept={kind === "image" ? "image/*" : "video/mp4,video/webm,video/quicktime"}
+                className="sr-only"
+                disabled={adding}
+                onChange={async (e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!f) return;
+                  if (kind === "video" && f.size > 40_000_000) return toast(tr("Vidéo trop lourde (40 Mo max). Raccourcissez-la ou baissez la qualité."), "error");
+                  setAdding(true);
+                  try {
+                    let image = "";
+                    let video: string | null = null;
+                    if (kind === "image") image = (await uploadDesignImage(f)).key;
+                    else {
+                      const form = new FormData();
+                      form.append("video", f);
+                      video = (await upload<{ key: string }>("/design/video", form)).key;
+                    }
+                    set({ banners: [...d.banners, { id: Math.random().toString(36).slice(2, 10), image, video, titleFr: "", titleAr: "", subtitleFr: "", subtitleAr: "", link: "" }] });
+                  } catch (err) {
+                    toast(errorMessage(err), "error");
+                  } finally {
+                    setAdding(false);
+                  }
+                }}
+              />
+            </label>
+          ))}
+        </div>
       )}
     </Card>
   );

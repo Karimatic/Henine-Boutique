@@ -77,7 +77,7 @@ export function designOut(env: Env, d: Partial<DesignDTO>): DesignDTO {
     logo: url(d.logo),
     heroImage: url(d.heroImage),
     heroVideo: url(d.heroVideo),
-    banners: (d.banners ?? []).filter((b) => b.image).map((b) => ({ ...b, image: url(b.image)! })),
+    banners: (d.banners ?? []).filter((b) => b.image || b.video).map((b) => ({ ...b, image: url(b.image) ?? "", video: url(b.video) })),
     sections: resolveSections(d.sections),
   };
 }

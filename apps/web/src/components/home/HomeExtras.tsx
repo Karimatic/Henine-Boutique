@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { LoopVideo } from "@/components/ui/LoopVideo";
 import type { FlashInfoDTO, ProductCardDTO } from "@henine/shared";
 import { ProductGrid } from "@/components/product/ProductCard";
 import { InstagramIcon } from "@/components/ui/icons";
@@ -102,7 +103,8 @@ export function Banners() {
                   {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
                   className="group relative block aspect-[16/9] overflow-hidden rounded-[1.5rem] bg-noir md:aspect-[2/1]"
                 >
-                  <img src={b.image} alt={title} loading="lazy" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105" />
+                  {b.image && <img src={b.image} alt={title} loading="lazy" className="absolute inset-0 size-full object-cover transition duration-700 group-hover:scale-105" />}
+                  {b.video && <LoopVideo src={b.video} still={!b.image} />}
                   {(title || subtitle) && (
                     <>
                       <span aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-noir/80 via-noir/20 to-transparent" />
