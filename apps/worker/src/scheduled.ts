@@ -1,4 +1,5 @@
 import { formatDA } from "@henine/shared";
+import { expirePoints } from "./lib/loyalty";
 import type { Env } from "./env";
 import { recordError } from "./lib/audit";
 import { scanAlerts } from "./lib/alerts";
@@ -30,6 +31,7 @@ export async function scheduled(controller: ScheduledController, env: Env, ctx: 
     case "0 20 * * *":
       run("daily_report", dailyReport(env));
       run("purge", purgeExpired(env));
+      run("points_expiry", expirePoints(env));
       break;
   }
 }

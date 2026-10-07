@@ -210,7 +210,7 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
               {q.data.ledger.length > 0 && (
                 <ul className="mt-3 space-y-1 text-sm">
                   {q.data.ledger.map((l) => (
-                    <li key={l.id} className="flex justify-between"><span>{l.note ?? l.reason} · <span className="text-ink-soft">{date(l.created_at)}</span></span><b className={l.delta < 0 ? "text-red-700" : "text-emerald-700"}>{l.delta > 0 ? "+" : ""}{l.delta}</b></li>
+                    <li key={l.id} className="flex justify-between"><span>{tr(LEDGER_LABEL[l.reason] ?? l.reason)}{l.note ? ` · ${l.note}` : ""} · <span className="text-ink-soft">{date(l.created_at)}</span></span><b className={l.delta < 0 ? "text-red-700" : "text-emerald-700"}>{l.delta > 0 ? "+" : ""}{l.delta}</b></li>
                   ))}
                 </ul>
               )}
@@ -401,6 +401,17 @@ interface LoyaltySettings {
   expiry_days: number;
 }
 
+/** Lines of a customer's points history. */
+const LEDGER_LABEL: Record<string, string> = {
+  order: "🛍️ Commande livrée",
+  redeem: "🎁 Points utilisés",
+  manual: "✏️ Ajustement",
+  expiry: "⌛ Points expirés",
+  reversal: "↩️ Commande annulée",
+  referral: "👭 Parrainage",
+  birthday: "🎂 Anniversaire",
+};
+
 export function LoyaltyPage() {
   const qc = useQueryClient();
   const toast = useToast();
@@ -447,6 +458,33 @@ export function LoyaltyPage() {
         <p className="mt-3 rounded-xl bg-rose-100 p-3 text-sm text-plum-700">
           {tr("Exemple : pour une commande de 10 000 DA livrée, la cliente gagne")} <b>{da(Math.floor(10000 / 100) * s.points_per_100da * s.redeem_value_da)}</b>{" "}
           {tr("à déduire d'une prochaine commande, dès")} {da(s.min_redeem * s.redeem_value_da)} {tr("cumulés.")}
+        </p>
+        <p className="mt-4 text-sm font-medium">{tr("Validité des points")}</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {(
+            [
+              [90, tr("3 mois")],
+              [180, tr("6 mois")],
+              [365, tr("1 an")],
+              [730, tr("2 ans")],
+              [0, tr("Jamais")],
+            ] as [number, string][]
+          ).map(([days, label]) => (
+            <button
+              key={days}
+              type="button"
+              aria-pressed={s.expiry_days === days}
+              onClick={() => setS({ ...s, expiry_days: days })}
+              className={`h-11 min-w-20 rounded-xl border px-4 text-sm font-semibold transition ${s.expiry_days === days ? "border-plum-600 bg-plum-600 text-white" : "border-line bg-surface hover:border-plum-600/40"}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <p className="mt-1.5 text-xs text-ink-soft">
+          {s.expiry_days > 0
+            ? tr("Les points gagnés il y a plus longtemps et pas encore utilisés disparaissent chaque soir (les plus anciens d'abord). C'est noté dans l'historique de la cliente.")
+            : tr("Les points restent valables sans limite.")}
         </p>
         <details className="mt-3 text-sm">
           <summary className="cursor-pointer font-medium text-ink-soft">{tr("Réglages avancés")}</summary>
