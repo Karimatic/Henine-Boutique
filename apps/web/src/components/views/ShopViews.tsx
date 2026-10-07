@@ -147,6 +147,7 @@ export function CheckoutView() {
   if (!items.length) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
+        <h1 className="sr-only">{t.checkout.title}</h1>
         <p className="text-ink-soft">{t.cart.empty}</p>
         <a href={href("/")} className="mt-5 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-white">{t.cart.continue}</a>
       </div>

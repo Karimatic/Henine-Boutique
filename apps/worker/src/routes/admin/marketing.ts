@@ -8,7 +8,7 @@ import type { AppEnv } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { mediaUrl, parseFlashConfig, reviewPhotos, variantLabels } from "../../lib/catalog";
 import { body, HttpError, intParam } from "../../lib/http";
-import { putImage } from "../../lib/media";
+import { putImage, putVideo } from "../../lib/media";
 import { bumpCatalogStmt, getSetting, getSettings, setSettingStmt } from "../../lib/settings";
 import { sendCampaignBatch } from "../../lib/webpush";
 import { translate } from "./translate";
@@ -674,6 +674,7 @@ const designInput = z.object({
   colors: z.object({ accent: z.string().refine(isHexColor, "color"), soft: z.string().refine(isHexColor, "color") }),
   font: z.enum(["classic", "elegant", "modern", "soft"]),
   heroImage: mediaKey.nullable(),
+  heroVideo: z.string().trim().max(200).regex(/^design\/[a-z0-9_-]+\.(mp4|webm)$/i).nullable().default(null),
   banners: z
     .array(
       z.object({
@@ -700,8 +701,22 @@ marketingRoutes.get("/design", requirePermission("marketing.edit"), async (c) =>
 
 marketingRoutes.put("/design", requirePermission("marketing.edit"), async (c) => {
   const input = (await body(c, designInput)) as DesignDTO;
+  const before = (await getSetting(c.env, "design")) as Partial<DesignDTO>;
   await c.env.DB.batch([setSettingStmt(c.env, "design", input), bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "design")]);
+  // a replaced or removed home video is deleted from storage (videos are heavy)
+  if (before.heroVideo && before.heroVideo !== input.heroVideo && /^design\//.test(before.heroVideo)) {
+    c.executionCtx.waitUntil(c.env.MEDIA.delete(before.heroVideo).catch(() => undefined));
+  }
   return c.json(input);
+});
+
+/** The big home page video (MP4 / WebM, ≤ 40 MB): stored now, used once the design is saved. */
+marketingRoutes.post("/design/video", requirePermission("marketing.edit"), async (c) => {
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("video");
+  if (!file || typeof file === "string") throw new HttpError(400, "video_required");
+  const key = await putVideo(c.env, "design/video", file);
+  return c.json({ key, url: mediaUrl(c.env, key) }, 201);
 });
 
 /** Logo / hero / banner picture (WebP or JPEG made in the browser). */

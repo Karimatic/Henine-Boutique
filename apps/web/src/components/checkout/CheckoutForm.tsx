@@ -210,19 +210,22 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
       </p>
     );
   const invalid = (k: string) => (fieldErrors[k] ? "border-danger focus:border-danger" : "");
+  // screen readers hear which field is wrong and why
+  const describe = (k: string) => (fieldErrors[k] ? { "aria-invalid": true as const, "aria-describedby": `f-${k}-error` } : {});
 
   return (
     <form onSubmit={submit} noValidate className={compact ? "space-y-4" : "grid gap-8 pb-20 md:pb-0 lg:grid-cols-[1fr_22rem]"}>
       <div className="space-y-4">
         <div>
           {label(L.name, "name")}
-          <input id="f-name" className={`${inputCls} ${invalid("name")}`} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
+          <input id="f-name" {...describe("name")} className={`${inputCls} ${invalid("name")}`} autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} />
           {err("name")}
         </div>
         <div>
           {label(L.phone, "phone", <span className="text-xs font-normal text-ink-soft">{L.phoneHint}</span>)}
           <input
             id="f-phone"
+            {...describe("phone")}
             className={`${inputCls} ${invalid("phone")}`}
             type="tel"
             inputMode="tel"
@@ -317,7 +320,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         {deliveryType === "domicile" && (
           <div>
             {label(L.address, "address")}
-            <input id="f-address" className={`${inputCls} ${invalid("address")}`} autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} />
+            <input id="f-address" {...describe("address")} className={`${inputCls} ${invalid("address")}`} autoComplete="street-address" value={address} onChange={(e) => setAddress(e.target.value)} maxLength={200} />
             {err("address")}
           </div>
         )}

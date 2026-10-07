@@ -88,6 +88,7 @@ export function Picker<V extends string | number>({
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-describedby={invalid ? `${id}-error` : undefined}
+        aria-invalid={invalid || undefined}
         onClick={() => setOpen(true)}
         className={`${inputCls} flex items-center justify-between gap-2 text-start disabled:cursor-not-allowed disabled:opacity-60 ${invalid ? "border-danger focus:border-danger" : ""}`}
       >

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { buzz } from "@/lib/haptics";
 import { dateLocale, formatDA, normalizeDzPhone, type ImageRef, type ProductCardDTO, type ProductDetailDTO, type SiteConfigDTO } from "@henine/shared";
 import { FlashPanel } from "@/components/home/HomeExtras";
 import { CheckoutForm } from "@/components/checkout/CheckoutForm";
@@ -30,7 +31,7 @@ export function ProductView() {
   if (error?.status === 404 || slug === "_") {
     return (
       <div className="mx-auto max-w-md px-4 py-20 text-center">
-        <p className="text-lg">{t.product.notFound}</p>
+        <h1 className="text-lg">{t.product.notFound}</h1>
         <a href={href("/")} className="mt-6 inline-flex h-12 items-center rounded-full bg-plum-600 px-6 font-semibold text-white">
           {t.notFound.cta}
         </a>
@@ -120,7 +121,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   function requireVariant(): boolean {
     if (variant) return true;
     setNudge(true);
-    navigator.vibrate?.([20, 40, 20]);
+    buzz([20, 40, 20]);
     document.getElementById("variant-options")?.scrollIntoView({ behavior: "smooth", block: "center" });
     return false;
   }
@@ -148,7 +149,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
       color: colorHex ?? null,
     });
     setAdded(true);
-    navigator.vibrate?.(10);
+    buzz(10);
     setTimeout(() => setAdded(false), 2200);
   }
 

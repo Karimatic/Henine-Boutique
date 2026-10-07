@@ -20,6 +20,53 @@ import { ProductPicker } from "../lib/pickers";
 import { Button, Card, ErrorState, inputCls, ListSkeleton, TextArea, TextField, useToast } from "../ui";
 
 /** Picture made in the browser (WebP, ≤ 1440 px), then stored; returns its key. */
+/** The big home page video: MP4 / WebM straight from the phone, 40 MB at most. */
+function VideoBox({ url, onUploaded, onRemove }: { url: string | null; onUploaded: (key: string) => void; onRemove: () => void }) {
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="md:col-span-2">
+      <p className="text-sm font-medium">{tr("🎬 Grande vidéo de l'accueil")}</p>
+      <p className="mb-2 text-xs text-ink-soft">
+        {tr("Joue en boucle, sans le son, à la place de la grande photo (qui reste affichée pendant le chargement). MP4, 40 Mo au plus ; une vidéo courte (10 à 30 s) se charge plus vite.")}
+      </p>
+      {url && <video src={url} muted loop autoPlay playsInline className="mb-2 max-h-56 w-full rounded-xl bg-black object-cover" />}
+      <div className="flex flex-wrap gap-2">
+        <label className={`inline-flex h-10 cursor-pointer items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-white ${busy ? "pointer-events-none opacity-60" : ""}`}>
+          {busy ? tr("Envoi de la vidéo…") : url ? tr("Changer la vidéo") : tr("Choisir une vidéo")}
+          <input
+            type="file"
+            accept="video/mp4,video/webm,video/quicktime"
+            className="sr-only"
+            onChange={async (e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (!file) return;
+              if (file.size > 40_000_000) return toast(tr("Vidéo trop lourde (40 Mo max). Raccourcissez-la ou baissez la qualité."), "error");
+              setBusy(true);
+              try {
+                const form = new FormData();
+                form.append("video", file);
+                onUploaded((await upload<{ key: string }>("/design/video", form)).key);
+                toast(tr("Vidéo prête : touchez « Enregistrer l'apparence » pour la mettre en ligne."));
+              } catch (err) {
+                toast(errorMessage(err), "error");
+              } finally {
+                setBusy(false);
+              }
+            }}
+          />
+        </label>
+        {url && (
+          <Button variant="danger" onClick={onRemove}>
+            {tr("Retirer la vidéo")}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 async function uploadDesignImage(file: File): Promise<{ key: string; url: string }> {
   const img = await processImage(file);
   const widths = Object.keys(img.files).map(Number).sort((a, b) => b - a);
@@ -135,6 +182,7 @@ export function DesignEditor() {
             onRemove={() => set({ heroImage: null })}
             wide
           />
+          <VideoBox url={media(d.heroVideo ?? null)} onUploaded={(key) => set({ heroVideo: key })} onRemove={() => set({ heroVideo: null })} />
         </div>
 
         <div className="mt-6">

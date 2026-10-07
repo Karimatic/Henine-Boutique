@@ -2,7 +2,7 @@ import { Hono, type Context } from "hono";
 import { formatDA, imageUrl, isSafeLink, type ImageRef } from "@henine/shared";
 import type { AppEnv } from "./env";
 import { recordError } from "./lib/audit";
-import { getCollection, getProductDetail } from "./lib/catalog";
+import { getCollection, getProductDetail, listCategories } from "./lib/catalog";
 import { cached } from "./lib/edge-cache";
 import { metaFeedCsv, productJsonLd, robotsTxt, sitemapXml } from "./lib/seo";
 import { getSettings } from "./lib/settings";
@@ -61,7 +61,7 @@ app.get("/media/*", async (c) => {
   const key = decodeURIComponent(new URL(c.req.url).pathname.slice("/media/".length));
   // receipts and other private files: only through the admin API
   if (key.startsWith("private/")) return c.notFound();
-  // product videos: streamed with byte ranges (phones seek and buffer, Safari requires it)
+  // the home video: streamed with byte ranges (phones seek and buffer, Safari requires it)
   if (/^[a-z0-9/_-]+\.(mp4|webm)$/i.test(key)) {
     const range = c.req.header("Range");
     const obj = await c.env.MEDIA.get(key, range ? { range: c.req.raw.headers } : undefined);
@@ -194,13 +194,6 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
   if (direct.status !== 404 || slug === "_") return direct;
   const res = await c.env.ASSETS.fetch(new Request(new URL(`${prefix}/${section}/_`, url), { headers: c.req.raw.headers }));
   if (!res.ok) return new Response(res.body, res);
-  if (section !== "produit" && section !== "collection") {
-    // categories and info pages: their own canonical (the shell is shared by every slug)
-    return new HTMLRewriter()
-      .on('link[rel="canonical"], link[rel="alternate"][hreflang]', { element: (el) => void el.remove() })
-      .on("head", { element: (el) => void el.append(linkTags(c, url.pathname), { html: true }) })
-      .transform(new Response(res.body, res));
-  }
 
   // The finished page is kept at the edge: one product query per version of the catalogue and
   // of the page itself (a deploy changes the shell's ETag), instead of one per visit.
@@ -211,7 +204,10 @@ async function shell(c: Context<AppEnv>, prefix: string, section: string, slug: 
   return cached(new Request(key), c.executionCtx, 300, () => previewPage(c, res, prefix, section, slug, url));
 }
 
-/** Product / collection page: the shell with the item's title, link previews and structured data. */
+/**
+ * Product, collection, category or info page: the shell with its own title, description, link
+ * previews and canonical (one shell serves every slug), or a 404 when the slug doesn't exist.
+ */
 async function previewPage(c: Context<AppEnv>, res: Response, prefix: string, section: string, slug: string, url: URL): Promise<Response> {
   const ar = prefix === ""; // Arabic is served at the root, French under /fr
   let meta: PreviewMeta | null = null;
@@ -230,6 +226,35 @@ async function previewPage(c: Context<AppEnv>, res: Response, prefix: string, se
         image: product.images[0] ?? null,
         imageAlt: name,
         price: product.price,
+      };
+    }
+  } else if (section === "c") {
+    const cat = (await listCategories(c.env).catch(() => [])).find((x) => x.slug === slug);
+    if (cat) {
+      const name = ar ? cat.nameAr : cat.nameFr;
+      meta = {
+        title: `${name} · Henine Boutique`,
+        description: ar
+          ? `${name} من Henine Boutique: التوصيل إلى 69 ولاية والدفع عند الاستلام.`
+          : `${name} chez Henine Boutique : livraison dans les 69 wilayas, paiement à la livraison.`,
+        type: "website",
+        image: null,
+        imageAlt: name,
+      };
+    }
+  } else if (section === "p") {
+    const page = await c.env.DB.prepare("SELECT title_fr, title_ar, body_fr, body_ar FROM pages WHERE slug = ? AND is_active = 1")
+      .bind(slug)
+      .first<{ title_fr: string; title_ar: string; body_fr: string; body_ar: string }>()
+      .catch(() => null);
+    if (page) {
+      const name = ar ? page.title_ar : page.title_fr;
+      meta = {
+        title: `${name} · Henine Boutique`,
+        description: (ar ? page.body_ar : page.body_fr).replace(/[*#[\]()\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 180) || name,
+        type: "website",
+        image: null,
+        imageAlt: name,
       };
     }
   } else {

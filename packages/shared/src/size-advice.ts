@@ -1,7 +1,8 @@
 /**
- * "Quelle taille choisir ?": a size suggestion from the customer's measurements, read
- * against the product's own size chart (Admin → size guides). Without a chart or
- * measurements, an estimate from height and weight. Rules only, explained in words.
+ * "Quelle taille choisir ?": a size suggestion read against the product's own size chart
+ * (Admin → size guides): by weight and height when the chart has those columns, otherwise by
+ * body measurements. Without a chart, an estimate from height and weight. Rules only, explained
+ * in words.
  */
 
 export interface SizeAdviceInput {
@@ -73,8 +74,54 @@ export function recommendSize(input: SizeAdviceInput): SizeAdvice | null {
   if (!sizes.length) return null;
   const fit = input.fit ?? "regular";
 
-  // 1) measurements against the product's chart
   const guide = input.guide;
+
+  // 0) a chart by weight (and height): the weight gives the size, the height the one to try too
+  if (guide) {
+    const wCol = guide.headers.findIndex((hd, i) => i > 0 && /poids|weight|وزن/i.test(hd));
+    const hCol = guide.headers.findIndex((hd, i) => i > 0 && /hauteur|height|طول/i.test(hd));
+    const w = input.weight ?? 0;
+    const h = input.height ?? 0;
+    const rows = guide.rows.filter((r) => sizes.some((s) => norm(s) === norm(r[0] ?? "")));
+    if (wCol > 0 && w >= 30 && w <= 200 && rows.length) {
+      let idx = rows.findIndex((r) => {
+        const range = parseRange(r[wCol]);
+        return range != null && w <= range[1];
+      });
+      const beyond = idx < 0;
+      if (beyond) idx = rows.length - 1;
+      const range = parseRange(rows[idx]![wCol]);
+      const r = range ? (range[0] === range[1] ? `${range[0]}` : `${range[0]}-${range[1]}`) : "";
+      const size = rows[idx]![0]!;
+      const reasons: SizeAdvice["reasons"] = [
+        beyond
+          ? { fr: `Votre poids (${w} kg) dépasse le tableau : ${size} est la plus grande taille.`, ar: `وزنك (${w} كغ) أكبر من الجدول: ${size} هو أكبر مقاس.` }
+          : { fr: `Votre poids (${w} kg) correspond au ${size} (${r} kg).`, ar: `وزنك (${w} كغ) يوافق المقاس ${size} (${r} كغ).` },
+      ];
+      let pick = idx;
+      let alt: number | null = null;
+      if (hCol > 0 && h >= 130 && h <= 210) {
+        const hr = parseRange(rows[idx]![hCol]);
+        if (hr && h > hr[1] && idx + 1 < rows.length) {
+          alt = idx + 1;
+          reasons.push({ fr: `Vous êtes grande (${h} cm) : la taille au-dessus peut aussi vous aller.`, ar: `أنتِ طويلة (${h} سم): المقاس الأكبر قد يناسبك أيضًا.` });
+        } else if (hr && h < hr[0] && idx > 0) {
+          alt = idx - 1;
+          reasons.push({ fr: `Vous êtes petite (${h} cm) : la taille en dessous peut aussi vous aller.`, ar: `أنتِ قصيرة (${h} سم): المقاس الأصغر قد يناسبك أيضًا.` });
+        }
+      }
+      if (fit === "loose" && pick + 1 < rows.length) {
+        pick++;
+        reasons.push({ fr: "Vous aimez porter ample : on monte d'une taille.", ar: "تحبين اللباس الواسع: نزيد مقاسًا واحدًا." });
+      } else if (fit === "fitted" && pick > 0) {
+        pick--;
+        reasons.push({ fr: "Vous aimez porter ajusté : on descend d'une taille.", ar: "تحبين اللباس الضيق: ننقص مقاسًا واحدًا." });
+      }
+      return { size: rows[pick]![0]!, reasons, method: "height_weight", alternative: alt != null && alt !== pick ? rows[alt]![0]! : null };
+    }
+  }
+
+  // 1) measurements against the product's chart
   const given = (Object.keys(MEASURE_HEADERS) as Measure[]).filter((m) => (input[m] ?? 0) > 30);
   if (guide && given.length) {
     const cols = new Map<Measure, number>();

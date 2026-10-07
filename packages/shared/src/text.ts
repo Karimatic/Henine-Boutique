@@ -40,7 +40,7 @@ export type Block =
   | { t: "p"; content: Inline[] }
   | { t: "ul"; items: Inline[][] };
 
-const SAFE_HREF = /^(https?:\/\/|\/|mailto:|tel:)/i;
+const SAFE_HREF = /^(https?:\/\/|\/(?![/\\])|mailto:|tel:)/i; // "/page", never "//other-site"
 
 export function parseInline(src: string): Inline[] {
   const out: Inline[] = [];

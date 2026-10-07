@@ -97,6 +97,7 @@ export function SearchView() {
           autoFocus
           type="search"
           enterKeyHint="search"
+          aria-label={t.search.title}
           className={`${inputCls} h-13 ps-12 text-[16px]`}
           placeholder={t.search.placeholder}
           value={q}

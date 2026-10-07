@@ -132,7 +132,7 @@ export function Stories({ categories, products }: { categories: CategoryDTO[] | 
                 <span className="line-clamp-2 text-[13px] font-semibold leading-snug">{s.label}</span>
                 {s.count != null && (
                   <span className="text-[11px] text-ink-soft">
-                    <span dir="ltr">{s.count}</span> {t.categories.products}
+                    {t.categories.products(s.count)}
                   </span>
                 )}
               </span>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { buzz } from "@/lib/haptics";
 import { createPortal } from "react-dom";
 import type { ProductCardDTO, ProductDetailDTO } from "@henine/shared";
 import { Price, ProductImage, Spinner } from "@/components/ui/kit";
@@ -86,7 +87,7 @@ function QuickAddSheet({ slug, onClose }: { slug: string; onClose: () => void })
       optionsFr: label("fr"), optionsAr: label("ar"), price: variant.price, image,
       color: colorOption?.values.find((v) => v.id === colorId)?.hex ?? p.colors[0] ?? null,
     });
-    navigator.vibrate?.(10);
+    buzz(10);
     setAdded(true);
   }
 

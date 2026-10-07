@@ -666,9 +666,9 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
   const addCol = () => setG({ ...g, headersFr: [...g.headersFr, ""], headersAr: [...g.headersAr, ""], rows: g.rows.map((r) => [...r, ""]) });
   const removeCol = (i: number) =>
     setG({ ...g, headersFr: g.headersFr.filter((_, k) => k !== i), headersAr: g.headersAr.filter((_, k) => k !== i), rows: g.rows.map((r) => r.filter((_, k) => k !== i)) });
-  const cellCls = `${inputCls} h-9 w-full min-w-20 px-2 text-center text-sm`;
-  // column titles ("Tour de poitrine (cm)") are long: their column is wide enough to read them whole
-  const headCls = (text: string) => `${cellCls} ${text.length > 8 ? "min-w-[11.5rem]" : "min-w-24"}`;
+  // the columns share the sheet's width: no sideways scrolling
+  const cellCls = `${inputCls} h-9 w-full min-w-0 px-2 text-center text-sm`;
+  const headCls = (text: string) => `${cellCls} ${text.length > 14 ? "text-xs" : ""}`;
   return (
     <Sheet
       open
@@ -694,8 +694,8 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
         <TextField label={tr("Nom du guide (pour vous)")} placeholder={tr("ex : Lingerie, Robes, Chaussures")} value={g.name} onChange={(e) => setG({ ...g, name: e.target.value })} />
         <div>
           <p className="mb-2 text-sm font-medium">{tr("Tableau des mesures")}</p>
-          <div className="overflow-x-auto rounded-xl border border-line">
-            <table className="text-sm">
+          <div className="rounded-xl border border-line">
+            <table className="w-full table-fixed text-sm">
               <thead className="bg-ivory-deep/60">
                 <tr>
                   {g.headersFr.map((h, i) => (
@@ -709,11 +709,11 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
                       )}
                     </th>
                   ))}
-                  <th className="p-1.5 align-top">
-                    {cols < 8 && (
-                      <Button size="sm" onClick={addCol}>
-                        {tr("+ colonne")}
-                      </Button>
+                  <th className="w-12 p-1.5 align-top">
+                    {cols < 6 && (
+                      <button type="button" onClick={addCol} title={tr("+ colonne")} aria-label={tr("+ colonne")} className="grid size-9 place-items-center rounded-lg border border-line bg-surface text-lg font-semibold hover:border-plum-600">
+                        +
+                      </button>
                     )}
                   </th>
                 </tr>

@@ -20,7 +20,7 @@ export function CategoryCard({ c, sample, wide = false }: { c: CategoryDTO; samp
         <div className="min-w-0">
           <p className="heading-display text-lg leading-snug md:text-2xl">{ar ? c.nameAr : c.nameFr}</p>
           <p className="text-xs text-ink-soft">
-            <span dir="ltr">{c.productCount ?? 0}</span> {t.categories.products}
+            {t.categories.products(c.productCount ?? 0)}
           </p>
         </div>
         <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-full bg-ink text-on-ink transition group-hover:bg-plum-600 rtl:rotate-180">

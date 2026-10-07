@@ -23,8 +23,9 @@ export function SiteHeader() {
               <img src={logo} alt="Henine Boutique" className="h-9 w-auto max-w-[11rem] object-contain md:h-11" />
             ) : (
               <>
-                <Blossom size={22} className="animate-bloom shrink-0" />
-                <span className="brand-mark heading-display whitespace-nowrap text-[1.08rem] italic leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
+                {/* the smallest phones (< 360 px): no flower and a slightly smaller name, so it is never cut */}
+                <Blossom size={22} className="animate-bloom shrink-0 max-[359px]:hidden" />
+                <span className="brand-mark heading-display whitespace-nowrap text-[1.08rem] italic max-[359px]:text-[0.94rem] leading-none tracking-wide min-[400px]:text-xl sm:text-2xl" dir="ltr">
                   Henine Boutique
                 </span>
               </>

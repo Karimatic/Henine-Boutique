@@ -96,3 +96,13 @@ describe("parseMarkdown", () => {
     expect(content).toContainEqual({ t: "a", v: "ok", href: "https://henine.dz" });
   });
 });
+
+describe("markdown links stay on safe targets", () => {
+  it("drops protocol-relative links", async () => {
+    const { parseInline } = await import("./text");
+    expect(parseInline("[a](/boutique)")).toEqual([{ t: "a", v: "a", href: "/boutique" }]);
+    expect(parseInline("[a](//evil.example)")).toEqual([{ t: "text", v: "a" }]);
+    expect(parseInline("[a](/\\evil.example)")).toEqual([{ t: "text", v: "a" }]);
+    expect(parseInline("[a](javascript:x)")).toEqual([{ t: "text", v: "a" }]);
+  });
+});

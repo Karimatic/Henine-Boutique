@@ -53,3 +53,15 @@ describe("boutique status (Algiers time)", () => {
     expect(boutiqueStatus(h, thu).next).toMatchObject({ day: 6 });
   });
 });
+
+describe("size advice from a height / weight chart", () => {
+  it("reads the weight, suggests the next size for a tall customer", async () => {
+    const { recommendSize, SIZE_GUIDE_TEMPLATE: g } = await import("./index");
+    const guide = { headers: g.headersFr, rows: g.rows };
+    const sizes = ["S", "M", "L", "XL", "XXL"];
+    expect(recommendSize({ sizes, guide, weight: 57, height: 160 })).toMatchObject({ size: "M", alternative: null, method: "height_weight" });
+    expect(recommendSize({ sizes, guide, weight: 57, height: 172 })).toMatchObject({ size: "M", alternative: "L" });
+    expect(recommendSize({ sizes, guide, weight: 120, height: 165 })).toMatchObject({ size: "XXL" });
+    expect(recommendSize({ sizes, guide: { headers: g.headersAr, rows: g.rows }, weight: 50, height: 155 })).toMatchObject({ size: "S" });
+  });
+});

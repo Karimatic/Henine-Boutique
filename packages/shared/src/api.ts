@@ -144,17 +144,18 @@ export interface SizeGuideDTO {
 
 /** Starting point offered in the admin (usual Algerian / EU women's sizes, to adjust). */
 export const SIZE_GUIDE_TEMPLATE: Omit<SizeGuideDTO, "tipsFr" | "tipsAr"> & { tipsFr: string; tipsAr: string } = {
-  headersFr: ["Taille", "Tour de poitrine (cm)", "Tour de taille (cm)", "Tour de hanches (cm)"],
-  headersAr: ["المقاس", "محيط الصدر (سم)", "محيط الخصر (سم)", "محيط الورك (سم)"],
+  // by height and weight: simple to know, nothing to measure on the body
+  headersFr: ["Taille", "Hauteur (cm)", "Poids (kg)"],
+  headersAr: ["المقاس", "الطول (سم)", "الوزن (كغ)"],
   rows: [
-    ["S", "84-88", "64-68", "90-94"],
-    ["M", "88-92", "68-72", "94-98"],
-    ["L", "92-98", "72-78", "98-104"],
-    ["XL", "98-104", "78-84", "104-110"],
-    ["XXL", "104-110", "84-90", "110-116"],
+    ["S", "150-160", "45-53"],
+    ["M", "155-165", "53-61"],
+    ["L", "158-168", "61-70"],
+    ["XL", "160-172", "70-80"],
+    ["XXL", "162-175", "80-92"],
   ],
-  tipsFr: "Mesurez-vous en sous-vêtements, ruban bien à plat. Entre deux tailles ? Prenez la plus grande, ou écrivez-nous sur WhatsApp.",
-  tipsAr: "خذي قياساتك بالملابس الداخلية مع شريط مستقيم. بين مقاسين؟ اختاري الأكبر، أو راسلينا على واتساب.",
+  tipsFr: "Choisissez selon votre hauteur et votre poids. Entre deux tailles ? Prenez la plus grande, ou écrivez-nous sur WhatsApp.",
+  tipsAr: "اختاري حسب طولك ووزنك. بين مقاسين؟ اختاري الأكبر، أو راسلينا على واتساب.",
 };
 
 export interface ProductDetailDTO extends ProductCardDTO {

@@ -34,7 +34,7 @@ export const ar: Dictionary = {
   quickAdd: { open: "إضافة سريعة", add: "أضيفي إلى السلة", added: "تمت الإضافة ✓", viewCart: "عرض السلة", details: "عرض المنتج" },
   freeShip: { left: (amount: string) => `بقي ${amount} للحصول على توصيل مجاني`, done: "رائع، التوصيل مجاني 🎉" },
   categories: {
-    title: "عالمنا", all: "كل الأقسام", products: "منتج", empty: "لا توجد منتجات في هذا القسم حاليا.",
+    title: "عالمنا", all: "كل الأقسام", products: (n: number) => arCount(n, { one: "منتج واحد", two: "منتجان", few: "منتجات", many: "منتجًا", other: "منتج" }), empty: "لا توجد منتجات في هذا القسم حاليا.",
     everything: "الكل", summer: "☀️ صيفي", winter: "❄️ شتوي", inSeason: "موسمي",
     filters: { price: "السعر", any: "كل الأسعار", under: (n: string) => `أقل من ${n}`, between: (a: string, b: string) => `${a} – ${b}`, over: (n: string) => `أكثر من ${n}`, onSale: "تخفيضات", reset: "مسح الفلاتر" },
   },

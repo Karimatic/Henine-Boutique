@@ -93,7 +93,8 @@ export function SizeAdvisorButton({
             {field("height", S.height)}
             {field("weight", S.weight)}
           </div>
-          {guide && (
+          {/* body measurements only when the product's chart is made of them (not a height / weight chart) */}
+          {guide && guide.headersFr.some((h) => /poitrine|bust|tour de taille|waist|hanche|hip/i.test(h)) && (
             <>
               <div className="mt-3 grid grid-cols-3 gap-2">
                 {field("bust", S.bust)}

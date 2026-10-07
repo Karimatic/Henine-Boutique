@@ -81,6 +81,8 @@ export interface DesignDTO {
   font: FontPreset;
   /** media URL of the home page photo, null = the built-in one */
   heroImage: string | null;
+  /** media URL of the big home page video (plays over the photo, muted, in a loop), null = none */
+  heroVideo: string | null;
   banners: BannerDTO[];
   featured: { titleFr: string; titleAr: string; productIds: number[] };
   footerFr: string;
@@ -93,6 +95,7 @@ export const DEFAULT_DESIGN: DesignDTO = {
   colors: { accent: "#8e1048", soft: "#fbe4ec" },
   font: "classic",
   heroImage: null,
+  heroVideo: null,
   banners: [],
   featured: { titleFr: "Notre sélection", titleAr: "اختياراتنا لكِ", productIds: [] },
   footerFr: "",

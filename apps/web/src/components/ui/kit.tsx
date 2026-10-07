@@ -1,4 +1,5 @@
 import { formatDA, imageSrcSet, imageUrl, type ImageRef, artKey } from "@henine/shared";
+import { useId } from "react";
 import { useLocale } from "@/lib/locale";
 
 export function Price({ value, compareAt, className = "" }: { value: number; compareAt?: number | null; className?: string }) {
@@ -69,6 +70,8 @@ export function ProductImage({
   priority?: boolean;
   className?: string;
 }) {
+  // one gradient id per placeholder (the same id twice on a page is invalid and may not paint)
+  const sheen = `sheen${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
   // callers may position the frame themselves ("absolute inset-0"); otherwise it is the positioning context
   const pos = className.split(/\s+/).some((c) => c === "absolute" || c === "fixed") ? "" : "relative";
   if (image) {
@@ -95,9 +98,9 @@ export function ProductImage({
     <div className={`${pos} overflow-hidden bg-gradient-to-b from-ivory-deep to-rose-100 ${className}`} role="img" aria-label={alt}>
       <svg viewBox="0 0 120 130" className="absolute inset-0 m-auto h-[78%] w-[78%]" aria-hidden="true">
         <path d={path} fill={fill} stroke="rgb(42 26 36 / .18)" strokeWidth="1.2" strokeLinejoin="round" />
-        <path d={path} fill="url(#sheen)" opacity=".35" />
+        <path d={path} fill={`url(#${sheen})`} opacity=".35" />
         <defs>
-          <linearGradient id="sheen" x1="0" x2="1" y1="0" y2="1">
+          <linearGradient id={sheen} x1="0" x2="1" y1="0" y2="1">
             <stop offset="0" stopColor="#fff" />
             <stop offset=".5" stopColor="#fff" stopOpacity="0" />
           </linearGradient>

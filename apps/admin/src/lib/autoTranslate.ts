@@ -1,9 +1,9 @@
 /**
- * French ↔ Arabic everywhere: when a field labelled "… (français)" / "(FR)" is left with new
- * text, its twin "… (arabe)" / "(AR)" next to it is filled with the translation, and the other
- * way round. A twin is only filled when it is empty, or still holds the previous automatic
- * translation (what the owner typed herself is never replaced). Works on every form of the
- * admin without touching them: fields are matched by their labels.
+ * French ↔ Arabic everywhere: the Arabic always follows the French. When a field labelled
+ * "… (français)" / "(FR)" is left with new text, its twin "… (arabe)" / "(AR)" is rewritten with
+ * the translation. The other way round, Arabic typed first fills the French twin only when it is
+ * empty or still holds an automatic translation (French typed by hand is never replaced).
+ * Works on every form of the admin without touching them: fields are matched by their labels.
  */
 import { post } from "../api";
 
@@ -68,8 +68,8 @@ export function installAutoTranslate(onDone: (lang: "fr" | "ar") => void, onFail
     const twin = twinOf(el, me);
     if (!twin || twin.disabled || twin.readOnly) return;
     const before = twin.value;
-    // never replace what she typed herself
-    if (before.trim() && autoValue.get(twin) !== before) return;
+    // the Arabic follows the French; French typed by hand is never replaced from the Arabic
+    if (me.lang === "ar" && before.trim() && autoValue.get(twin) !== before) return;
     const to = me.lang === "fr" ? "ar" : "fr";
     const placeholder = twin.placeholder;
     twin.placeholder = to === "ar" ? "✨ ترجمة…" : "✨ Traduction…";

@@ -32,7 +32,7 @@ export const fr = {
   quickAdd: { open: "Ajout rapide", add: "Ajouter au panier", added: "Ajouté ✓", viewCart: "Voir le panier", details: "Voir la fiche" },
   freeShip: { left: (amount: string) => `Plus que ${amount} pour la livraison offerte`, done: "Bravo, la livraison est offerte 🎉" },
   categories: {
-    title: "Nos univers", all: "Toutes les catégories", products: "articles", empty: "Aucun article dans cette catégorie pour le moment.",
+    title: "Nos univers", all: "Toutes les catégories", products: (n: number) => `${n} article${n > 1 ? "s" : ""}`, empty: "Aucun article dans cette catégorie pour le moment.",
     everything: "Tout", summer: "☀️ Été", winter: "❄️ Hiver", inSeason: "de saison",
     filters: { price: "Prix", any: "Tous les prix", under: (n: string) => `Moins de ${n}`, between: (a: string, b: string) => `${a} – ${b}`, over: (n: string) => `Plus de ${n}`, onSale: "En promo", reset: "Effacer les filtres" },
   },

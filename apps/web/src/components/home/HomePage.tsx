@@ -1,4 +1,4 @@
-import { Fragment, type ReactNode } from "react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
 import type { CategoryDTO, HomeSectionKey, ProductCardDTO } from "@henine/shared";
 import { ProductGrid, ProductGridSkeleton } from "@/components/product/ProductCard";
 import { ErrorBox } from "@/components/ui/kit";
@@ -48,6 +48,7 @@ export function HomePage() {
       <section className="px-3 pt-3 md:px-4">
         <div className="relative mx-auto flex min-h-[58svh] max-w-6xl flex-col items-center justify-end overflow-hidden rounded-[1.75rem] bg-noir text-center md:min-h-[34rem] md:justify-center md:rounded-[2.25rem]">
           <img src={design.heroImage ?? "/ig/pyjamas-rayures.jpg"} alt="" fetchPriority="high" className="hero-zoom-img absolute inset-0 size-full object-cover" />
+          {design.heroVideo && <HeroVideo src={design.heroVideo} />}
           <div aria-hidden="true" className="absolute inset-0 bg-gradient-to-t from-noir/95 via-noir/45 to-noir/10 md:bg-noir/45" />
           <div className="relative flex w-full max-w-2xl flex-col items-center p-6 pb-8 text-white md:p-12">
             <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-white/25 bg-white/10 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.16em] backdrop-blur">
@@ -122,5 +123,36 @@ export function HomePage() {
           <Fragment key={s.key}>{blocks[s.key]?.()}</Fragment>
         ))}
     </>
+  );
+}
+
+/**
+ * The big home video (Admin → Page d'accueil): over the photo, muted, in a loop. Not played for
+ * visitors who reduce motion or save data: they keep the photo, which also shows while it loads.
+ */
+function HeroVideo({ src }: { src: string }) {
+  const [play, setPlay] = useState(false);
+  useEffect(() => {
+    const saveData = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData;
+    setPlay(!matchMedia("(prefers-reduced-motion: reduce)").matches && !saveData);
+  }, []);
+  if (!play) return null;
+  return (
+    <video
+      src={src}
+      autoPlay
+      loop
+      playsInline
+      preload="auto"
+      aria-hidden="true"
+      className="absolute inset-0 size-full object-cover"
+      // phones only autoplay a video that is muted before it starts
+      ref={(v) => {
+        if (v && !v.muted) {
+          v.muted = true;
+          void v.play().catch(() => undefined);
+        }
+      }}
+    />
   );
 }
