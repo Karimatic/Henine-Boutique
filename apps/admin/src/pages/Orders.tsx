@@ -2,7 +2,7 @@ import {
   formatDzPhone,
   OUTCOME_REASON_LABEL,
   OUTCOME_REASONS,
-  canTransition,
+  statusPath,
   type CustomerSegment,
   type OrderStatus,
   type OutcomeReason,
@@ -35,6 +35,7 @@ import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
 import { tr } from "../i18n";
 import { FailedDeliveryButton } from "./Logistics";
+import { SubNav } from "../lib/subnav";
 
 interface OrderRow {
   id: number;
@@ -152,6 +153,7 @@ export function OrdersPage() {
           </a>
         }
       />
+      <SubNav of="orders" />
       {attention ? (
         <div className="mb-3 flex items-center justify-between gap-3 rounded-xl bg-plum-600 px-4 py-3 text-sm text-white">
           <span>{tr("Filtre :")} <b>{tr(ATTENTION_LABEL[attention])}</b></span>
@@ -238,19 +240,17 @@ export function OrdersPage() {
 const LEFT_SHOP = ["expediee", "en_livraison", "livree", "retour"] as const;
 
 /** The same steps as in one order (except "Expédiée": a tracking number per parcel). */
-const BULK: { to: OrderStatus; label: string; perm: "orders.confirm" | "orders.ship"; variant: "primary" | "secondary" | "danger"; reason?: boolean }[] = [
-  { to: "confirmee", label: tr("✅ Confirmer"), perm: "orders.confirm", variant: "primary" },
-  { to: "injoignable", label: tr("📵 Injoignable"), perm: "orders.confirm", variant: "secondary" },
-  { to: "en_preparation", label: tr("📦 En préparation"), perm: "orders.ship", variant: "secondary" },
-  { to: "en_livraison", label: tr("🛵 En livraison"), perm: "orders.ship", variant: "secondary" },
-  { to: "livree", label: tr("🎉 Livrées"), perm: "orders.ship", variant: "secondary" },
-  { to: "retour", label: tr("↩️ Retour"), perm: "orders.ship", variant: "danger", reason: true },
-  { to: "retour_recu", label: tr("📥 Retour reçu"), perm: "orders.ship", variant: "secondary" },
-  { to: "nouvelle", label: tr("Rouvrir"), perm: "orders.confirm", variant: "secondary" },
-  { to: "annulee", label: tr("Annuler"), perm: "orders.confirm", variant: "danger", reason: true },
-  { to: "doublon", label: tr("Doublon"), perm: "orders.confirm", variant: "danger" },
-  { to: "fausse", label: tr("Fausse commande"), perm: "orders.confirm", variant: "danger" },
+/** The bottom bar moves the selected orders to any tab (each step in between is done for them). */
+const BULK: { tab: string; to: OrderStatus; reason?: boolean }[] = [
+  { tab: "a_confirmer", to: "nouvelle" },
+  { tab: "confirmee", to: "confirmee" },
+  { tab: "en_preparation", to: "en_preparation" },
+  { tab: "en_cours", to: "expediee" },
+  { tab: "termine", to: "livree" },
+  { tab: "annule", to: "annulee", reason: true },
+  { tab: "retours", to: "retour", reason: true },
 ];
+const stepPermission = (to: OrderStatus) => (["confirmee", "injoignable", "annulee", "doublon", "fausse"].includes(to) ? "orders.confirm" : "orders.ship");
 
 /**
  * Bottom bar shown while orders are ticked: only the steps that at least one of them can
@@ -270,9 +270,9 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
   };
   const run = useMutation({
     mutationFn: (v: { to: OrderStatus; reason?: OutcomeReason }) =>
-      post<{ done: string[]; failed: { id: number; error: string }[] }>("/orders/bulk-status", { ids: chosen.filter((r) => canTransition(r.status, v.to)).map((r) => r.id), ...v }),
+      post<{ done: string[]; failed: { id: number; error: string }[] }>("/orders/bulk-status", { ids: chosen.filter((r) => reachable(r.status, v.to)).map((r) => r.id), ...v }),
     onSuccess: (r, v) => {
-      toast(tr("{0} commande(s) : {1}{2}", { 0: r.done.length, 1: statusLabel(v.to), 2: r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : "" }), r.failed.length ? "error" : undefined);
+      toast(tr("{0} commande(s) : {1}{2}", { 0: r.done.length, 1: tabLabel(v.to), 2: r.failed.length ? ` · ${r.failed.length} non modifiée(s) (statut déjà changé ou stock insuffisant)` : "" }), r.failed.length ? "error" : undefined);
       setAskReason(null);
       done();
     },
@@ -286,7 +286,13 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
     },
     onError: (e) => toast(errorMessage(e), "error"),
   });
-  const actions = BULK.filter((b) => can(b.perm)).map((b) => ({ ...b, n: chosen.filter((r) => canTransition(r.status, b.to)).length })).filter((b) => b.n > 0);
+  // an order can go to a tab when the steps to get there exist and this account may do each of them
+  const reachable = (from: OrderStatus, to: OrderStatus) => {
+    const path = statusPath(from, to);
+    return !!path?.length && path.every((step) => can(stepPermission(step)));
+  };
+  const tabLabel = (to: OrderStatus) => TABS.find((t) => t.value === BULK.find((b) => b.to === to)?.tab)?.label ?? statusLabel(to);
+  const actions = BULK.map((b) => ({ ...b, label: tabLabel(b.to), n: chosen.filter((r) => reachable(r.status, b.to)).length }));
   const reasons = askReason
     ? OUTCOME_REASONS.filter((r) => r !== "duplicate" && (askReason === "retour" ? r !== "size_issue" && r !== "product_issue" : !["too_small", "too_large", "defect"].includes(r)))
     : [];
@@ -295,7 +301,7 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
       <div className="mx-auto max-w-6xl space-y-2 px-1 md:px-8">
         {askReason && (
           <div className="flex flex-wrap items-center gap-1.5 rounded-lg bg-ivory-deep p-2 text-sm">
-            <span className="me-1 font-semibold">{tr("{0} : pour quelle raison ?", { 0: BULK.find((b) => b.to === askReason)?.label ?? "" })}</span>
+            <span className="me-1 font-semibold">{tr("{0} : pour quelle raison ?", { 0: tabLabel(askReason) })}</span>
             {reasons.map((r) => (
               <Button key={r} size="sm" loading={run.isPending && run.variables?.reason === r} onClick={() => run.mutate({ to: askReason, reason: r })}>
                 {tr(OUTCOME_REASON_LABEL[r])}
@@ -309,20 +315,22 @@ function BulkBar({ ids, rows, onDone }: { ids: number[]; rows: OrderRow[]; onDon
             <b>{ids.length}</b> {tr("sélectionnée(s)")}
             <button type="button" onClick={onDone} className="ms-2 text-ink-soft underline">{tr("annuler")}</button>
           </p>
-          {actions.length === 0 && <span className="shrink-0 text-xs text-ink-soft">{tr("Aucune étape possible pour cette sélection")}</span>}
-          {actions.map((b) => (
-            <Button
-              key={b.to}
-              size="sm"
-              className="shrink-0"
-              variant={b.variant}
-              loading={run.isPending && run.variables?.to === b.to && !b.reason}
-              title={b.n < ids.length ? tr("{0} sur {1} peuvent passer à ce statut", { 0: b.n, 1: ids.length }) : undefined}
-              onClick={() => (b.reason ? setAskReason(b.to) : confirm(tr("{0} : {1} commande(s) ?", { 0: b.label, 1: b.n })) && run.mutate({ to: b.to }))}
-            >
-              {b.label}{b.n < ids.length ? ` (${b.n})` : ""}
-            </Button>
-          ))}
+          <span className="shrink-0 text-xs font-semibold text-ink-soft">{tr("Déplacer vers :")}</span>
+          <div className="flex shrink-0 gap-1 rounded-lg bg-ivory-deep/70 p-1">
+            {actions.map((b) => (
+              <button
+                key={b.to}
+                type="button"
+                disabled={b.n === 0 || run.isPending}
+                title={b.n === 0 ? tr("Impossible pour cette sélection") : b.n < ids.length ? tr("{0} sur {1} peuvent passer à ce statut", { 0: b.n, 1: ids.length }) : undefined}
+                onClick={() => (b.reason ? setAskReason(b.to) : confirm(tr("{0} : {1} commande(s) ?", { 0: b.label, 1: b.n })) && run.mutate({ to: b.to }))}
+                className="h-8 shrink-0 rounded-md px-3 text-sm font-medium text-ink transition hover:bg-surface hover:text-plum-700 disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {run.isPending && run.variables?.to === b.to ? "…" : b.label}
+                {b.n > 0 && b.n < ids.length ? ` (${b.n})` : ""}
+              </button>
+            ))}
+          </div>
           <Link to="/bordereaux" search={{ ids: ids.join(",") }} className="inline-flex h-8 shrink-0 items-center rounded-lg border border-line bg-surface px-3 text-sm font-semibold">
             {tr("🖨 Bordereaux")}
           </Link>

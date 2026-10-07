@@ -382,7 +382,7 @@ export const ar: Dictionary = {
       popular: "اكتشفي أيضًا",
       askAssistant: "✨ اسألي المساعدة",
     },
-    gallery: { open: "تكبير الصورة", close: "إغلاق", zoom: "اضغطي مرتين للتكبير", video: "فيديو", prev: "الصورة السابقة", next: "الصورة التالية" },
+    gallery: { open: "تكبير الصورة", close: "إغلاق", zoom: "اضغطي مرتين للتكبير", prev: "الصورة السابقة", next: "الصورة التالية" },
     delivery: {
       title: "موعد التوصيل المتوقع",
       choose: "اختاري ولايتك",

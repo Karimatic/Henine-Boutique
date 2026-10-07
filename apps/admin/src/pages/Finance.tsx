@@ -23,6 +23,7 @@ import { usePeriod } from "../lib/period";
 import { ProfitSection } from "./Insights";
 import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, confirmAction, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Sheet, Stat, TextArea, TextField, Toggle, useToast } from "../ui";
+import { SubNav } from "../lib/subnav";
 
 /* ───────────── Types (as the API returns them) ───────────── */
 
@@ -85,6 +86,7 @@ export function FinancePage() {
         title={tr("Finance")}
         subtitle={tr("Ce que la boutique gagne vraiment : l'argent que le livreur doit, ce qu'il a versé, les dépenses et le bénéfice net.")}
       />
+      <SubNav of="analysis" />
       <div className="-mx-4 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0" role="tablist" aria-label={tr("Finance")}>
         <div className="flex w-max gap-1">
           {tabs.map((t) => (

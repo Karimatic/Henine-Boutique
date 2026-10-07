@@ -272,7 +272,6 @@ export function IntegrationsSection() {
         </div>
       </Card>
 
-      <InstagramCard />
 
       <Card title={tr("✉️ Emails (codes de connexion, invitations)")}>
         <p className="text-sm">
@@ -311,61 +310,6 @@ export function IntegrationsSection() {
         <p className="text-sm">{q.data.turnstile.testKeys ? tr("Clés de test (développement). Créez un widget Turnstile gratuit avant la mise en ligne.") : tr("Clés de production actives ✓")}</p>
       </Card>
     </>
-  );
-}
-
-/** Instagram: one-time connection, then "📸 Depuis Instagram" in the product editor. */
-function InstagramCard() {
-  const toast = useToast();
-  const qc = useQueryClient();
-  const q = useQuery({ queryKey: ["instagram-status"], queryFn: () => api<{ connected: boolean; username: string | null; refreshedAt: number | null }>("/integrations/instagram") });
-  const [token, setToken] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function connect() {
-    setBusy(true);
-    try {
-      const r = await post<{ username: string; mediaCount: number | null }>("/integrations/instagram", { token });
-      toast(tr("Instagram connecté ✓ @{0}{1}", { 0: r.username, 1: r.mediaCount != null ? ` · ${r.mediaCount} publications` : "" }));
-      setToken("");
-      void qc.invalidateQueries({ queryKey: ["instagram-status"] });
-      void qc.invalidateQueries({ queryKey: ["instagram-media"] });
-    } catch (e) {
-      toast(errorMessage(e), "error");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Card title={tr("📸 Instagram : photos des produits depuis vos publications")}>
-      {q.data?.connected ? (
-        <div className="space-y-3">
-          <p className="rounded-xl bg-emerald-50 p-3 text-sm">
-            {tr("✅ Connecté à")} <b>@{q.data.username}</b>{tr(". Dans une fiche produit, « 📸 Depuis Instagram » affiche vos publications : cochez les photos, elles sont ajoutées en pleine qualité. La connexion se renouvelle toute seule.")}
-          </p>
-          <Button size="sm" variant="danger" onClick={() => confirm(tr("Déconnecter Instagram ?")) && del("/integrations/instagram").then(() => qc.invalidateQueries({ queryKey: ["instagram-status"] }))}>
-            {tr("Déconnecter")}
-          </Button>
-        </div>
-      ) : (
-        <>
-          <p className="mb-2 text-sm text-ink-soft">{tr("Gratuit, à faire une seule fois (10 minutes) :")}</p>
-          <ol className="mb-4 list-decimal space-y-1.5 ps-5 text-sm text-ink-soft">
-            <li>{tr("Sur Instagram, le compte de la boutique doit être un")} <b>{tr("compte professionnel")}</b> {tr("(Paramètres → Type de compte → Passer à un compte professionnel).")}</li>
-            <li>
-              {tr("Sur")} <b>{tr("developers.facebook.com")}</b> {tr("→ « Mes apps » → « Créer une app » (type")} <i>{tr("Entreprise")}</i>{tr(") → ajoutez le produit")} <b>{tr("Instagram")}</b> {tr("→ « Configuration de l'API avec la connexion Instagram ».")}
-            </li>
-            <li>{tr("Dans « Générer des jetons d'accès », ajoutez le compte de la boutique puis cliquez sur « Générer le jeton ».")}</li>
-            <li>{tr("Copiez le jeton et collez-le ici.")}</li>
-          </ol>
-          <div className="flex gap-2">
-            <input className={inputCls} placeholder={tr("IGAA…")} value={token} onChange={(e) => setToken(e.target.value.trim())} aria-label={tr("Jeton Instagram")} autoComplete="off" />
-            <Button variant="primary" loading={busy} disabled={token.length < 40} onClick={connect}>
-              {tr("Connecter")}
-            </Button>
-          </div>
-        </>
-      )}
-    </Card>
   );
 }
 

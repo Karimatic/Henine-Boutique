@@ -3,7 +3,6 @@ import type { AppEnv } from "../../env";
 import { requireAdmin } from "../../middleware/access";
 import { catalogRoutes } from "./catalog";
 import { insightRoutes } from "./insights";
-import { instagramRoutes } from "./instagram";
 import { marketingRoutes } from "./marketing";
 import { operationRoutes } from "./operations";
 import { orderRoutes } from "./orders";
@@ -13,6 +12,7 @@ import { stockCountRoutes } from "./stock-counts";
 import { duplicateRoutes } from "./duplicates";
 import { logisticsRoutes } from "./logistics";
 import { systemRoutes } from "./system";
+import { translateRoutes } from "./translate";
 
 export const adminRoutes = new Hono<AppEnv>();
 
@@ -22,10 +22,10 @@ adminRoutes.route("/", catalogRoutes);
 adminRoutes.route("/", operationRoutes);
 adminRoutes.route("/", orderRoutes);
 adminRoutes.route("/", marketingRoutes);
-adminRoutes.route("/", instagramRoutes);
 adminRoutes.route("/", insightRoutes);
 adminRoutes.route("/", searchRoutes);
 adminRoutes.route("/", financeRoutes);
 adminRoutes.route("/", stockCountRoutes);
 adminRoutes.route("/", duplicateRoutes);
 adminRoutes.route("/", logisticsRoutes);
+adminRoutes.route("/", translateRoutes);

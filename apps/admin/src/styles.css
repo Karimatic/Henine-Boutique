@@ -378,3 +378,12 @@ html[lang="ar"] body {
     box-shadow: 0 0 0 0 transparent;
   }
 }
+
+/* a field just filled by the automatic French ↔ Arabic translation */
+.auto-translated {
+  animation: auto-translated 1.6s ease-out;
+}
+@keyframes auto-translated {
+  0% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-plum-600) 45%, transparent); }
+  100% { box-shadow: 0 0 0 3px transparent; }
+}

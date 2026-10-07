@@ -1,11 +1,10 @@
-import { normalizeDzPhone } from "@henine/shared";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useSearch } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { api, errorMessage, post } from "../api";
+import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { api } from "../api";
 import { CHANNEL_LABEL, da, date } from "../lib/format";
 import { useCan } from "../Shell";
-import { Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, Select, Sheet, Stat, StatusBadge, TextField, useToast } from "../ui";
+import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, StatusBadge } from "../ui";
+import { SaleDesk } from "./Cashier";
 import { tr } from "../i18n";
 
 interface SalesData {
@@ -16,13 +15,12 @@ interface SalesData {
   recentManual: { id: number; public_code: string; channel: string; name: string; total: number; status: string; created_at: number }[];
 }
 
+/** Ventes: record a sale (shop, phone, WhatsApp, Instagram), and see how sales are going. */
 export function SalesPage() {
   const can = useCan();
   const [days, setDays] = useState("30");
-  // "Vente manuelle" shortcut on the dashboard opens the form directly
-  const search = useSearch({ strict: false }) as { nouvelle?: string | number };
-  const [open, setOpen] = useState(() => search.nouvelle != null);
-  const q = useQuery({ queryKey: ["sales", days], queryFn: () => api<SalesData>(`/sales?days=${days}`) });
+  const [view, setView] = useState<"new" | "results">(() => (can("sales.create") ? "new" : "results"));
+  const q = useQuery({ queryKey: ["sales", days], queryFn: () => api<SalesData>(`/sales?days=${days}`), enabled: view === "results" });
   const d = q.data;
   const margin = d && d.byProduct.every((p) => p.cost != null) ? d.byProduct.reduce((s, p) => s + p.revenue - (p.cost ?? 0), 0) : null;
   return (
@@ -30,9 +28,13 @@ export function SalesPage() {
       <PageHeader
         group={tr("Catalogue")}
         title={tr("Ventes")}
-        subtitle={tr("Performance par produit, par canal, et commandes reçues sur Instagram, WhatsApp ou par téléphone.")}
-        actions={can("sales.create") && <Button variant="primary" onClick={() => setOpen(true)}>{tr("+ Vente manuelle")}</Button>}
+        subtitle={tr("Les ventes faites au magasin, par téléphone, WhatsApp ou Instagram, et leurs résultats.")}
       />
+      {can("sales.create") && (
+        <Pills value={view} onChange={setView} options={[{ value: "new", label: tr("🧾 Nouvelle vente") }, { value: "results", label: tr("📊 Résultats") }]} />
+      )}
+      {view === "new" ? <SaleDesk /> : (
+      <>
       <Pills value={days} onChange={setDays} options={[{ value: "7", label: tr("7 jours") }, { value: "30", label: tr("30 jours") }, { value: "90", label: tr("90 jours") }, { value: "365", label: tr("1 an") }]} />
       {q.error ? (
         <ErrorState error={q.error} onRetry={q.refetch} />
@@ -93,129 +95,8 @@ export function SalesPage() {
           </Card>
         </div>
       )}
-      {open && <ManualSale onClose={() => setOpen(false)} />}
+      </>
+      )}
     </div>
-  );
-}
-
-interface VariantOption {
-  id: number;
-  label: string;
-  price: number;
-  available: number;
-}
-
-function ManualSale({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient();
-  const toast = useToast();
-  const stock = useQuery({ queryKey: ["stock", "all", ""], queryFn: () => api<{ rows: { id: number; name_fr: string; options: string; price: number; stock_on_hand: number; stock_reserved: number }[] }>("/stock?filter=all") });
-  const variants: VariantOption[] = useMemo(
-    () => (stock.data?.rows ?? []).map((r) => ({ id: r.id, label: `${r.name_fr} · ${r.options}`, price: r.price, available: r.stock_on_hand - r.stock_reserved })),
-    [stock.data],
-  );
-  // in-store sales are made in the Caisse; here: orders received by message or phone
-  const [channel, setChannel] = useState<"instagram" | "whatsapp" | "telephone">("instagram");
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [lines, setLines] = useState<{ variantId: number; qty: number }[]>([]);
-  const [pick, setPick] = useState("");
-  const [wilaya, setWilaya] = useState(35);
-  const [deliveryType, setDeliveryType] = useState<"domicile" | "bureau">("domicile");
-  const [address, setAddress] = useState("");
-  const [shipping, setShipping] = useState<number | null>(null);
-  const wilayas = useQuery({ queryKey: ["wilayas-public"], queryFn: () => fetch("/api/geo/wilayas").then((r) => r.json() as Promise<{ code: number; fr: string; home: number | null; desk: number | null }[]>) });
-  const subtotal = lines.reduce((s, l) => s + (variants.find((v) => v.id === l.variantId)?.price ?? 0) * l.qty, 0);
-  const w = wilayas.data?.find((x) => x.code === wilaya);
-  const ship = shipping ?? (deliveryType === "bureau" ? w?.desk : w?.home) ?? 0;
-
-  const save = useMutation({
-    mutationFn: () =>
-      post("/sales/manual", {
-        channel,
-        name: name.trim() || undefined,
-        phone: phone.trim() ? phone : undefined,
-        lines,
-        status: "confirmee",
-        wilaya,
-        communeId: null,
-        deliveryType,
-        address: deliveryType === "domicile" ? address : undefined,
-        shipping: ship,
-      }),
-    onSuccess: () => {
-      toast(tr("Commande créée (confirmée) ✓"));
-      void qc.invalidateQueries();
-      onClose();
-    },
-    onError: (e) => toast(errorMessage(e), "error"),
-  });
-
-  const contactOk = name.trim().length >= 2 && !!normalizeDzPhone(phone);
-  const valid = contactOk && lines.length > 0 && (deliveryType === "bureau" || address.trim().length >= 4);
-
-  return (
-    <Sheet
-      open
-      onClose={onClose}
-      title={tr("Vente manuelle")}
-      footer={
-        <div className="flex items-center justify-between gap-3">
-          <span className="text-sm">{tr("Total :")} <b>{da(subtotal + ship)}</b></span>
-          <Button variant="primary" disabled={!valid} loading={save.isPending} onClick={() => save.mutate()}>{tr("Enregistrer")}</Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <Pills value={channel} onChange={setChannel} options={(["instagram", "whatsapp", "telephone"] as const).map((c) => ({ value: c, label: tr(CHANNEL_LABEL[c])! }))} />
-        <p className="text-xs text-ink-soft">
-          {tr("Commande reçue par message/téléphone : créée « confirmée » et suivie comme les commandes du site.")} {tr("Vente au magasin :")}{" "}
-          <a href="/admin/caisse" className="font-semibold text-plum-600">{tr("Caisse")}</a>
-        </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField label={tr("Nom de la cliente")} value={name} onChange={(e) => setName(e.target.value)} />
-          <TextField label={tr("Téléphone")} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} error={phone && !normalizeDzPhone(phone) ? "Numéro invalide" : null} />
-        </div>
-        <Card title={tr("Articles")}>
-          <div className="flex gap-2">
-            <select className={inputCls} value={pick} onChange={(e) => setPick(e.target.value)} aria-label={tr("Choisir un article")}>
-              <option value="">{tr("Choisir un article…")}</option>
-              {variants.map((v) => (
-                <option key={v.id} value={v.id} disabled={v.available <= 0}>{v.label} ({v.available} {tr("dispo)")}</option>
-              ))}
-            </select>
-            <Button onClick={() => { const id = Number(pick); if (id && !lines.some((l) => l.variantId === id)) setLines([...lines, { variantId: id, qty: 1 }]); setPick(""); }}>{tr("Ajouter")}</Button>
-          </div>
-          {lines.length === 0 ? <Empty title={tr("Aucun article")} icon="🛍" /> : (
-            <ul className="mt-3 space-y-2">
-              {lines.map((l) => {
-                const v = variants.find((x) => x.id === l.variantId);
-                return (
-                  <li key={l.variantId} className="flex items-center justify-between gap-2 text-sm">
-                    <span className="min-w-0 truncate">{v?.label}</span>
-                    <span className="flex items-center gap-2">
-                      <input type="number" min={1} max={v?.available ?? 20} className={`${inputCls} h-9 w-16 text-center`} value={l.qty} onChange={(e) => setLines(lines.map((x) => (x.variantId === l.variantId ? { ...x, qty: Math.max(1, Number(e.target.value) || 1) } : x)))} aria-label={tr("Quantité")} />
-                      <button type="button" onClick={() => setLines(lines.filter((x) => x.variantId !== l.variantId))} className="text-red-700" aria-label={tr("Retirer")}>✕</button>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </Card>
-        <Card title={tr("Livraison")}>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Select label={tr("Wilaya")} value={wilaya} onChange={(e) => { setWilaya(Number(e.target.value)); setShipping(null); }}>
-              {wilayas.data?.map((x) => <option key={x.code} value={x.code}>{x.code} - {x.fr}</option>)}
-            </Select>
-            <Select label={tr("Mode")} value={deliveryType} onChange={(e) => { setDeliveryType(e.target.value as "domicile" | "bureau"); setShipping(null); }}>
-              <option value="domicile">{tr("Domicile")}</option>
-              <option value="bureau">{tr("Bureau (stop-desk)")}</option>
-            </Select>
-            {deliveryType === "domicile" && <TextField label={tr("Adresse")} value={address} onChange={(e) => setAddress(e.target.value)} className="sm:col-span-2" />}
-            <TextField label={tr("Frais de livraison (DA)")} type="number" value={shipping ?? ship} onChange={(e) => setShipping(Number(e.target.value) || 0)} />
-          </div>
-        </Card>
-      </div>
-    </Sheet>
   );
 }

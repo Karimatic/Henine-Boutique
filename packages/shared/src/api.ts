@@ -172,8 +172,6 @@ export interface ProductDetailDTO extends ProductCardDTO {
   relatedKind: "look" | "similar";
   /** size chart chosen for this product in the admin */
   sizeGuide: SizeGuideDTO | null;
-  /** short product video (media URL), shown in the gallery */
-  video: string | null;
 }
 
 /* ───────────── Collections / drops ───────────── */

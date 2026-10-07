@@ -20,6 +20,7 @@ import {
   extraSegmentSql,
   STATUS_LABELS,
   type CustomerSegment,
+  statusPath,
   type OrderStatus,
 } from "@henine/shared";
 import type { AppEnv } from "../../env";
@@ -155,21 +156,37 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
  * cancelling and returns carry one reason for all. "Expédiée" needs each order's tracking
  * number, so it stays one by one. Each order goes through the same checks as a single change.
  */
-const BULK_TARGETS = ["confirmee", "injoignable", "en_preparation", "en_livraison", "livree", "annulee", "doublon", "fausse", "retour", "retour_recu", "nouvelle"] as const;
+const BULK_TARGETS = ["confirmee", "injoignable", "en_preparation", "expediee", "en_livraison", "livree", "annulee", "doublon", "fausse", "retour", "retour_recu", "nouvelle"] as const;
 
 orderRoutes.post("/orders/bulk-status", requirePermission("orders.view"), async (c) => {
   const input = await body(
     c,
     z.object({ ids: z.array(z.number().int().positive()).min(1).max(50), to: z.enum(BULK_TARGETS), reason: z.enum(OUTCOME_REASONS).optional() }),
   );
-  if (!hasPermission(c.get("member").permissions, permissionFor(input.to))) throw new HttpError(403, "forbidden");
+  const perms = c.get("member").permissions;
+  if (!hasPermission(perms, permissionFor(input.to))) throw new HttpError(403, "forbidden");
   const actor = actorOf(c.get("member"));
   const done: string[] = [];
   const failed: { id: number; error: string }[] = [];
   const note = ["action groupée", input.reason ? OUTCOME_REASON_LABEL[input.reason] : null].filter(Boolean).join(" · ");
-  for (const id of new Set(input.ids)) {
+  const ids = [...new Set(input.ids)];
+  const { results: current } = await c.env.DB.prepare(`SELECT id, status FROM orders WHERE id IN (${ids.map(() => "?").join(",")})`)
+    .bind(...ids)
+    .all<{ id: number; status: OrderStatus }>();
+  const statusOf = new Map(current.map((o) => [o.id, o.status]));
+  for (const id of ids) {
     try {
-      const r = await applyStatusChange(c.env, id, input.to, actor, "admin", note, input.reason);
+      // straight to the chosen tab: every step in between is applied in order (stock stays right)
+      const from = statusOf.get(id);
+      if (!from) throw new HttpError(404, "not_found");
+      const path = statusPath(from, input.to);
+      if (!path?.length) throw new HttpError(409, "invalid_transition");
+      if (path.some((step) => !hasPermission(perms, permissionFor(step)))) throw new HttpError(403, "forbidden");
+      let r = { code: "" };
+      for (const step of path) {
+        const last = step === input.to;
+        r = await applyStatusChange(c.env, id, step, actor, "admin", note, last ? input.reason : undefined);
+      }
       done.push(r.code);
       c.executionCtx.waitUntil(syncOrderMessage(c.env, id).catch(() => undefined));
     } catch (err) {

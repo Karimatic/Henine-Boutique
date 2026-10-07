@@ -1,12 +1,12 @@
 import { hasPermission } from "@henine/shared";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, Moon, PanelLeft, Store, Sun, X } from "lucide-react";
+import { ChevronRight, ExternalLink, KeyRound, LogOut, Menu, Moon, PanelLeft, Settings, Store, Sun, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, ApiError, auth, post, type Me } from "./api";
 import { Wordmark } from "./brand";
-import { DASHBOARD, NAV, TABS, type NavGroup } from "./nav";
+import { DASHBOARD, INNER_PAGES, NAV, TABS, type NavGroup } from "./nav";
 import { useColorMode } from "./lib/colorMode";
 import { UpdateBar } from "./lib/update";
 import { LiveProvider, useLive } from "./lib/live";
@@ -14,6 +14,8 @@ import { AlertsBell } from "./lib/alerts";
 import { GlobalSearch } from "./lib/search";
 import { useFindOnPage } from "./lib/find";
 import { tr } from "./i18n";
+import { installAutoTranslate } from "./lib/autoTranslate";
+import { useToast } from "./ui";
 
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/me"), staleTime: 5 * 60_000, retry: false });
@@ -71,6 +73,11 @@ function useAdminPath(): string {
 function useCrumbs(path: string): string[] {
   if (path === "/") return [DASHBOARD.label];
   if (path === "/plus") return ["Menu"];
+  const inner = INNER_PAGES.find((i) => path === i.path || path.startsWith(`${i.path}/`));
+  if (inner) {
+    const parent = NAV.flatMap((g) => g.items).find((i) => i.path === inner.parent);
+    return parent ? [inner.group, parent.label, inner.label] : [inner.group, inner.label];
+  }
   for (const g of NAV) {
     const item = [...g.items].sort((a, b) => b.path.length - a.path.length).find((i) => path === i.path || path.startsWith(`${i.path}/`));
     if (item) return path === item.path ? [g.label, item.label] : [g.label, item.label, path.endsWith("/nouveau") ? "Nouveau" : "Fiche"];
@@ -103,14 +110,16 @@ function NewBadge({ className = "" }: { className?: string }) {
 }
 
 function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; collapsed: boolean; onNavigate?: () => void }) {
-  const item = (to: string, label: string, Icon: typeof DASHBOARD.icon, exact = false) => (
+  const path = useAdminPath();
+  const item = (to: string, label: string, Icon: typeof DASHBOARD.icon, exact = false, also: string[] = []) => (
     <Link
       key={to}
       to={to}
       onClick={onNavigate}
       activeOptions={{ exact }}
       title={collapsed ? label : undefined}
-      className={`group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-ivory-deep [&.active]:bg-plum-600/10 [&.active]:font-medium [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
+      // pages opened from inside this tab keep it highlighted
+      className={`${also.some((a) => path === a || path.startsWith(`${a}/`)) ? "active " : ""}group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-ivory-deep [&.active]:bg-plum-600/10 [&.active]:font-medium [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
     >
       <span className="relative">
         <Icon className="size-[18px] shrink-0 text-ink-soft transition group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
@@ -130,7 +139,7 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
           ) : (
             <p className="mb-1.5 px-2.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70">{g.label}</p>
           )}
-          <div className="space-y-0.5">{g.items.map((i) => item(i.path, i.label, i.icon))}</div>
+          <div className="space-y-0.5">{g.items.map((i) => item(i.path, i.label, i.icon, false, i.also))}</div>
         </div>
       ))}
     </nav>
@@ -179,6 +188,9 @@ function ProfileMenu({ me }: { me: Me }) {
           <Link to="/parametres" search={{ tab: "compte" }} role="menuitem" onClick={() => setOpen(false)} className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
             <KeyRound className="size-4 text-ink-soft" /> {tr("Mon compte")}
           </Link>
+          <Link to="/parametres" role="menuitem" onClick={() => setOpen(false)} className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
+            <Settings className="size-4 text-ink-soft" /> {tr("Paramètres")}
+          </Link>
           <a href="/" target="_blank" rel="noreferrer" role="menuitem" className="flex h-9 items-center gap-2.5 rounded-lg px-2.5 text-sm hover:bg-rose-100/70">
             <ExternalLink className="size-4 text-ink-soft" /> {tr("Voir la boutique")}
           </a>
@@ -201,6 +213,16 @@ export function Shell() {
   const crumbs = useCrumbs(path);
   // ?find=… (from the search bar): scroll to that feature and make it glow
   useFindOnPage();
+  // French ↔ Arabic fields fill each other (lib/autoTranslate.ts)
+  const toast = useToast();
+  useEffect(
+    () =>
+      installAutoTranslate(
+        (to) => toast(to === "ar" ? tr("✨ Traduit automatiquement en arabe") : tr("✨ Traduit automatiquement en français")),
+        () => toast(tr("Traduction automatique indisponible pour le moment : remplissez l'autre langue à la main."), "error"),
+      ),
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const [collapsed, setCollapsed] = useState(() => {
     try {
       return localStorage.getItem(SIDEBAR_KEY) === "collapsed";
@@ -312,6 +334,14 @@ export function Shell() {
             <div className="flex shrink-0 items-center gap-1 sm:gap-2">
               <GlobalSearch groups={groups} permissions={me.data.permissions} />
               {canOrders && <AlertsBell />}
+              <Link
+                to="/parametres"
+                title={tr("Paramètres")}
+                aria-label={tr("Paramètres")}
+                className="grid size-9 place-items-center rounded-lg text-ink-soft transition hover:bg-ivory-deep hover:text-plum-700 [&.active]:text-plum-700"
+              >
+                <Settings className="size-5" strokeWidth={1.8} />
+              </Link>
               <DarkToggle />
               <a
                 href="/"
@@ -380,6 +410,13 @@ export function MoreMenu() {
           </ul>
         </section>
       ))}
+      <Link to="/parametres" className="flex h-13 items-center gap-3 rounded-xl border border-line/70 bg-surface px-4 font-medium active:bg-rose-100">
+        <span className="grid size-8 place-items-center rounded-lg bg-plum-600/10 text-plum-600">
+          <Settings className="size-4" />
+        </span>
+        <span className="flex-1">{tr("Paramètres")}</span>
+        <ChevronRight className="size-4 text-ink-soft" />
+      </Link>
       <div className="flex gap-3">
         <a href="/" target="_blank" rel="noreferrer" className="flex h-11 flex-1 items-center justify-center gap-2 rounded-lg border border-line bg-surface font-semibold">
           <ExternalLink className="size-4" /> {tr("Voir la boutique")}

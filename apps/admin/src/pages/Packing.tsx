@@ -7,6 +7,7 @@ import { tr } from "../i18n";
 import { ago, da } from "../lib/format";
 import { processImage } from "../lib/images";
 import { Badge, Button, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, useToast } from "../ui";
+import { SubNav } from "../lib/subnav";
 
 interface PackItem {
   id: number;
@@ -60,6 +61,7 @@ export function PackingPage() {
         title={tr("Préparation des colis")}
         subtitle={tr("Les commandes confirmées, la plus ancienne en premier. Ouvrez-en une et suivez les étapes.")}
       />
+      <SubNav of="orders" />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.length === 0 ? (
         <Empty title={tr("Aucun colis à préparer")} icon="📦">{tr("Les commandes apparaissent ici dès qu'elles sont confirmées.")}</Empty>
       ) : (

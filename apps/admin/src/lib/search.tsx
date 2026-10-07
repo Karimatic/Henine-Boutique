@@ -38,7 +38,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboa
 import { createPortal } from "react-dom";
 import { api } from "../api";
 import { isAr, tr } from "../i18n";
-import { DASHBOARD, type NavGroup } from "../nav";
+import { DASHBOARD, INNER_PAGES, type NavGroup } from "../nav";
 import { ago, da, daMinus, ltr, STATUS_TONE, statusLabel } from "./format";
 import { fold, SETTINGS_INDEX, SETTINGS_TABS } from "./settingsIndex";
 
@@ -300,7 +300,13 @@ function SearchDialog({ groups, permissions, onClose }: { groups: NavGroup[]; pe
     const sections = new Map<Kind, Hit[]>();
     const add = (kind: Kind, hit: Omit<Hit, "kind">) => sections.set(kind, [...(sections.get(kind) ?? []), { ...hit, kind }]);
     const matches = (text: string) => words.length > 0 && words.every((w) => fold(text).includes(w));
-    const pages = [{ ...DASHBOARD, group: "" }, ...groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.label })))];
+    const navTabs = groups.flatMap((g) => g.items.map((i) => ({ ...i, group: g.label })));
+    // pages opened from inside a tab (Finance, Préparation…) are found too, when that tab is visible
+    const inner = INNER_PAGES.flatMap((i) => {
+      const parent = navTabs.find((t) => t.path === i.parent);
+      return i.path === "/parametres" ? [{ path: i.path, label: i.label, icon: Settings, group: i.group }] : parent ? [{ path: i.path, label: i.label, icon: parent.icon, group: i.group }] : [];
+    });
+    const pages = [{ ...DASHBOARD, group: "" }, ...navTabs, ...inner];
 
     const live = debounced.length >= 2 && fold(debounced) === fold(q.trim()) ? remote.data : undefined;
     for (const o of live?.orders ?? []) {

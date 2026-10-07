@@ -161,7 +161,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   const availableNow = variant ? variant.available > 0 : p.inStock;
   const [lightbox, setLightbox] = useState<number | null>(null);
   const G = t.plus.gallery;
-  const slides = images.length + (p.video ? 1 : 0);
+  const slides = images.length;
   // "Vous aimerez peut-être": other pieces in her price range, in stock, best rated / selling first
   const catalog = useApi<ProductCardDTO[]>("/catalog");
   const mayLike = useMemo(() => {
@@ -228,11 +228,6 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                   <ProductImage image={img} alt={i === 0 ? name : ""} category={p.categorySlug} color={colorHex} priority={i === 0} sizes="100vw" className="aspect-[4/5] w-full" />
                 </button>
               ))}
-              {p.video && (
-                <div className="relative aspect-[4/5] w-full shrink-0 snap-center bg-black">
-                  <video src={p.video} controls playsInline preload="metadata" muted loop className="absolute inset-0 size-full object-cover" aria-label={G.video} />
-                </div>
-              )}
             </div>
             {slides > 1 && (
               <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center gap-1.5 md:hidden" aria-hidden="true">
@@ -242,12 +237,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               </div>
             )}
             {/* larger screens: one photo (zooms under the mouse, opens full screen) + thumbnails */}
-            {p.video && active === images.length ? (
-              <div className="relative hidden aspect-[4/5] overflow-hidden rounded-card bg-black md:block">
-                <video src={p.video} controls autoPlay playsInline muted loop className="absolute inset-0 size-full object-contain" aria-label={G.video} />
-              </div>
-            ) : (
-              <button
+            <button
                 type="button"
                 onClick={() => images[active] && setLightbox(active)}
                 aria-label={G.open}
@@ -260,7 +250,6 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
               >
                 <ProductImage image={images[active] ?? null} alt={name} category={p.categorySlug} color={colorHex} priority sizes="50vw" className="aspect-[4/5] rounded-card" />
               </button>
-            )}
             <Badges p={p} className="pointer-events-none absolute start-3 top-3" />
             <FindSimilarButton product={p} className="absolute bottom-3 end-3 md:bottom-4 md:end-4" />
             <button
@@ -282,21 +271,9 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
                   </button>
                 </li>
               ))}
-              {p.video && (
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => setActive(images.length)}
-                    className={`grid aspect-[4/5] w-16 place-items-center rounded-lg bg-noir text-xl text-white ring-2 ${active === images.length ? "ring-plum-600" : "ring-transparent"}`}
-                    aria-label={G.video}
-                  >
-                    ▶
-                  </button>
-                </li>
-              )}
             </ul>
           )}
-          {lightbox != null && <Lightbox images={images} video={p.video} start={lightbox} name={name} onClose={() => setLightbox(null)} />}
+          {lightbox != null && <Lightbox images={images} start={lightbox} name={name} onClose={() => setLightbox(null)} />}
         </div>
 
         <div>
@@ -610,7 +587,7 @@ function Reviews({ p }: { p: ProductDetailDTO }) {
     list.map((src) => ({ src, widths: [], width: 0, height: 0, lqip: null, altFr: null, altAr: null, optionValueId: null }));
   return (
     <section id="avis" className="mt-12 scroll-mt-24">
-      {photos && <Lightbox images={asImages(photos.list)} video={null} start={photos.start} name={t.plus.reviews.photoAlt} onClose={() => setPhotos(null)} />}
+      {photos && <Lightbox images={asImages(photos.list)} start={photos.start} name={t.plus.reviews.photoAlt} onClose={() => setPhotos(null)} />}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-3">
         <h2 className="heading-display text-3xl">
           {t.product.reviews}

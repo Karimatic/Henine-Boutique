@@ -9,6 +9,7 @@ import {
   Badge, Button, Card, Empty, ErrorState, Field, inputCls, ListSkeleton, NumberField, PageHeader, Pills, Select, Sheet, TextArea, TextField, Toggle, useToast,
 } from "../ui";
 import { tr } from "../i18n";
+import { SubNav } from "../lib/subnav";
 
 function useSave<T>(fn: (v: T) => Promise<unknown>, invalidate: string[], ok = "Enregistré ✓") {
   const qc = useQueryClient();
@@ -57,6 +58,7 @@ export function PromosPage() {
   return (
     <div>
       <PageHeader group={tr("Commandes")} title={tr("Promos")} subtitle={tr("Codes promo et codes influenceuses. La livraison offerte automatique se règle dans Paramètres → Commandes & livraison.")} actions={<Button variant="primary" onClick={() => setEdit({ type: "percent", value: 10, is_active: 1 })}>{tr("+ Nouveau code")}</Button>} />
+      <SubNav of="promos" />
       <FlashSales />
       <InfluencerReport />
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !q.data ? <ListSkeleton /> : q.data.coupons.length === 0 ? <Empty title={tr("Aucun code promo")} icon="🏷" /> : (
@@ -327,7 +329,7 @@ export function StoreTextsEditor({ saved }: { saved: { ar: Overrides; fr: Overri
       }
     >
       <p className="mb-5 rounded-lg bg-rose-100/60 p-3 text-sm text-plum-700">
-        {tr("Vous modifiez les textes")} <b>{rtl ? tr("en arabe") : tr("en français")}</b> {tr("(page")} {rtl ? tr("arabe") : tr("française")} {tr("de la boutique). L'autre langue ne change pas : ce que vous ne modifiez pas garde son texte d'origine.")}
+        {tr("Vous modifiez les textes")} <b>{rtl ? tr("en arabe") : tr("en français")}</b> {tr("(page")} {rtl ? tr("arabe") : tr("française")} {tr("de la boutique). Ce que vous changez est traduit automatiquement dans l'autre langue à l'enregistrement ; ce que vous ne modifiez pas garde son texte d'origine.")}
       </p>
 
       <div className="space-y-5">
@@ -928,6 +930,7 @@ export function CollectionsPage() {
         subtitle={tr("Une page à partager sur Instagram, avec compte à rebours avant le lancement.")}
         actions={<Button variant="primary" onClick={() => setEdit({ is_active: 0, show_countdown: 1, lock_products: 1, product_ids: [] })}>{tr("+ Nouvelle collection")}</Button>}
       />
+      <SubNav of="promos" />
       {q.error ? (
         <ErrorState error={q.error} onRetry={q.refetch} />
       ) : !q.data ? (
@@ -1025,9 +1028,9 @@ function CollectionSheet({ c, onClose }: { c: Partial<CollectionRow>; onClose: (
         <Card title={tr("Infos")}>
           <div className="grid gap-3 sm:grid-cols-2">
             <TextField label={tr("Nom (français)")} value={f.nameFr} onChange={(e) => setF({ ...f, nameFr: e.target.value })} maxLength={80} />
-            <TextField label="الاسم (عربي)" dir="rtl" value={f.nameAr} onChange={(e) => setF({ ...f, nameAr: e.target.value })} maxLength={80} />
+            <TextField label={tr("Nom (arabe)")} dir="rtl" value={f.nameAr} onChange={(e) => setF({ ...f, nameAr: e.target.value })} maxLength={80} />
             <TextArea label={tr("Texte (français)")} rows={2} value={f.descriptionFr} onChange={(e) => setF({ ...f, descriptionFr: e.target.value })} maxLength={1000} />
-            <TextArea label="النص (عربي)" dir="rtl" rows={2} value={f.descriptionAr} onChange={(e) => setF({ ...f, descriptionAr: e.target.value })} maxLength={1000} />
+            <TextArea label={tr("Texte (arabe)")} dir="rtl" rows={2} value={f.descriptionAr} onChange={(e) => setF({ ...f, descriptionAr: e.target.value })} maxLength={1000} />
             <TextField label={tr("Adresse")} hint={`/collection/${f.slug || "…"}`} value={f.slug} placeholder={tr("ex : ramadan-2027")} onChange={(e) => setF({ ...f, slug: e.target.value })} className="sm:col-span-2" />
           </div>
         </Card>

@@ -3,13 +3,13 @@ import { imageSrcSet, imageUrl, type ImageRef } from "@henine/shared";
 import { useLocale } from "@/lib/locale";
 
 /**
- * Full-screen gallery: swipe between photos (and the video), pinch or double-tap to zoom,
+ * Full-screen gallery: swipe between photos, pinch or double-tap to zoom,
  * drag to look around a zoomed photo. Esc / arrows on a computer.
  */
-export function Lightbox({ images, video, start, name, onClose }: { images: ImageRef[]; video: string | null; start: number; name: string; onClose: () => void }) {
+export function Lightbox({ images, start, name, onClose }: { images: ImageRef[]; start: number; name: string; onClose: () => void }) {
   const { t, ar } = useLocale();
   const G = t.plus.gallery;
-  const count = images.length + (video ? 1 : 0);
+  const count = images.length;
   const [index, setIndex] = useState(start);
   const track = useRef<HTMLDivElement>(null);
 
@@ -55,11 +55,6 @@ export function Lightbox({ images, video, start, name, onClose }: { images: Imag
         {images.map((img, i) => (
           <ZoomSlide key={img.src} image={img} alt={i === 0 ? name : ""} active={i === index} />
         ))}
-        {video && (
-          <div className="grid w-full shrink-0 snap-center place-items-center">
-            {index === images.length && <video src={video} controls autoPlay playsInline className="max-h-full max-w-full" />}
-          </div>
-        )}
       </div>
       {count > 1 && (
         <>

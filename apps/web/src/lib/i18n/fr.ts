@@ -372,7 +372,7 @@ export const fr = {
       popular: "À découvrir",
       askAssistant: "✨ Demander à l'assistante",
     },
-    gallery: { open: "Agrandir la photo", close: "Fermer", zoom: "Touchez deux fois pour zoomer", video: "Vidéo", prev: "Photo précédente", next: "Photo suivante" },
+    gallery: { open: "Agrandir la photo", close: "Fermer", zoom: "Touchez deux fois pour zoomer", prev: "Photo précédente", next: "Photo suivante" },
     delivery: {
       title: "Livraison estimée",
       choose: "Choisissez votre wilaya",

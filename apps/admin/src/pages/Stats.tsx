@@ -9,6 +9,7 @@ import { usePeriod } from "../lib/period";
 import { DailyReportCard } from "./DailyReport";
 import { ReturnsSection } from "./Insights";
 import { ColumnChart, shortDA, StackBar, TrendChart } from "../lib/charts";
+import { SubNav } from "../lib/subnav";
 
 interface StatsData {
   range: { since: number; until: number; label: string; days: number };
@@ -244,6 +245,7 @@ export function StatsPage() {
         subtitle={tr("Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires.")}
         actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
       />
+      <SubNav of="analysis" />
       <DailyReportCard />
       {picker}
       {q.error ? <ErrorState error={q.error} onRetry={q.refetch} /> : !d ? <ListSkeleton rows={4} /> : (

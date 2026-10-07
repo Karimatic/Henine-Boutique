@@ -6,7 +6,6 @@ import { algiersDate, algiersDayStart } from "./lib/orders";
 import { dailyReport as buildDailyReport } from "./lib/reports";
 import { processOutbox, sendTelegramText } from "./lib/telegram";
 import { sendCampaignBatch, sendRestockPushes } from "./lib/webpush";
-import { refreshInstagramToken, syncInstagramFollowers } from "./routes/admin/instagram";
 
 /**
  * Cron dispatcher (3 triggers on the free plan, see wrangler.jsonc).
@@ -31,8 +30,6 @@ export async function scheduled(controller: ScheduledController, env: Env, ctx: 
     case "0 20 * * *":
       run("daily_report", dailyReport(env));
       run("purge", purgeExpired(env));
-      run("instagram_token", refreshInstagramToken(env));
-      run("instagram_followers", syncInstagramFollowers(env));
       break;
   }
 }

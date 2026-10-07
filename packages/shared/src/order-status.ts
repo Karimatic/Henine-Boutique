@@ -43,6 +43,34 @@ export function nextStatuses(from: OrderStatus): readonly OrderStatus[] {
   return TRANSITIONS[from];
 }
 
+/** Statuses an order never passes through on its way somewhere else. */
+const DEAD_ENDS: readonly OrderStatus[] = ["injoignable", "annulee", "doublon", "fausse", "retour"];
+
+/**
+ * The steps from one status to another, following the allowed transitions (so stock is
+ * reserved, taken and given back exactly as if each step had been done by hand):
+ * nouvelle → livree = confirmee, en_preparation, expediee, livree. Null when it can't get there.
+ */
+export function statusPath(from: OrderStatus, to: OrderStatus): OrderStatus[] | null {
+  if (from === to) return [];
+  const prev = new Map<OrderStatus, OrderStatus>();
+  const queue: OrderStatus[] = [from];
+  while (queue.length) {
+    const s = queue.shift()!;
+    for (const n of TRANSITIONS[s]) {
+      if (n === from || prev.has(n)) continue;
+      prev.set(n, s);
+      if (n === to) {
+        const path: OrderStatus[] = [n];
+        for (let x = s; x !== from; x = prev.get(x)!) path.unshift(x);
+        return path;
+      }
+      if (!DEAD_ENDS.includes(n)) queue.push(n);
+    }
+  }
+  return null;
+}
+
 /**
  * Stock bookkeeping per transition:
  * - reserve   : stock_reserved += qty            (order placed / reopened)

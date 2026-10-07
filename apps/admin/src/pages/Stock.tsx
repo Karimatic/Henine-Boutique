@@ -169,8 +169,12 @@ export function StockPage() {
         subtitle={tr("Chaque produit avec son tableau couleur × taille. Touchez un chiffre pour modifier.")}
         actions={
           <>
-            <Link to="/stock/inventaire" className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">
-              {tr("📋 Inventaire")}
+            <Link
+              to="/stock/inventaire"
+              title={tr("Compter les pièces du magasin et corriger le stock s'il y a une différence")}
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold"
+            >
+              {tr("📋 Compter le stock")}
             </Link>
             {can("stock.edit") && (
               <Link to="/stock/reception" className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-plum-600 px-3.5 text-sm font-semibold text-white">
@@ -201,6 +205,17 @@ export function StockPage() {
           { value: "waiting", label: tr("🔔 Clientes en attente") },
         ]}
       />
+      {filter === "waiting" && (
+        <div className="mb-3 rounded-xl border border-plum-600/30 bg-rose-100/40 p-3.5 text-sm leading-relaxed">
+          <p className="font-semibold">{tr("🔔 Des clientes attendent ces tailles")}</p>
+          <p className="mt-1 text-ink-soft">
+            {tr("Sur la boutique, quand une taille est épuisée, la cliente peut toucher « Prévenez-moi » et laisser son numéro. Elle apparaît ici, et le petit 🔔 sur une case dit combien de clientes attendent cette taille.")}
+          </p>
+          <p className="mt-1 text-ink-soft">
+            {tr("Dès que vous remettez du stock (Réception, ou en touchant le chiffre), elles reçoivent une notification si elles l'ont acceptée, et leurs numéros s'affichent sur le tableau de bord pour les appeler ou leur écrire sur WhatsApp.")}
+          </p>
+        </div>
+      )}
       <div className="mb-3 grid gap-2 sm:grid-cols-[1fr_14rem]">
         <SearchBox value={q} onChange={setQ} placeholder={tr("Produit, SKU ou code-barres…")} />
         <select className={`${inputCls} h-11`} value={category} onChange={(e) => setCategory(e.target.value)} aria-label={tr("Catégorie")}>

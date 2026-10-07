@@ -21,6 +21,7 @@ import { isAr, tr } from "../i18n";
 import { ago, da, dateTime, statusLabel, telLink, waLink } from "../lib/format";
 import { useCan } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, Select, Sheet, Stat, TextArea, TextField, useToast } from "../ui";
+import { SubNav } from "../lib/subnav";
 
 type Tab = "echecs" | "bordereaux";
 
@@ -35,6 +36,7 @@ export function LogisticsPage() {
   return (
     <div className="space-y-4">
       <PageHeader group={tr("Commandes")} title={tr("Expéditions")} subtitle={tr("Les colis qui partent chez le livreur, et ceux qu'il n'a pas pu livrer.")} />
+      <SubNav of="orders" />
       <div className="-mx-4 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0" role="tablist" aria-label={tr("Expéditions")}>
         <div className="flex w-max gap-1">
           {tabs.map((t) => (

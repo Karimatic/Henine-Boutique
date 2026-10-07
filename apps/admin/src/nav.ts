@@ -2,7 +2,6 @@ import type { Permission } from "@henine/shared";
 import {
   BellRing,
   Boxes,
-  Banknote,
   ChartColumn,
   FileText,
   Gift,
@@ -12,18 +11,13 @@ import {
   Link,
   Menu,
   MessageSquare,
-  PackageCheck,
   Receipt,
-  Settings,
   Shirt,
   ShoppingBag,
   ShoppingCart,
-  Sparkles,
   Star,
   TicketPercent,
   TriangleAlert,
-  Truck,
-  Wallet,
   Users,
   UsersRound,
   type LucideIcon,
@@ -35,6 +29,8 @@ export interface NavItem {
   label: string;
   permission: Permission;
   icon: LucideIcon;
+  /** pages opened from inside this tab (no tab of their own): the tab stays highlighted */
+  also?: string[];
 }
 
 export interface NavGroup {
@@ -44,27 +40,28 @@ export interface NavGroup {
 
 export const DASHBOARD = { path: "/", label: tr("Tableau de bord"), icon: LayoutDashboard };
 
-/** Admin menu, grouped exactly as specified by Henine. */
+/**
+ * Admin menu: exactly the owner's list of tabs (2026-10-07). Pages without a tab open from
+ * inside the related one: Préparation / Expéditions from Commandes, Collections from Promos,
+ * Finance from Statistiques, the in-store sale is in Ventes, Paramètres in the top bar.
+ */
 export const NAV: NavGroup[] = [
   {
     label: tr("Catalogue"),
     items: [
       { path: "/produits", label: tr("Produits"), permission: "products.view", icon: Shirt },
       { path: "/stock", label: tr("Stock"), permission: "stock.view", icon: Boxes },
-      { path: "/ventes", label: tr("Ventes"), permission: "sales.view", icon: Receipt },
-      { path: "/caisse", label: tr("Caisse"), permission: "sales.create", icon: Banknote },
+      { path: "/ventes", label: tr("Ventes"), permission: "sales.view", icon: Receipt, also: ["/caisse"] },
     ],
   },
   {
     label: tr("Commandes"),
     items: [
-      { path: "/commandes", label: tr("Commandes"), permission: "orders.view", icon: ShoppingBag },
-      { path: "/expeditions", label: tr("Expéditions"), permission: "orders.view", icon: Truck },
+      { path: "/commandes", label: tr("Commandes"), permission: "orders.view", icon: ShoppingBag, also: ["/expeditions", "/preparation"] },
       { path: "/clients", label: tr("Clients"), permission: "customers.view", icon: Users },
       { path: "/paniers", label: tr("Paniers"), permission: "carts.view", icon: ShoppingCart },
-      { path: "/promos", label: tr("Promos"), permission: "promos.edit", icon: TicketPercent },
+      { path: "/promos", label: tr("Promos"), permission: "promos.edit", icon: TicketPercent, also: ["/collections"] },
       { path: "/fidelite", label: tr("Fidélité"), permission: "loyalty.edit", icon: Gift },
-      { path: "/preparation", label: tr("Préparation"), permission: "orders.ship", icon: PackageCheck },
     ],
   },
   {
@@ -75,14 +72,12 @@ export const NAV: NavGroup[] = [
       { path: "/notifier", label: tr("Notifier"), permission: "marketing.edit", icon: BellRing },
       { path: "/liens", label: tr("Liens"), permission: "marketing.edit", icon: Link },
       { path: "/contact", label: tr("Contact"), permission: "contact.view", icon: MessageSquare },
-      { path: "/collections", label: tr("Collections"), permission: "marketing.edit", icon: Sparkles },
     ],
   },
   {
     label: tr("Analyse"),
     items: [
-      { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn },
-      { path: "/finance", label: tr("Finance"), permission: "finance.view", icon: Wallet },
+      { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn, also: ["/finance"] },
     ],
   },
   {
@@ -91,10 +86,19 @@ export const NAV: NavGroup[] = [
       { path: "/equipe", label: tr("Équipe"), permission: "team.manage", icon: UsersRound },
       { path: "/comptes", label: tr("Comptes"), permission: "team.manage", icon: KeyRound },
       { path: "/contenu", label: tr("Contenu"), permission: "content.edit", icon: FileText },
-      { path: "/parametres", label: tr("Paramètres"), permission: "dashboard.view", icon: Settings },
       { path: "/erreurs", label: tr("Erreurs"), permission: "errors.view", icon: TriangleAlert },
     ],
   },
+];
+
+/** Pages without a tab of their own (breadcrumb + search); see NAV. */
+export const INNER_PAGES: { path: string; label: string; group: string; parent: string }[] = [
+  { path: "/caisse", label: tr("Vente au magasin"), group: tr("Catalogue"), parent: "/ventes" },
+  { path: "/preparation", label: tr("Préparation"), group: tr("Commandes"), parent: "/commandes" },
+  { path: "/expeditions", label: tr("Expéditions"), group: tr("Commandes"), parent: "/commandes" },
+  { path: "/collections", label: tr("Collections"), group: tr("Commandes"), parent: "/promos" },
+  { path: "/finance", label: tr("Finance"), group: tr("Analyse"), parent: "/statistiques" },
+  { path: "/parametres", label: tr("Paramètres"), group: tr("Système"), parent: "/parametres" },
 ];
 
 /** Mobile bottom tab bar: the four daily-use screens + "Plus". */

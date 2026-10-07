@@ -92,3 +92,20 @@ describe("catalog tree", () => {
     expect(artKey("gandouras-djebbas-robes")).toBe("djebba");
   });
 });
+
+describe("statusPath: straight to any tab, step by step", () => {
+  it("walks the allowed steps", async () => {
+    const { statusPath } = await import("./order-status");
+    expect(statusPath("nouvelle", "livree")).toEqual(["confirmee", "en_preparation", "expediee", "livree"]);
+    expect(statusPath("confirmee", "expediee")).toEqual(["en_preparation", "expediee"]);
+    expect(statusPath("annulee", "confirmee")).toEqual(["nouvelle", "confirmee"]);
+    expect(statusPath("nouvelle", "retour")).toEqual(["confirmee", "en_preparation", "expediee", "retour"]);
+    expect(statusPath("nouvelle", "nouvelle")).toEqual([]);
+  });
+  it("refuses impossible moves", async () => {
+    const { statusPath } = await import("./order-status");
+    expect(statusPath("livree", "confirmee")).toBeNull();
+    expect(statusPath("doublon", "confirmee")).toBeNull();
+    expect(statusPath("retour_recu", "livree")).toBeNull();
+  });
+});

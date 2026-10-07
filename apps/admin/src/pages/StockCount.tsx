@@ -47,8 +47,8 @@ export function StockCountsPage() {
     <div className="space-y-4">
       <PageHeader
         group={tr("Catalogue")}
-        title={tr("Inventaire physique")}
-        subtitle={tr("Comptez les pièces en rayon : l'écart avec le système s'affiche, et le stock n'est corrigé qu'après validation.")}
+        title={tr("Compter le stock")}
+        subtitle={tr("Une fois de temps en temps, comptez les pièces réellement présentes au magasin. Le site compare avec ce qu'il croit avoir, montre les différences (pièce perdue, vente oubliée…) et corrige le stock seulement quand vous validez. Ainsi le site ne vend jamais une pièce qui n'existe plus.")}
         actions={
           <>
             <Link to="/stock" className="inline-flex h-9 items-center rounded-lg border border-line px-3.5 text-sm font-semibold">

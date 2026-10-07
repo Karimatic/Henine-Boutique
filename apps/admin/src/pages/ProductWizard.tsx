@@ -7,7 +7,6 @@ import { CategoryOptions, categoryPath, type CategoryLite } from "../lib/categor
 import { tr } from "../i18n";
 import { da } from "../lib/format";
 import { Button, Card, inputCls, NumberField, PageHeader, Spinner, TextArea, TextField, useToast } from "../ui";
-import { InstagramButton } from "./InstagramPicker";
 import { COLOR_CHOICES, SIZE_CHOICES, uploadPhoto } from "./Products";
 
 /**
@@ -27,7 +26,6 @@ export function ProductWizard() {
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<CategoryLite[]>("/categories") });
   const [step, setStep] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
-  const [instagramUrl, setInstagramUrl] = useState<string | null>(null);
   const [info, setInfo] = useState({ nameFr: "", nameAr: "", price: null as number | null, compareAt: null as number | null, categoryId: null as number | null, descriptionFr: "", descriptionAr: "" });
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
@@ -72,7 +70,7 @@ export function ProductWizard() {
       const saved = await post<{ id: number }>("/products", {
         nameFr: info.nameFr.trim(), nameAr: info.nameAr.trim() || info.nameFr.trim(), descriptionFr: info.descriptionFr, descriptionAr: info.descriptionAr,
         status, categoryId: info.categoryId, tags: ["nouveaute"], price: info.price ?? 0, compareAtPrice: info.compareAt, costPrice: null,
-        seoTitle: null, seoDescription: null, instagramUrl, relatedIds: [], sizeGuideId: null, options, variants,
+        seoTitle: null, seoDescription: null, instagramUrl: null, relatedIds: [], sizeGuideId: null, options, variants,
       });
       for (const [n, file] of files.entries()) {
         setBusy(tr("Photo {0}/{1}…", { 0: n + 1, 1: files.length }));
@@ -136,9 +134,6 @@ export function ProductWizard() {
               </label>
             </li>
           </ul>
-          <div className="mt-3">
-            <InstagramButton onFiles={(fs, permalink) => { setFiles((f) => [...f, ...fs].slice(0, 12)); setInstagramUrl(permalink); }} />
-          </div>
         </Card>
       )}
 
@@ -146,7 +141,7 @@ export function ProductWizard() {
         <Card title={tr("✏️ Nom et prix")}>
           <div className="space-y-3">
             <TextField label={tr("Nom (français)")} placeholder={tr("ex : Pyjama satin rayé")} value={info.nameFr} onChange={(e) => setInfo({ ...info, nameFr: e.target.value })} autoFocus />
-            <TextField label="الاسم (عربي)" dir="rtl" placeholder="مثلًا: بيجامة ساتان مخططة" value={info.nameAr} onChange={(e) => setInfo({ ...info, nameAr: e.target.value })} />
+            <TextField label={tr("Nom (arabe)")} dir="rtl" placeholder="مثلًا: بيجامة ساتان مخططة" value={info.nameAr} onChange={(e) => setInfo({ ...info, nameAr: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <NumberField label={tr("Prix de vente")} suffix="DA" value={info.price} onChange={(v) => setInfo({ ...info, price: v })} />
               <NumberField label={tr("Prix barré (facultatif)")} suffix="DA" value={info.compareAt} onChange={(v) => setInfo({ ...info, compareAt: v })} />
@@ -162,7 +157,7 @@ export function ProductWizard() {
               <summary className="cursor-pointer text-sm font-semibold">{tr("Description (facultatif)")}</summary>
               <div className="mt-3 grid gap-3">
                 <TextArea label={tr("Description (français)")} rows={3} value={info.descriptionFr} onChange={(e) => setInfo({ ...info, descriptionFr: e.target.value })} />
-                <TextArea label="الوصف (عربي)" dir="rtl" rows={3} value={info.descriptionAr} onChange={(e) => setInfo({ ...info, descriptionAr: e.target.value })} />
+                <TextArea label={tr("Description (arabe)")} dir="rtl" rows={3} value={info.descriptionAr} onChange={(e) => setInfo({ ...info, descriptionAr: e.target.value })} />
               </div>
             </details>
           </div>

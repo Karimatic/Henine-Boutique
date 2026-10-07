@@ -11,6 +11,7 @@ import { body, HttpError, intParam } from "../../lib/http";
 import { putImage } from "../../lib/media";
 import { bumpCatalogStmt, getSetting, getSettings, setSettingStmt } from "../../lib/settings";
 import { sendCampaignBatch } from "../../lib/webpush";
+import { translate } from "./translate";
 import { actorOf, requirePermission } from "../../middleware/access";
 
 export const marketingRoutes = new Hono<AppEnv>();
@@ -193,10 +194,44 @@ const textsInput = z
   })
   .partial();
 
+type TextOverrides = z.infer<typeof textsInput>;
+
+/**
+ * The texts changed in one language, translated into the other (French ↔ Arabic); a text put
+ * back to its original wording goes back to the original in the other language too. A text that
+ * can't be translated right now (no AI quota) leaves the other language as it was.
+ */
+async function mirrorTexts(env: AppEnv["Bindings"], before: TextOverrides, after: TextOverrides, other: TextOverrides, to: "fr" | "ar"): Promise<TextOverrides> {
+  const out: TextOverrides = { ...other };
+  const tr = (t: string) => translate(env, t, to);
+  const jobs: Promise<void>[] = [];
+  for (const k of ["eyebrow", "title", "subtitle", "pause"] as const) {
+    if (after[k] === before[k]) continue;
+    if (after[k] == null) delete out[k];
+    else jobs.push(tr(after[k]!).then((v) => void (out[k] = v.slice(0, k === "eyebrow" ? 60 : k === "title" ? 90 : 240))));
+  }
+  if (JSON.stringify(after.announcement) !== JSON.stringify(before.announcement)) {
+    if (!after.announcement) delete out.announcement;
+    else jobs.push(Promise.all(after.announcement.map(tr)).then((list) => void (out.announcement = list.map((m) => m.slice(0, 120)))));
+  }
+  if (JSON.stringify(after.faq) !== JSON.stringify(before.faq)) {
+    if (!after.faq) delete out.faq;
+    else
+      jobs.push(
+        Promise.all(after.faq.map(async (f) => ({ q: (await tr(f.q)).slice(0, 200), a: (await tr(f.a)).slice(0, 1000) }))).then((faq) => void (out.faq = faq)),
+      );
+  }
+  await Promise.allSettled(jobs);
+  return out;
+}
+
 marketingRoutes.put("/home/texts", requirePermission("marketing.edit"), async (c) => {
   const input = await body(c, z.object({ locale: z.enum(["ar", "fr"]), texts: textsInput }));
   const { texts } = await getSettings(c.env, ["texts"]);
-  const next = { ...texts, [input.locale]: input.texts };
+  const otherLocale = input.locale === "fr" ? "ar" : "fr";
+  const before = (texts[input.locale] ?? {}) as TextOverrides;
+  const mirrored = await mirrorTexts(c.env, before, input.texts, (texts[otherLocale] ?? {}) as TextOverrides, otherLocale);
+  const next = { ...texts, [input.locale]: input.texts, [otherLocale]: mirrored };
   await c.env.DB.batch([
     setSettingStmt(c.env, "texts", next),
     bumpCatalogStmt(c.env),

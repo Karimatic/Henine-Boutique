@@ -39,7 +39,6 @@ export const SETTINGS_INDEX: { tab: TabKey; find: string; label: string; words: 
   { tab: "connexions", find: "✉️ Emails (codes de connexion, invitations)", label: tr("Emails"), words: "email mail code connexion invitation بريد" },
   { tab: "connexions", find: "🚚 ZR Express", label: tr("ZR Express"), words: "zr express transporteur livraison suivi شركة التوصيل" },
   { tab: "connexions", find: "📈 Pixels publicitaires", label: tr("Pixels publicitaires (Meta, TikTok)"), words: "pixel meta facebook tiktok publicité إعلانات" },
-  { tab: "connexions", find: "📸 Instagram : photos des produits depuis vos publications", label: tr("Instagram"), words: "instagram photos publications انستغرام صور" },
 ];
 
 /** Lower case, no accents, Arabic letter variants folded: "Échange" ~ "echange", "أ" ~ "ا". */

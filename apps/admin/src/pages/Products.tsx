@@ -1,11 +1,10 @@
-import { imageUrl, slugify, type ImageRef } from "@henine/shared";
+import { imageUrl, type ImageRef } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { api, del, errorMessage, post, put, upload } from "../api";
 import { da } from "../lib/format";
 import { processImage } from "../lib/images";
-import { InstagramButton } from "./InstagramPicker";
 import { useCan } from "../Shell";
 import {
   Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Spinner, TextArea, TextField, useToast,
@@ -405,9 +404,9 @@ export function ProductEditor() {
           <Card title={tr("Informations")}>
             <div className="grid gap-3 sm:grid-cols-2">
               <TextField label={tr("Nom (français)")} value={form.nameFr} onChange={(e) => set("nameFr", e.target.value)} disabled={readOnly} />
-              <TextField label="الاسم (عربي)" dir="rtl" value={form.nameAr} onChange={(e) => set("nameAr", e.target.value)} disabled={readOnly} />
+              <TextField label={tr("Nom (arabe)")} dir="rtl" value={form.nameAr} onChange={(e) => set("nameAr", e.target.value)} disabled={readOnly} />
               <TextArea label={tr("Description (français)")} hint={tr("**gras**, - listes")} value={form.descriptionFr} onChange={(e) => set("descriptionFr", e.target.value)} rows={5} disabled={readOnly} />
-              <TextArea label="الوصف (عربي)" dir="rtl" value={form.descriptionAr} onChange={(e) => set("descriptionAr", e.target.value)} rows={5} disabled={readOnly} />
+              <TextArea label={tr("Description (arabe)")} dir="rtl" value={form.descriptionAr} onChange={(e) => set("descriptionAr", e.target.value)} rows={5} disabled={readOnly} />
             </div>
           </Card>
 
@@ -428,7 +427,6 @@ export function ProductEditor() {
           </Card>
 
           <OptionsEditor options={form.options} onChange={setOptions} disabled={readOnly} />
-          {!isNew && !readOnly && <VideoEditor productId={form.id!} video={form.video ?? null} onChange={(v) => set("video", v)} />}
           <VariantsTable form={form} onChange={(variants) => set("variants", variants)} disabled={readOnly} />
           {!isNew ? (
             <ImagesEditor
@@ -436,24 +434,9 @@ export function ProductEditor() {
               images={form.images ?? []}
               options={form.options}
               onChange={(images) => set("images", images)}
-              onInstagramPost={(url) => !form.instagramUrl && set("instagramUrl", url)}
             />
           ) : (
-            <Card
-              title={tr("Photos")}
-              actions={
-                !readOnly && (
-                  <InstagramButton
-                    disabled={save.isPending}
-                    onFiles={(files, permalink) => {
-                      pendingPhotos = files;
-                      if (!form.instagramUrl) set("instagramUrl", permalink);
-                      if (!submit()) pendingPhotos = null;
-                    }}
-                  />
-                )
-              }
-            >
+            <Card title={tr("Photos")}>
               <label className="flex cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-line bg-surface p-6 text-center text-sm text-ink-soft hover:border-plum-600">
                 <span className="text-2xl">＋</span>
                 {tr("Ajouter des photos")}
@@ -511,12 +494,6 @@ export function ProductEditor() {
                 </label>
               ))}
             </div>
-          </Card>
-          <Card title={tr("Référencement")}>
-            <TextField label={tr("Adresse (slug)")} hint={`/produit/${form.slug || slugify(form.nameFr) || "…"}`} value={form.slug} placeholder={slugify(form.nameFr)} onChange={(e) => set("slug", e.target.value)} disabled={readOnly} />
-            <TextField label={tr("Titre Google")} className="mt-3" value={form.seoTitle ?? ""} onChange={(e) => set("seoTitle", e.target.value)} maxLength={120} disabled={readOnly} />
-            <TextArea label={tr("Description Google / WhatsApp")} className="mt-3" rows={3} value={form.seoDescription ?? ""} onChange={(e) => set("seoDescription", e.target.value)} maxLength={300} disabled={readOnly} />
-            <TextField label={tr("Lien de la publication Instagram")} className="mt-3" value={form.instagramUrl ?? ""} onChange={(e) => set("instagramUrl", e.target.value)} disabled={readOnly} />
           </Card>
         </div>
       </div>
@@ -869,11 +846,10 @@ export const SIZE_CHOICES = SIZE_PRESETS;
 export const COLOR_CHOICES = COLOR_PRESETS;
 
 function ImagesEditor({
-  productId, images, options, onChange, onInstagramPost,
+  productId, images, options, onChange,
 }: {
   productId: number; images: (ImageRef & { id: number })[]; options: Option[]; onChange: (i: (ImageRef & { id: number })[]) => void;
   /** a post's photos were imported: remember the post on the product */
-  onInstagramPost?: (permalink: string) => void;
 }) {
   const toast = useToast();
   const qc = useQueryClient();
@@ -915,11 +891,7 @@ function ImagesEditor({
     <Card
       title={tr("Photos ({0})", { 0: images.length })}
       actions={
-        busy ? (
-          <span className="flex items-center gap-2 text-xs text-ink-soft"><Spinner className="size-3.5" />{busy}</span>
-        ) : (
-          <InstagramButton onFiles={(files, permalink) => { onInstagramPost?.(permalink); void handleFiles(files); }} />
-        )
+        busy ? <span className="flex items-center gap-2 text-xs text-ink-soft"><Spinner className="size-3.5" />{busy}</span> : null
       }
     >
       <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
@@ -971,56 +943,3 @@ function ImagesEditor({
   );
 }
 
-/** One short video per product (MP4 / WebM, ≤ 40 MB), shown in the gallery after the photos. */
-function VideoEditor({ productId, video, onChange }: { productId: number; video: string | null; onChange: (v: string | null) => void }) {
-  const toast = useToast();
-  const [busy, setBusy] = useState(false);
-  return (
-    <Card title={tr("🎬 Vidéo du produit")}>
-      <p className="mb-3 text-sm text-ink-soft">{tr("Une courte vidéo (MP4, 40 Mo max), visible dans la galerie après les photos. Idéal : 10 à 30 secondes, filmée en vertical.")}</p>
-      {video && <video src={video} controls playsInline className="mb-3 max-h-72 rounded-xl bg-black" />}
-      <div className="flex flex-wrap gap-2">
-        <label className="inline-flex h-10 cursor-pointer items-center rounded-lg bg-plum-600 px-4 text-sm font-semibold text-white">
-          {busy ? tr("Envoi de la vidéo…") : video ? tr("Remplacer la vidéo") : tr("Ajouter une vidéo")}
-          <input
-            type="file"
-            accept="video/mp4,video/webm,video/quicktime"
-            className="sr-only"
-            disabled={busy}
-            onChange={async (e) => {
-              const file = e.target.files?.[0];
-              e.target.value = "";
-              if (!file) return;
-              if (file.size > 40_000_000) return toast(tr("Vidéo trop lourde (40 Mo max). Raccourcissez-la ou baissez la qualité."), "error");
-              setBusy(true);
-              try {
-                const form = new FormData();
-                form.append("video", file);
-                const res = await upload<{ video: string }>(`/products/${productId}/video`, form);
-                onChange(res.video);
-                toast(tr("Vidéo ajoutée ✓"));
-              } catch (err) {
-                toast(errorMessage(err), "error");
-              } finally {
-                setBusy(false);
-              }
-            }}
-          />
-        </label>
-        {video && (
-          <Button
-            variant="danger"
-            disabled={busy}
-            onClick={async () => {
-              if (!confirm(tr("Retirer la vidéo ?"))) return;
-              await del(`/products/${productId}/video`);
-              onChange(null);
-            }}
-          >
-            {tr("Retirer")}
-          </Button>
-        )}
-      </div>
-    </Card>
-  );
-}
