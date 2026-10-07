@@ -17,7 +17,7 @@ export function WhatsAppIcon({ size = 26 }: { size?: number }) {
 /**
  * Bottom corner, every page: the ✨ shopping assistant (WhatsApp is in the menu, the contact
  * page and the product pages). Lifted above the phone's buy bar on product pages,
- * hidden at checkout (its own confirm bar is there).
+ * hidden at checkout (its own confirm bar is there) and on /liens.
  */
 export function FloatingHelp() {
   const { t, locale } = useLocale();
@@ -47,7 +47,8 @@ export function FloatingHelp() {
     window.addEventListener("henine:assistant", show);
     return () => window.removeEventListener("henine:assistant", show);
   }, []);
-  if (!path || path.startsWith("/commande")) return null;
+  // not at checkout (its own confirm bar) nor on /liens (the Instagram bio page: links only)
+  if (!path || path.startsWith("/commande") || path === "/liens") return null;
   // pages with a bar fixed at the bottom (buy bar, outfit total): sit above it
   const onProduct = path.startsWith("/produit/") || path.startsWith("/tenue");
   return (
