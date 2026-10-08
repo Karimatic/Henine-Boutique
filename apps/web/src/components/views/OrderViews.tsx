@@ -6,7 +6,7 @@ import { ErrorBox, inputCls, PageTitle, ProductImage, Spinner } from "@/componen
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useSavedOrders } from "@/lib/stores";
-import { Turnstile } from "@/lib/turnstile";
+import { Turnstile, useTurnstileToken } from "@/lib/turnstile";
 
 /* ───────── Thank you ───────── */
 
@@ -376,7 +376,7 @@ export function TrackView() {
   const [mine, setMine] = useState<TrackedOrderDTO[]>([]);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const [token, setToken] = useState("");
+  const turnstile = useTurnstileToken();
   const [results, setResults] = useState<TrackedOrderDTO[] | null>(null);
   const [state, setState] = useState<"idle" | "loading" | "error" | "invalid">("idle");
 
@@ -404,7 +404,7 @@ export function TrackView() {
     if (!p) return setState("invalid");
     setState("loading");
     try {
-      setResults(await apiPost<TrackedOrderDTO[]>("/track", { phone: p, code: code.trim() || undefined, turnstileToken: token || "pending" }));
+      setResults(await apiPost<TrackedOrderDTO[]>("/track", { phone: p, code: code.trim() || undefined, turnstileToken: await turnstile.take() }));
       setState("idle");
     } catch (err) {
       setState(err instanceof ApiError && err.code === "validation_failed" ? "invalid" : "error");
@@ -431,7 +431,7 @@ export function TrackView() {
           <input className={inputCls} type="tel" inputMode="tel" dir="ltr" placeholder={t.track.phone} value={phone} onChange={(e) => setPhone(e.target.value)} aria-label={t.track.phone} />
           <input className={`${inputCls} uppercase`} dir="ltr" placeholder={t.track.code} value={code} onChange={(e) => setCode(e.target.value)} aria-label={t.track.code} maxLength={12} />
         </div>
-        <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={setToken} locale={locale} />
+        <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
         {state === "invalid" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
         {state === "error" && <ErrorBox />}
         <button type="submit" disabled={state === "loading"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white">

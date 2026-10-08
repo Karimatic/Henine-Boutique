@@ -10,7 +10,7 @@ import { apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { pushSupported, subscribeRestock } from "@/lib/push";
 import { cart, rememberViewed, toggleFavorite, useFavorites } from "@/lib/stores";
-import { Turnstile } from "@/lib/turnstile";
+import { Turnstile, useTurnstileToken } from "@/lib/turnstile";
 import { Badges } from "./Badges";
 import { AskWhatsApp, DeliveryEstimate } from "./DeliveryEstimate";
 import { Lightbox } from "./Lightbox";
@@ -518,7 +518,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
 function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }) {
   const { t, locale } = useLocale();
   const [phone, setPhone] = useState("");
-  const [token, setToken] = useState("");
+  const turnstile = useTurnstileToken();
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   // a notification on this phone: one tap, nothing to type
   const [canPush, setCanPush] = useState(false);
@@ -557,7 +557,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
         if (!p) return setState("error");
         setState("sending");
         try {
-          await apiPost("/stock-alert", { variantId, phone: p, turnstileToken: token || "pending" });
+          await apiPost("/stock-alert", { variantId, phone: p, turnstileToken: await turnstile.take() });
           setState("done");
         } catch {
           setState("error");
@@ -572,7 +572,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
         </button>
       </div>
       {state === "error" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
-      <Turnstile siteKey={siteKey} onToken={setToken} locale={locale} />
+      <Turnstile siteKey={siteKey} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
     </form>
     </div>
   );

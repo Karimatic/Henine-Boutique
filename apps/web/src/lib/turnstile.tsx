@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 
 /**
  * Cloudflare Turnstile (free, privacy-friendly anti-bot). Renders in "managed" mode:
@@ -28,11 +28,24 @@ function loadScript(): Promise<void> {
   return window.__turnstileLoading;
 }
 
-export function Turnstile({ siteKey, onToken, locale }: { siteKey: string; onToken: (token: string) => void; locale: string }) {
+export function Turnstile({
+  siteKey,
+  onToken,
+  locale,
+  onReady,
+}: {
+  siteKey: string;
+  onToken: (token: string) => void;
+  locale: string;
+  /** receives a function asking the widget for a new token (each token works once) */
+  onReady?: (reset: () => void) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const onTokenRef = useRef(onToken);
+  const onReadyRef = useRef(onReady);
   useEffect(() => {
     onTokenRef.current = onToken;
+    onReadyRef.current = onReady;
   });
 
   useEffect(() => {
@@ -51,7 +64,10 @@ export function Turnstile({ siteKey, onToken, locale }: { siteKey: string; onTok
           appearance: "interaction-only",
           callback: (t: string) => onTokenRef.current(t),
           "expired-callback": () => onTokenRef.current(""),
+          "error-callback": () => onTokenRef.current(""),
         });
+        const id = widgetId;
+        onReadyRef.current?.(() => window.turnstile?.reset(id));
       })
       .catch(() => onTokenRef.current("unavailable"));
     return () => {
@@ -65,4 +81,40 @@ export function Turnstile({ siteKey, onToken, locale }: { siteKey: string; onTok
 
 export function newIdempotencyKey(): string {
   return crypto.randomUUID();
+}
+
+/** Values that stand for "no check possible here": never used up, never reset. */
+const STANDING = new Set(["no-site-key", "unavailable"]);
+
+/**
+ * The form's side of Turnstile. A token works only once and expires after a few minutes, so
+ * `take()` (at submit) waits for the check if it is still running, hands the token over once,
+ * and asks the widget for a fresh one at once: a second try (after an error) has its own.
+ */
+export function useTurnstileToken() {
+  const state = useRef({ token: "", waiters: [] as ((t: string) => void)[], reset: null as null | (() => void) });
+  const onToken = useCallback((t: string) => {
+    const s = state.current;
+    s.token = t;
+    if (t) for (const resolve of s.waiters.splice(0)) resolve(t);
+  }, []);
+  const onReady = useCallback((reset: () => void) => {
+    state.current.reset = reset;
+  }, []);
+  const take = useCallback(async (): Promise<string> => {
+    const s = state.current;
+    const t =
+      s.token ||
+      (await new Promise<string>((resolve) => {
+        s.waiters.push(resolve);
+        // the server then answers "verification failed": the customer can simply try again
+        setTimeout(() => resolve(s.token || "pending"), 15000);
+      }));
+    if (!STANDING.has(t)) {
+      s.token = "";
+      s.reset?.();
+    }
+    return t;
+  }, []);
+  return { onToken, onReady, take };
 }
