@@ -21,7 +21,7 @@ export const ar: Dictionary = {
     secondary: "تتبع طلبي",
   },
   home: {
-    newArrivals: "وصل حديثا",
+    newArrivals: "القطع الجديدة",
     bestSellers: "الأكثر طلبا",
     seeAll: "عرض الكل",
     promos: "تخفيضات",
@@ -358,7 +358,7 @@ export const ar: Dictionary = {
     } as Record<string, string>,
   },
   look: { title: "أكملي إطلالتك", similar: "من نفس القسم" },
-  arrivals: { title: "وصل حديثا", text: "آخر القطع التي وصلت إلى المحل، من الأحدث إلى الأقدم.", empty: "لا توجد قطع جديدة حاليا." },
+  arrivals: { title: "القطع الجديدة", text: "آخر القطع التي وصلت إلى المحل، من الأحدث إلى الأقدم.", empty: "لا توجد قطع جديدة حاليا." },
   drop: {
     soon: "قريبا",
     launchIn: "الإطلاق بعد",

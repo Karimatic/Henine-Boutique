@@ -57,7 +57,7 @@ export const PAGES: PageDef[] = [
   { path: "/favoris", view: "FavoritesView", title: { ar: "مفضلتي", fr: "Mes favoris" }, noindex: true },
   { path: "/liens", view: "LinksView", title: { ar: "روابطنا", fr: "Nos liens" } },
   { path: "/merci", view: "ThankYouView", title: { ar: "شكرا!", fr: "Merci !" }, noindex: true },
-  { path: "/nouveautes", view: "NewArrivalsView", title: { ar: "وصل حديثا", fr: "Nouveautés" } },
+  { path: "/nouveautes", view: "NewArrivalsView", title: { ar: "القطع الجديدة", fr: "Nouveautés" } },
   { path: "/p/_", view: "PageView", title: { ar: "معلومات", fr: "Informations" }, shell: true },
   { path: "/panier", view: "CartView", title: { ar: "سلتي", fr: "Mon panier" }, noindex: true },
   { path: "/produit/_", view: "ProductView", title: { ar: "منتج", fr: "Produit" }, shell: true },

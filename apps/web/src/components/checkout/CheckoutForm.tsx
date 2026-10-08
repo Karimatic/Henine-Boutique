@@ -231,7 +231,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
             inputMode="tel"
             autoComplete="tel"
             dir="ltr"
-            placeholder="05 55 12 34 56"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             maxLength={20}

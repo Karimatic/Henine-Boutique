@@ -566,7 +566,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
     >
       <p className="text-sm font-medium">{t.product.notifyMe}</p>
       <div className="flex gap-2">
-        <input className={inputCls} type="tel" inputMode="tel" dir="ltr" placeholder="05 55 12 34 56" value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <input className={inputCls} type="tel" inputMode="tel" dir="ltr" value={phone} onChange={(e) => setPhone(e.target.value)} />
         <button type="submit" disabled={state === "sending"} className="shrink-0 rounded-xl bg-plum-600 px-5 font-semibold text-white">
           OK
         </button>
