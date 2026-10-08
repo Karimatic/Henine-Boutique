@@ -124,7 +124,7 @@ export function MemberOwnerPanel({ id, onDeleted }: { id: number; onDeleted: () 
       {m.id !== me.data?.id && <SetPassword id={m.id} email={m.email} name={m.name} />}
       {m.id !== me.data?.id && (
         <div className="border-t border-line pt-3">
-          <Button
+          <Button ownerOnly
             variant="danger"
             loading={remove.isPending}
             onClick={() => confirm(tr("Supprimer définitivement le compte de {0} ? Ses actions restent dans l'historique.", { 0: m.name })) && remove.mutate()}

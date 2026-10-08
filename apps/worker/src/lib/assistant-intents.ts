@@ -68,8 +68,8 @@ const W = {
 
 const T = (ar: boolean, a: string, f: string) => (ar ? a : f);
 
-/** Prices inside an Arabic sentence: "2 500 دج" (a Latin "DA" flips around in right-to-left text). */
-const dzd = (n: number) => `${Math.round(n).toLocaleString("fr-FR").replace(/[  ]/g, " ")} دج`;
+/** Prices inside an Arabic sentence: "2 500 دج" (a Latin "DA" flips around in right-to-left text). */
+const dzd = (n: number) => `${Math.round(n).toLocaleString("fr-FR").replace(/[   ]/g, " ")} دج`; // narrow no-break space: "2 500" never reads "500 2"
 
 function cardsBySlugs(all: ProductCardDTO[], slugs: string[]): ProductCardDTO[] {
   return slugs.map((s) => all.find((p) => p.slug === s)).filter((p): p is ProductCardDTO => !!p);

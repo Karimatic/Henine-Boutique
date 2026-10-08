@@ -15,7 +15,7 @@ import { GlobalSearch } from "./lib/search";
 import { useFindOnPage } from "./lib/find";
 import { tr } from "./i18n";
 import { installAutoTranslate } from "./lib/autoTranslate";
-import { useToast } from "./ui";
+import { OwnerCtx, useToast } from "./ui";
 
 export function useMe() {
   return useQuery({ queryKey: ["me"], queryFn: () => api<Me>("/me"), staleTime: 5 * 60_000, retry: false });
@@ -266,6 +266,7 @@ export function Shell() {
   };
 
   return (
+    <OwnerCtx.Provider value={me.data.role === "owner"}>
     <LiveProvider enabled={canOrders}>
     <div className="flex min-h-dvh">
       {/* Desktop sidebar (full or icon rail) */}
@@ -385,6 +386,7 @@ export function Shell() {
       </nav>
     </div>
     </LiveProvider>
+    </OwnerCtx.Provider>
   );
 }
 

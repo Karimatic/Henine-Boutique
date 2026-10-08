@@ -7,6 +7,8 @@ export interface Env {
   RL_AUTH: RateLimit;
   /** AI answers per visitor (beyond it the rules answer alone) */
   RL_AI?: RateLimit;
+  /** Cloudflare Images (5,000 free transformations a month): product photos without background */
+  IMAGES?: ImagesBinding;
   /** Workers AI (free daily allocation): the assistant's voice, see lib/assistant-ai.ts */
   AI?: Ai;
   /** Workers AI model for the assistant; "off" = rules only */

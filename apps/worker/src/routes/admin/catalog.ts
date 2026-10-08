@@ -493,6 +493,35 @@ const SIGNATURES: [string, (b: Uint8Array) => boolean][] = [
   ["jpg", (b) => b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff],
 ];
 
+/**
+ * "Studio" photo: the product cut out (background removed with Cloudflare Images, BiRefNet),
+ * trimmed, centred in the same 4:5 frame with transparent space around it. Every product then
+ * looks alike in the shop, on the theme's background. The admin uploads the result like any
+ * photo; when the service is unavailable (monthly quota, error) it keeps the original photo.
+ */
+catalogRoutes.post("/images/studio", requirePermission("products.edit"), async (c) => {
+  if (!c.env.IMAGES) throw new HttpError(503, "studio_unavailable");
+  const form = await c.req.formData().catch(() => null);
+  const file = form?.get("image");
+  if (!file || typeof file === "string") throw new HttpError(400, "image_required");
+  if (file.size > 15_000_000) throw new HttpError(413, "file_too_large");
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const isImage = (head[0] === 0xff && head[1] === 0xd8) || (head[0] === 0x89 && head[1] === 0x50) || String.fromCharCode(...head.slice(8, 12)) === "WEBP";
+  if (!isImage) throw new HttpError(415, "image_type");
+  try {
+    const out = await c.env.IMAGES.input(file.stream())
+      .transform({ segment: "foreground" })
+      .transform({ trim: { border: { color: "transparent", tolerance: 10 } } })
+      .transform({ width: 1104, height: 1380, fit: "contain" })
+      .transform({ width: 1200, height: 1500, fit: "pad", background: "rgba(0,0,0,0)" })
+      .output({ format: "image/webp", quality: 90 });
+    return out.response({ headers: { "Cache-Control": "no-store" } });
+  } catch (err) {
+    console.warn("studio photo:", err instanceof Error ? err.message : err);
+    throw new HttpError(503, "studio_unavailable");
+  }
+});
+
 catalogRoutes.post("/products/:id/images", requirePermission("products.edit"), async (c) => {
   const productId = intParam(c, "id");
   const exists = await c.env.DB.prepare("SELECT id FROM products WHERE id = ?").bind(productId).first();

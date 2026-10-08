@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { AppEnv } from "../../env";
-import { requireAdmin } from "../../middleware/access";
+import { ownerOnlyDeletes, requireAdmin } from "../../middleware/access";
 import { catalogRoutes } from "./catalog";
 import { insightRoutes } from "./insights";
 import { marketingRoutes } from "./marketing";
@@ -17,6 +17,7 @@ import { translateRoutes } from "./translate";
 export const adminRoutes = new Hono<AppEnv>();
 
 adminRoutes.use("*", requireAdmin);
+adminRoutes.use("*", ownerOnlyDeletes);
 adminRoutes.route("/", systemRoutes);
 adminRoutes.route("/", catalogRoutes);
 adminRoutes.route("/", operationRoutes);

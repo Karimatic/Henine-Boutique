@@ -109,6 +109,11 @@
   "ai": {
     "binding": "AI"
   },
+  // Cloudflare Images: product photos without background, all framed alike (5,000 free a
+  // month; beyond that the photo is kept as it is, nothing is billed on the free plan)
+  "images": {
+    "binding": "IMAGES"
+  },
   // 21:00 Algiers = 20:00 UTC (Algeria has no DST)
   "triggers": {
     "crons": [

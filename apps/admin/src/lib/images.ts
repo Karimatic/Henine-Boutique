@@ -29,7 +29,9 @@ function toBlob(canvas: HTMLCanvasElement, type: string, quality: number): Promi
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("encode_failed"))), type, quality));
 }
 
-export async function processImage(file: File): Promise<ProcessedImage> {
+/** `transparent`: a photo without background (studio): the transparency is kept (WebP), with a
+ *  white ground only where the browser can just make JPEG, and a transparent placeholder. */
+export async function processImage(file: File, transparent = false): Promise<ProcessedImage> {
   if (!file.type.startsWith("image/")) throw new Error("not_an_image");
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   try {
@@ -44,6 +46,10 @@ export async function processImage(file: File): Promise<ProcessedImage> {
       canvas.width = width;
       canvas.height = height;
       ctx.imageSmoothingQuality = "high";
+      if (transparent && format === "jpg") {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, width, height);
+      }
       ctx.drawImage(bitmap, 0, 0, width, height);
       files[w] = await toBlob(canvas, mime, w <= 480 ? 0.78 : 0.82);
       if (width < w) break; // source smaller than this width: no need for bigger copies
@@ -54,7 +60,9 @@ export async function processImage(file: File): Promise<ProcessedImage> {
     canvas.width = lw;
     canvas.height = lh;
     ctx.drawImage(bitmap, 0, 0, lw, lh);
-    const lqip = canvas.toDataURL("image/jpeg", 0.5);
+    // a transparent photo keeps a transparent placeholder (PNG): the shop's background shows through
+    const png = transparent ? canvas.toDataURL("image/png") : "";
+    const lqip = png && png.length <= 3000 ? png : canvas.toDataURL("image/jpeg", 0.5);
     return { files, width: bitmap.width, height: bitmap.height, lqip, format };
   } finally {
     bitmap.close();

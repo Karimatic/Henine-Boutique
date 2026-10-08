@@ -6,7 +6,7 @@ import { api, del, errorMessage, patch, post, put } from "../api";
 import { ago, da, date, ltr, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useCan, useMe } from "../Shell";
-import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Sheet, Stat, StatusBadge, TextArea, TextField, Toggle, useToast } from "../ui";
+import { Badge, Button, Card, Empty, ErrorState, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Sheet, Stat, StatusBadge, TextArea, TextField, Toggle, useToast, useIsOwner } from "../ui";
 import { tr } from "../i18n";
 
 /* ───────────── Clients ───────────── */
@@ -218,7 +218,7 @@ function CustomerSheet({ id, onClose }: { id: number; onClose: () => void }) {
           )}
           {owner && (
             <div className="border-t border-line pt-3">
-              <Button
+              <Button ownerOnly
                 variant="danger"
                 loading={remove.isPending}
                 onClick={() =>
@@ -277,6 +277,7 @@ const STEP_LABEL: Record<string, [string, number]> = {
 };
 
 export function CartsPage() {
+  const owner = useIsOwner();
   const qc = useQueryClient();
   const [filter, setFilter] = useState("abandoned");
   const q = useQuery({
@@ -365,6 +366,7 @@ export function CartsPage() {
                 </a>
                 <button
                   type="button"
+                  hidden={!owner}
                   onClick={() => confirm(tr("Supprimer ce panier de la liste ?")) && void del(`/carts/${c.id}`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
                   className="ms-auto inline-flex h-9 items-center rounded-lg border border-line px-3 text-sm font-semibold text-red-700"
                 >
@@ -375,6 +377,7 @@ export function CartsPage() {
               {c.recovered_code && (
                 <button
                   type="button"
+                  hidden={!owner}
                   onClick={() => confirm(tr("Supprimer ce panier de la liste ?")) && void del(`/carts/${c.id}`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
                   className="ms-2 text-xs font-semibold text-red-700 underline"
                 >

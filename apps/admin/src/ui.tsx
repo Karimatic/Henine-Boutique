@@ -18,14 +18,21 @@ const VARIANT: Record<Variant, string> = {
   danger: "border border-red-200 bg-surface text-red-700 hover:bg-red-50",
 };
 
+/** Is the signed-in account the owner? (set by the Shell): deleting is for the owner only. */
+export const OwnerCtx = createContext(false);
+export const useIsOwner = () => useContext(OwnerCtx);
+
 export function Button({
   variant = "secondary",
   size = "md",
   loading = false,
   className = "",
   children,
+  ownerOnly = false,
   ...rest
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md"; loading?: boolean }) {
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; size?: "sm" | "md"; loading?: boolean; /** hidden unless the account is the owner (delete buttons) */ ownerOnly?: boolean }) {
+  const owner = useContext(OwnerCtx);
+  if (ownerOnly && !owner) return null;
   return (
     <button
       type="button"

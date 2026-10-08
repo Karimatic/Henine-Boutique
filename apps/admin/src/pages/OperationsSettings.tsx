@@ -230,7 +230,7 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
           </label>
         )}
         {url && can("orders.edit") && (
-          <Button variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
+          <Button ownerOnly variant="danger" loading={remove.isPending} onClick={() => remove.mutate()}>
             {tr("Retirer")}
           </Button>
         )}

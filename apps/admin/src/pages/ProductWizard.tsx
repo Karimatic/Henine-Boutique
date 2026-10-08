@@ -1,4 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { studioEnabled, studioPhoto } from "../lib/studio";
+import { useCan } from "../Shell";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, ImagePlus } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -20,13 +22,14 @@ type Color = { labelFr: string; labelAr: string; hex: string };
 const STEPS = ["Photos", "Nom & prix", "Tailles & couleurs", "Quantités", "Publier"] as const;
 
 export function ProductWizard() {
+  const can = useCan();
   const toast = useToast();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const categories = useQuery({ queryKey: ["categories"], queryFn: () => api<CategoryLite[]>("/categories") });
   const [step, setStep] = useState(0);
   const [files, setFiles] = useState<File[]>([]);
-  const [info, setInfo] = useState({ nameFr: "", nameAr: "", price: null as number | null, compareAt: null as number | null, categoryId: null as number | null, descriptionFr: "", descriptionAr: "" });
+  const [info, setInfo] = useState({ nameFr: "", nameAr: "", price: null as number | null, compareAt: null as number | null, cost: null as number | null, categoryId: null as number | null, descriptionFr: "", descriptionAr: "" });
   const [sizes, setSizes] = useState<string[]>([]);
   const [colors, setColors] = useState<Color[]>([]);
   const [customSize, setCustomSize] = useState("");
@@ -69,13 +72,19 @@ export function ProductWizard() {
       }));
       const saved = await post<{ id: number }>("/products", {
         nameFr: info.nameFr.trim(), nameAr: info.nameAr.trim() || info.nameFr.trim(), descriptionFr: info.descriptionFr, descriptionAr: info.descriptionAr,
-        status, categoryId: info.categoryId, tags: ["nouveaute"], price: info.price ?? 0, compareAtPrice: info.compareAt, costPrice: null,
+        status, categoryId: info.categoryId, tags: ["nouveaute"], price: info.price ?? 0, compareAtPrice: info.compareAt, costPrice: can("cost.view") ? info.cost : null,
         seoTitle: null, seoDescription: null, instagramUrl: null, relatedIds: [], sizeGuideId: null, options, variants,
       });
+      const studio = studioEnabled();
+      let studioFailed = false;
       for (const [n, file] of files.entries()) {
         setBusy(tr("Photo {0}/{1}…", { 0: n + 1, 1: files.length }));
-        await uploadPhoto(saved.id, file).catch(() => toast(tr("Une photo n'a pas pu être envoyée : ajoutez-la depuis la fiche."), "error"));
+        // same style for every product: background removed, centred in the same frame
+        const clean = studio ? await studioPhoto(file) : null;
+        if (studio && !clean) studioFailed = true;
+        await uploadPhoto(saved.id, clean ?? file, undefined, !!clean).catch(() => toast(tr("Une photo n'a pas pu être envoyée : ajoutez-la depuis la fiche."), "error"));
       }
+      if (studioFailed) toast(tr("Le fond n'a pas pu être retiré pour le moment : photo gardée telle quelle."), "error");
       toast(status === "published" ? tr("Produit en ligne ✓") : tr("Brouillon enregistré ✓"));
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["stock-products"] });
@@ -145,6 +154,16 @@ export function ProductWizard() {
             <div className="grid grid-cols-2 gap-3">
               <NumberField label={tr("Prix de vente")} suffix="DA" value={info.price} onChange={(v) => setInfo({ ...info, price: v })} />
               <NumberField label={tr("Prix barré (facultatif)")} suffix="DA" value={info.compareAt} onChange={(v) => setInfo({ ...info, compareAt: v })} />
+              {can("cost.view") && (
+                <NumberField
+                  label={tr("Prix d'achat")}
+                  suffix="DA"
+                  value={info.cost}
+                  onChange={(v) => setInfo({ ...info, cost: v })}
+                  hint={info.price && info.cost ? tr("marge {0} %", { 0: Math.round(((info.price - info.cost) / info.price) * 100) }) : tr("privé")}
+                  className="col-span-2"
+                />
+              )}
             </div>
             <label className="block text-sm font-medium">
               {tr("Catégorie")}

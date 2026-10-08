@@ -53,6 +53,8 @@ const SILHOUETTES: Record<string, string> = {
   sport: "M44 10c4 6 8 8 16 8s12-2 16-8l18 10-6 26-10-4v22H42V42l-10 4-6-26Zm-2 64h36l6 46H68l-8-32-8 32H36Z",
 };
 
+const TILE_BG = "linear-gradient(to bottom, var(--tile-from, var(--color-ivory-deep)), var(--tile-to, var(--color-rose-100)))";
+
 export function ProductImage({
   image,
   alt,
@@ -76,7 +78,11 @@ export function ProductImage({
   const pos = className.split(/\s+/).some((c) => c === "absolute" || c === "fixed") ? "" : "relative";
   if (image) {
     return (
-      <div className={`${pos} overflow-hidden bg-ivory-deep ${className}`} style={image.lqip ? { backgroundImage: `url(${image.lqip})`, backgroundSize: "cover" } : undefined}>
+      // the theme's background behind every photo: it shows around products photographed without background
+      <div
+        className={`${pos} overflow-hidden ${className}`}
+        style={{ backgroundImage: `${image.lqip ? `url(${image.lqip}), ` : ""}${TILE_BG}`, backgroundSize: "cover" }}
+      >
         <img
           src={imageUrl(image, 960)}
           srcSet={imageSrcSet(image)}

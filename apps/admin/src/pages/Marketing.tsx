@@ -210,7 +210,7 @@ function CouponSheet({ coupon, onClose }: { coupon: Partial<Coupon>; onClose: ()
       title={coupon.id ? tr("Code {0}", { 0: coupon.code }) : tr("Nouveau code promo")}
       footer={
         <div className="flex justify-between gap-2">
-          {coupon.id ? <Button variant="danger" onClick={() => confirm(tr("Supprimer ce code ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
+          {coupon.id ? <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer ce code ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
           <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>{tr("Enregistrer")}</Button>
         </div>
       }
@@ -617,7 +617,7 @@ function ReviewItem({ r, onEdit }: { r: Review; onEdit: () => void }) {
         {r.status !== "rejected" && <Button size="sm" onClick={() => save.mutate({ status: "rejected" })}>{tr("Masquer")}</Button>}
         <Button size="sm" variant="ghost" onClick={() => save.mutate({ isFeatured: !r.is_featured })}>{r.is_featured ? tr("Ne plus mettre en avant") : tr("Mettre en avant")}</Button>
         {!r.verified && <Button size="sm" onClick={onEdit}>✏️ {tr("Modifier")}</Button>}
-        <Button size="sm" variant="danger" onClick={() => confirm(tr("Supprimer définitivement cet avis ?")) && remove.mutate(undefined)}>{tr("Supprimer")}</Button>
+        <Button ownerOnly size="sm" variant="danger" onClick={() => confirm(tr("Supprimer définitivement cet avis ?")) && remove.mutate(undefined)}>{tr("Supprimer")}</Button>
       </div>
     </li>
   );
@@ -795,7 +795,7 @@ function LinkSheet({ link, onClose }: { link: Partial<LinkRow>; onClose: () => v
       title={link.id ? tr("Modifier le lien") : f.kind === "short" ? tr("Nouveau lien court") : tr("Nouveau lien")}
       footer={
         <div className="flex justify-between gap-2">
-          {link.id ? <Button variant="danger" onClick={() => confirm(tr("Supprimer ce lien ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
+          {link.id ? <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer ce lien ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
           <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>{tr("Enregistrer")}</Button>
         </div>
       }
@@ -1018,7 +1018,7 @@ function CollectionSheet({ c, onClose }: { c: Partial<CollectionRow>; onClose: (
             {tr("Enregistrer")}
           </Button>
           {c.id && (
-            <Button variant="danger" onClick={() => confirm(tr("Supprimer cette collection ? (les produits ne sont pas supprimés)")) && remove.mutate(undefined, { onSuccess: onClose })}>
+            <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer cette collection ? (les produits ne sont pas supprimés)")) && remove.mutate(undefined, { onSuccess: onClose })}>
               {tr("Supprimer")}
             </Button>
           )}
@@ -1181,7 +1181,7 @@ function FlashSheet({ sale, onClose }: { sale: Partial<FlashSale>; onClose: () =
       title={sale.id ? tr("Vente flash · {0}", { 0: sale.nameFr }) : tr("Nouvelle vente flash")}
       footer={
         <div className="flex justify-between gap-2">
-          {sale.id ? <Button variant="danger" onClick={() => confirm(tr("Supprimer cette vente flash ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
+          {sale.id ? <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer cette vente flash ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
           <Button
             variant="primary"
             loading={save.isPending}

@@ -58,6 +58,9 @@
  * visible on every page rather than once on the home hero. */
 .brand-mark {
   display: inline-block;
+  /* same as the tagline: the "q" of Boutique keeps its tail */
+  padding-block: 0.1em 0.22em;
+  margin-block: -0.1em -0.22em;
   opacity: 0;
   transform: translateY(0.35em);
   color: transparent;
@@ -193,6 +196,10 @@
  *    per word in AnimatedTagline.tsx. */
 .tagline-word {
   display: inline-block;
+  /* the letters are painted inside the word's box: room for accents (É) and for the parts
+     below the line (g, q, p) so they are never cut; the negative margins keep the layout */
+  padding-block: 0.12em 0.22em;
+  margin-block: -0.12em -0.22em;
   opacity: 0;
   transform: translateY(0.55em);
   filter: blur(6px);

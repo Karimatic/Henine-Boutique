@@ -623,7 +623,7 @@ function ExpensesTab({ canEdit }: { canEdit: boolean }) {
                   </>
                 )}
                 {owner && (
-                  <Button variant="danger" onClick={() => confirmAction(tr("Supprimer définitivement cette dépense ?")) && remove.mutate(e.id)}>
+                  <Button ownerOnly variant="danger" onClick={() => confirmAction(tr("Supprimer définitivement cette dépense ?")) && remove.mutate(e.id)}>
                     {tr("Supprimer")}
                   </Button>
                 )}

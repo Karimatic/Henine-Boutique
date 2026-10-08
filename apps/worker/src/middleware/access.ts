@@ -67,3 +67,10 @@ export const requireOwner: MiddlewareHandler<AppEnv> = async (c, next) => {
 export function actorOf(member: { id: number; name: string }): string {
   return `member:${member.id}:${member.name}`;
 }
+
+/** Deleting is for the owner only (anyone can still sign out their own devices). */
+export const ownerOnlyDeletes: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const deleting = c.req.method === "DELETE" || /\/bulk-delete$/.test(c.req.path);
+  if (deleting && !/\/account\/sessions\//.test(c.req.path) && c.get("member")?.role !== "owner") return c.json({ error: "owner_only" }, 403);
+  return next();
+};

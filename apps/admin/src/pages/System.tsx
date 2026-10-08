@@ -262,7 +262,7 @@ export function IntegrationsSection() {
               <div className="mt-2 flex flex-wrap gap-2">
                 <Button size="sm" variant="primary" onClick={() => run(() => post("/integrations/telegram/test"), tr("Message test envoyé"))}>{tr("Envoyer un message test")}</Button>
                 {t.mode !== "poll" && <Button size="sm" onClick={() => run(() => post("/integrations/telegram/webhook"), tr("Boutons activés (webhook)"))}>{t.webhookUrl ? tr("Réactiver les boutons") : tr("Activer les boutons")}</Button>}
-                <Button size="sm" variant="danger" onClick={() => confirm(tr("Déconnecter le bot ?")) && run(() => del("/integrations/telegram"), tr("Bot déconnecté"))}>{tr("Déconnecter")}</Button>
+                <Button ownerOnly size="sm" variant="danger" onClick={() => confirm(tr("Déconnecter le bot ?")) && run(() => del("/integrations/telegram"), tr("Bot déconnecté"))}>{tr("Déconnecter")}</Button>
               </div>
               <p className="mt-2 text-xs text-ink-soft">
                 {t.mode === "poll" ? tr("Mode développement : les boutons Telegram fonctionnent tant que cet admin est ouvert.") : t.webhookUrl ? tr("Boutons actifs via {0}", { 0: t.webhookUrl }) : tr("Activez les boutons après le déploiement en ligne.")}
@@ -491,7 +491,7 @@ function PageSheet({ page, onClose }: { page: Partial<PageRow>; onClose: () => v
       title={page.id ? f.title_fr : tr("Nouvelle page")}
       footer={
         <div className="flex justify-between gap-2">
-          {page.id ? <Button variant="danger" onClick={() => confirm(tr("Supprimer cette page ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
+          {page.id ? <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer cette page ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
           <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>{tr("Enregistrer")}</Button>
         </div>
       }
@@ -573,7 +573,7 @@ function CategorySheet({ cat, all, onClose }: { cat: Partial<CategoryRow>; all: 
       title={cat.id ? f.name_fr : tr("Nouvelle catégorie")}
       footer={
         <div className="flex justify-between gap-2">
-          {cat.id ? <Button variant="danger" onClick={() => confirm(tr("Supprimer cette catégorie (elle doit être vide) ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
+          {cat.id ? <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer cette catégorie (elle doit être vide) ?")) && remove.mutate(undefined, { onSuccess: onClose })}>{tr("Supprimer")}</Button> : <span />}
           <Button variant="primary" loading={save.isPending} onClick={() => save.mutate(undefined, { onSuccess: onClose })}>{tr("Enregistrer")}</Button>
         </div>
       }
@@ -678,7 +678,7 @@ function SizeGuideSheet({ guide, onClose }: { guide: SizeGuide; onClose: () => v
       footer={
         <div className="flex justify-between gap-2">
           {guide.id ? (
-            <Button variant="danger" onClick={() => confirm(tr("Supprimer ce guide ? Les produits qui l’utilisent n’auront plus de guide.")) && remove.mutate(undefined, { onSuccess: onClose })}>
+            <Button ownerOnly variant="danger" onClick={() => confirm(tr("Supprimer ce guide ? Les produits qui l’utilisent n’auront plus de guide.")) && remove.mutate(undefined, { onSuccess: onClose })}>
               {tr("Supprimer")}
             </Button>
           ) : (
