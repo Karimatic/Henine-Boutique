@@ -378,7 +378,7 @@ export function TrackView() {
   const [code, setCode] = useState("");
   const turnstile = useTurnstileToken();
   const [results, setResults] = useState<TrackedOrderDTO[] | null>(null);
-  const [state, setState] = useState<"idle" | "loading" | "error" | "invalid">("idle");
+  const [state, setState] = useState<"idle" | "loading" | "error" | "invalid" | "check">("idle");
 
   // 1) private link (?c=&t=)
   useEffect(() => {
@@ -404,10 +404,10 @@ export function TrackView() {
     if (!p) return setState("invalid");
     setState("loading");
     try {
-      setResults(await apiPost<TrackedOrderDTO[]>("/track", { phone: p, code: code.trim() || undefined, turnstileToken: await turnstile.take() }));
+      setResults(await turnstile.submit((turnstileToken) => apiPost<TrackedOrderDTO[]>("/track", { phone: p, code: code.trim() || undefined, turnstileToken })));
       setState("idle");
     } catch (err) {
-      setState(err instanceof ApiError && err.code === "validation_failed" ? "invalid" : "error");
+      setState(err instanceof ApiError && err.code === "validation_failed" ? "invalid" : err instanceof ApiError && err.code === "turnstile_failed" ? "check" : "error");
     }
   }
 
@@ -434,6 +434,8 @@ export function TrackView() {
         <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
         {state === "invalid" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
         {state === "error" && <ErrorBox />}
+        {/* the anti-robot check failed twice: say so (not "check your connection") */}
+        {state === "check" && <p className="text-sm text-danger">{t.checkout.errors.turnstile_failed}</p>}
         <button type="submit" disabled={state === "loading"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white">
           {state === "loading" && <Spinner className="size-4" />}
           {t.track.search}

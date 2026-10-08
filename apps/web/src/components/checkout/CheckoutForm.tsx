@@ -142,7 +142,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
     setSubmitting(true);
     try {
       const params = new URLSearchParams(location.search);
-      const send = async () => apiPost<CreatedOrderDTO>("/orders", {
+      const order = await turnstile.submit((turnstileToken) => apiPost<CreatedOrderDTO>("/orders", {
         idempotencyKey: idem.current,
         cartId: normalizedPhone ? cartId(channel) : undefined,
         name: name.trim(),
@@ -159,17 +159,12 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         lines,
         channel,
         locale,
-        turnstileToken: await turnstile.take(),
+        turnstileToken,
         // how she arrived (this page's campaign link, else the one remembered from her visit)
         utm: params.get("utm_source")
           ? { source: params.get("utm_source") ?? undefined, medium: params.get("utm_medium") ?? undefined, campaign: params.get("utm_campaign") ?? undefined, landing: location.pathname }
           : visitAttribution(),
-      });
-      // a check that fails (expired, or still running) is retried once with a fresh token, unseen
-      const order = await send().catch((err) => {
-        if (err instanceof ApiError && err.code === "turnstile_failed") return send();
-        throw err;
-      });
+      }));
       saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
       if (coupon) pendingCoupon.set(null); // used: not offered again
       try {

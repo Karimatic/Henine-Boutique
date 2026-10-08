@@ -557,7 +557,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
         if (!p) return setState("error");
         setState("sending");
         try {
-          await apiPost("/stock-alert", { variantId, phone: p, turnstileToken: await turnstile.take() });
+          await turnstile.submit((turnstileToken) => apiPost("/stock-alert", { variantId, phone: p, turnstileToken }));
           setState("done");
         } catch {
           setState("error");

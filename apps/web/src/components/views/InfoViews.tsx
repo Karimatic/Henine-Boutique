@@ -36,7 +36,9 @@ export function ContactView() {
               if (form.phone && !phone) return setState("error");
               setState("sending");
               try {
-                await apiPost("/contact", { name: form.name.trim(), phone: phone ?? undefined, subject: form.subject.trim() || undefined, message: form.message.trim(), turnstileToken: await turnstile.take() });
+                await turnstile.submit((turnstileToken) =>
+                  apiPost("/contact", { name: form.name.trim(), phone: phone ?? undefined, subject: form.subject.trim() || undefined, message: form.message.trim(), turnstileToken }),
+                );
                 setState("sent");
               } catch {
                 setState("error");

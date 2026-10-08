@@ -1,4 +1,6 @@
+import { CheckTokens, retryOnCheckFailure } from "@henine/shared";
 import { useCallback, useEffect, useRef } from "react";
+import { ApiError } from "@/lib/api";
 
 /**
  * Cloudflare Turnstile (free, privacy-friendly anti-bot). Renders in "managed" mode:
@@ -83,38 +85,23 @@ export function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }
 
-/** Values that stand for "no check possible here": never used up, never reset. */
-const STANDING = new Set(["no-site-key", "unavailable"]);
-
 /**
- * The form's side of Turnstile. A token works only once and expires after a few minutes, so
- * `take()` (at submit) waits for the check if it is still running, hands the token over once,
- * and asks the widget for a fresh one at once: a second try (after an error) has its own.
+ * The form's side of Turnstile (see CheckTokens): `submit(send)` gives `send` a fresh token,
+ * and sends once more with a new one if the server says the check failed (late or expired
+ * token), so the customer does not see "verification failed" for nothing.
  */
 export function useTurnstileToken() {
-  const state = useRef({ token: "", waiters: [] as ((t: string) => void)[], reset: null as null | (() => void) });
-  const onToken = useCallback((t: string) => {
-    const s = state.current;
-    s.token = t;
-    if (t) for (const resolve of s.waiters.splice(0)) resolve(t);
-  }, []);
-  const onReady = useCallback((reset: () => void) => {
-    state.current.reset = reset;
-  }, []);
-  const take = useCallback(async (): Promise<string> => {
-    const s = state.current;
-    const t =
-      s.token ||
-      (await new Promise<string>((resolve) => {
-        s.waiters.push(resolve);
-        // the server then answers "verification failed": the customer can simply try again
-        setTimeout(() => resolve(s.token || "pending"), 15000);
-      }));
-    if (!STANDING.has(t)) {
-      s.token = "";
-      s.reset?.();
-    }
-    return t;
-  }, []);
-  return { onToken, onReady, take };
+  const box = useRef<CheckTokens | null>(null);
+  box.current ??= new CheckTokens();
+  const onToken = useCallback((t: string) => box.current!.set(t), []);
+  const onReady = useCallback((reset: () => void) => box.current!.onRefresh(reset), []);
+  const submit = useCallback(
+    <T,>(send: (token: string) => Promise<T>) =>
+      retryOnCheckFailure(
+        async () => send(await box.current!.take()),
+        (err) => err instanceof ApiError && err.code === "turnstile_failed",
+      ),
+    [],
+  );
+  return { onToken, onReady, submit };
 }

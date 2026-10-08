@@ -51,13 +51,12 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
     if (!token && !p) return setError(t.checkout.errors.phone_invalid!);
     setState("sending");
     try {
-      const form = new FormData();
-      form.set(
-        "data",
-        JSON.stringify({ code: normalizedCode, token, phone: p ?? undefined, productId, rating, text: text.trim() || undefined, turnstileToken: await turnstile.take() }),
-      );
-      for (const ph of photos) form.append("photo", ph.blob, ph.blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
-      const res = await apiForm<{ status: string }>("/reviews", form);
+      const res = await turnstile.submit((turnstileToken) => {
+        const form = new FormData();
+        form.set("data", JSON.stringify({ code: normalizedCode, token, phone: p ?? undefined, productId, rating, text: text.trim() || undefined, turnstileToken }));
+        for (const ph of photos) form.append("photo", ph.blob, ph.blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
+        return apiForm<{ status: string }>("/reviews", form);
+      });
       setState("idle");
       onDone?.(res.status);
     } catch (err) {
