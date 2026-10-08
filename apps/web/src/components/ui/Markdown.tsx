@@ -23,11 +23,14 @@ function Inlines({ nodes }: { nodes: Inline[] }) {
 }
 
 export function Markdown({ source, className = "" }: { source: string; className?: string }) {
+  const blocks = parseMarkdown(source);
+  // the text's biggest titles are the page's sub-titles (h2), whether written "#" or "##"
+  const top = Math.min(...blocks.map((b) => (b.t === "h" ? b.level : 9)));
   return (
     <div className={`space-y-3 text-sm leading-relaxed text-ink-soft ${className}`}>
-      {parseMarkdown(source).map((b, i) =>
+      {blocks.map((b, i) =>
         b.t === "h" ? (
-          b.level === 1 ? (
+          b.level === top ? (
             <h2 key={i} className="heading-display pt-2 text-2xl text-ink"><Inlines nodes={b.content} /></h2>
           ) : (
             <h3 key={i} className="pt-2 text-base font-semibold text-ink"><Inlines nodes={b.content} /></h3>

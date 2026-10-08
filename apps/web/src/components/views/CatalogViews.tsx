@@ -168,7 +168,7 @@ export function CategoryView() {
       ) : !catalog.data ? (
         <ProductGridSkeleton count={6} />
       ) : products.length ? (
-        <ProductGrid products={products} />
+        <ProductGrid products={products} level={2} />
       ) : (
         <div className="rounded-card border border-line bg-surface p-8 text-center">
           <p className="text-ink-soft">{t.categories.empty}</p>
@@ -236,7 +236,7 @@ export function PromotionsView() {
       ) : !catalog.data ? (
         <ProductGridSkeleton count={6} />
       ) : shown.length ? (
-        <ProductGrid products={shown} />
+        <ProductGrid products={shown} level={2} />
       ) : (
         <div className="rounded-card border border-line bg-surface p-8 text-center">
           <p className="text-ink-soft">{P.empty}</p>

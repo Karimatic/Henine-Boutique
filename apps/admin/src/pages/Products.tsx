@@ -286,8 +286,6 @@ interface ProductForm {
   options: Option[];
   variants: Variant[];
   images?: (ImageRef & { id: number })[];
-  /** short video shown in the gallery (media URL) */
-  video?: string | null;
 }
 
 /** Photos chosen on a product that wasn't saved yet: uploaded right after the first save. */

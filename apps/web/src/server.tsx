@@ -56,6 +56,9 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
  * the fixed pages their canonical address and Arabic / French twins (search engines index
  * each page as itself). Shells get their canonical from the Worker, per slug.
  */
+/** Default picture of link previews (the built-in home photo, 640 × 640). */
+export const SHARE_IMAGE = { src: "/ig/pyjamas-rayures.jpg", width: 640, height: 640 };
+
 function headTags(page: PageDef, locale: Locale, siteUrl: string): string {
   const t = getDictionary(locale);
   const title = page.title ? `${page.title[locale]} · Henine Boutique` : t.meta.title;
@@ -92,6 +95,11 @@ function headTags(page: PageDef, locale: Locale, siteUrl: string): string {
     `<meta property="og:site_name" content="Henine Boutique"/>`,
     `<meta property="og:locale" content="${locale === "fr" ? "fr_DZ" : "ar_DZ"}"/>`,
     `<meta property="og:type" content="website"/>`,
+    // link previews (WhatsApp, Instagram, Facebook): the shop's home photo (product pages get their own)
+    `<meta property="og:image" content="${abs(SHARE_IMAGE.src)}"/>`,
+    `<meta property="og:image:width" content="${SHARE_IMAGE.width}"/>`,
+    `<meta property="og:image:height" content="${SHARE_IMAGE.height}"/>`,
+    `<meta property="og:image:alt" content="Henine Boutique"/>`,
     `<meta name="twitter:card" content="summary"/>`,
     `<meta name="twitter:title" content="${esc(title)}"/>`,
     `<meta name="twitter:description" content="${esc(description)}"/>`,

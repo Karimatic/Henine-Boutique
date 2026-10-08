@@ -179,7 +179,7 @@ export function SearchView() {
       ) : results.length ? (
         <>
           <p className="mb-4 text-sm text-ink-soft">{t.search.results(results.length)}</p>
-          <ProductGrid products={results} />
+          <ProductGrid products={results} level={2} />
         </>
       ) : (
         <div className="space-y-8">

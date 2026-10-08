@@ -7,7 +7,9 @@ import { Badges } from "./Badges";
 import { QuickAddButton } from "./QuickAdd";
 import { toggleFavorite, useFavorites } from "@/lib/stores";
 
-export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priority?: boolean }) {
+/** `level`: heading level of the product name: 3 under a section title, 2 right under the page title. */
+export function ProductCard({ p, priority = false, level = 3 }: { p: ProductCardDTO; priority?: boolean; level?: 2 | 3 }) {
+  const Name = level === 2 ? "h2" : "h3";
   const { t, href, ar } = useLocale();
   const favorites = useFavorites();
   const fav = favorites.includes(p.slug);
@@ -29,7 +31,7 @@ export function ProductCard({ p, priority = false }: { p: ProductCardDTO; priori
           </div>
         </div>
         <div className="mt-2 space-y-1 px-0.5">
-          <h3 className="line-clamp-1 text-[13.5px] font-medium text-ink">{name}</h3>
+          <Name className="line-clamp-1 text-[13.5px] font-medium text-ink">{name}</Name>
           <Price value={p.price} compareAt={p.compareAtPrice} className="text-sm" />
           {p.flash?.limit != null && p.inStock && <FlashStock flash={p.flash} compact />}
           <div className="flex items-center gap-2">
@@ -80,12 +82,12 @@ export function ProductGridSkeleton({ count = 4 }: { count?: number }) {
   );
 }
 
-export function ProductGrid({ products }: { products: ProductCardDTO[] }) {
+export function ProductGrid({ products, level = 3 }: { products: ProductCardDTO[]; level?: 2 | 3 }) {
   return (
     <ul className="grid grid-cols-2 gap-x-3 gap-y-6 md:grid-cols-3 lg:grid-cols-4">
       {products.map((p, i) => (
         <li key={p.id}>
-          <ProductCard p={p} priority={i < 2} />
+          <ProductCard p={p} priority={i < 2} level={level} />
         </li>
       ))}
     </ul>

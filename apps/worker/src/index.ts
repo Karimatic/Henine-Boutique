@@ -167,6 +167,9 @@ function previewHead(c: Context<AppEnv>, path: string, ar: boolean, m: PreviewMe
       ["og:image:height", String(Math.round((w * m.image.height) / m.image.width))],
       ["og:image:alt", m.imageAlt],
     );
+  } else {
+    // no picture of its own (category, info page, product without photo): the shop's home photo
+    tags.push(["og:image", new URL("/ig/pyjamas-rayures.jpg", c.env.PUBLIC_ORIGIN).toString()], ["og:image:width", "640"], ["og:image:height", "640"], ["og:image:alt", "Henine Boutique"]);
   }
   if (m.price != null) tags.push(["product:price:amount", String(m.price)], ["product:price:currency", "DZD"]);
   return [

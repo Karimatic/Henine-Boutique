@@ -5,7 +5,7 @@ The full product/architecture plan is in [`PLAN.md`](PLAN.md).
 
 ```
 apps/web      storefront: Preact + Vite, every page pre-rendered (Arabic at /, French at /fr)
-apps/admin    Vite + React admin SPA at /admin (login: email + password + emailed code)
+apps/admin    Vite + React admin SPA at /admin (login: email + password + a 6-digit code)
 apps/worker   Cloudflare Worker: Hono API (/api), cron jobs, serves both static builds
 packages/db   Drizzle schema, D1 migrations, seeds (69 wilayas, 1541 communes, roles)
 packages/shared  phone/money/i18n utils, order state machine, zod schemas, permissions
@@ -36,14 +36,19 @@ In development no email is sent: login codes are printed in the terminal **and s
 
 ## Admin login
 
-Email + password, then a 6-digit code sent by email (valid 10 min, 5 attempts). 5 wrong passwords lock the account 15 min.
+Email + password, then a 6-digit code (5 attempts). 5 wrong passwords lock the account 15 min. Where the code comes from:
+- **Authenticator app (TOTP)** — when no email service is configured (`MAIL_PROVIDER` = `console`, the current setting), each
+  account links Google Authenticator (or any TOTP app) while accepting its invitation; the code changes every 30 s.
+  Accounts that have an authenticator always sign in with it.
+- **Email** — once `MAIL_PROVIDER` = `resend` with `MAIL_API_KEY` and `MAIL_FROM` are set, accounts without an authenticator
+  receive the code by email (valid 10 min).
 The password is stretched in the browser (PBKDF2-SHA256, 600 000 iterations) and the Worker stores a salted, peppered
 hash of that key, which keeps each login within the free plan's 10 ms CPU limit.
-New members are invited from **Système → Équipe** (or `npm run admin:invite`).
+New members are invited from **Système → Comptes** (or `npm run admin:invite`).
 
 ## Telegram orders
 
-Admin → **Système → Comptes → Telegram**:
+Admin → **Paramètres** (⚙️ in the top bar) → **Connexions → Telegram**:
 1. Create a bot with **@BotFather** (`/newbot`), copy the token, paste it.
 2. Add the bot to the team's group and send `/start` there, then click **Détecter le groupe** and pick it.
 3. **Envoyer un message test**. Every new order now arrives with ✅ Confirmer / 📵 Injoignable / ❌ Annuler buttons.
@@ -54,16 +59,18 @@ Bot commands: `/id` (your Telegram ID, to link it in Équipe), `/jour` (today's 
 ## First deploy (one-time Cloudflare setup)
 
 1. `npx wrangler login`
-2. `npx wrangler d1 create henine-db --location weur` → paste the `database_id` into `apps/worker/wrangler.jsonc`
+2. `npx wrangler d1 create henine-boutique-db --location weur` → paste the `database_id` into `apps/worker/wrangler.jsonc`
 3. `npx wrangler r2 bucket create henine-media`
 4. Secrets (from `apps/worker`): `npx wrangler secret put <NAME>` for `TURNSTILE_SECRET`, `IP_HASH_SALT`, `TRACK_TOKEN_PEPPER`, `AUTH_PEPPER`,
-   `SETTINGS_KEY` (32 random bytes, base64) and `MAIL_API_KEY`. Optionally set `MAIL_PROVIDER` (`resend`), `MAIL_FROM` and `TURNSTILE_SITE_KEY` in `wrangler.jsonc` vars.
+   `SETTINGS_KEY` (32 random bytes, base64). Email is optional: `MAIL_API_KEY` as a secret with `MAIL_PROVIDER` (`resend`) and `MAIL_FROM`
+   in `wrangler.jsonc` vars (without it, admins sign in with an authenticator app). Set `TURNSTILE_SITE_KEY` in the vars.
 5. Set `PUBLIC_ORIGIN` (your `*.workers.dev` URL for now) in `wrangler.jsonc` vars.
 6. `npm run migrate:remote --workspace @henine/worker`, `npm run seed:remote --workspace @henine/worker`, then `npm run deploy`
 7. Create the owner: `npm run admin:invite -- --email <email> --name Ilyas --role owner --remote --origin https://<your-url>`
 8. Optional extra wall: Cloudflare Access on `/admin*` (set `ACCESS_AUD` + `ACCESS_TEAM_DOMAIN`).
 
-After that, pushes to `main` deploy automatically via GitHub Actions (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` repo secrets).
+Deploying: `npx wrangler deploy` from `apps/worker` after `npm run build`. The GitHub Actions deploy job (on pushes to `main`)
+runs only when the repository variable `DEPLOY_ENABLED` is `true` and the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` secrets are set.
 
 ## Data notes
 

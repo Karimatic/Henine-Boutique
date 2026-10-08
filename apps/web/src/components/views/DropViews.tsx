@@ -171,7 +171,7 @@ export function NewArrivalsView() {
       ) : products.length === 0 ? (
         <p className="text-ink-soft">{t.arrivals.empty}</p>
       ) : (
-        <ProductGrid products={products} />
+        <ProductGrid products={products} level={2} />
       )}
     </div>
   );
