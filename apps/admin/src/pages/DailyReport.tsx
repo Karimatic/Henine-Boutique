@@ -57,9 +57,9 @@ export function DailyReportCard() {
       title={tr("📊 Rapport du jour")}
       actions={
         <div className="flex items-center gap-1">
-          <button type="button" aria-label={tr("Jour précédent")} onClick={() => setDay((d) => shift(d, -1))} className="grid size-10 place-items-center rounded-lg border border-line">‹</button>
+          <button type="button" aria-label={tr("Jour précédent")} onClick={() => setDay((d) => shift(d, -1))} className="grid size-10 place-items-center rounded-lg border border-line"><span dir="ltr">‹</span></button>
           <input type="date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm" aria-label={tr("Jour")} />
-          <button type="button" aria-label={tr("Jour suivant")} disabled={isToday} onClick={() => setDay((d) => shift(d, 1))} className="grid size-10 place-items-center rounded-lg border border-line disabled:opacity-40">›</button>
+          <button type="button" aria-label={tr("Jour suivant")} disabled={isToday} onClick={() => setDay((d) => shift(d, 1))} className="grid size-10 place-items-center rounded-lg border border-line disabled:opacity-40"><span dir="ltr">›</span></button>
         </div>
       }
     >
