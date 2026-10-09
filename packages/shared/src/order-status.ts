@@ -100,7 +100,7 @@ export function trackingStepIndex(status: OrderStatus): number {
 }
 
 export const STATUS_LABELS: Record<OrderStatus, { fr: string; ar: string }> = {
-  nouvelle: { fr: "Reçue", ar: "تم الاستلام" },
+  nouvelle: { fr: "Reçue", ar: "تم تسجيل الطلب" },
   injoignable: { fr: "En attente de confirmation", ar: "في انتظار التأكيد" },
   confirmee: { fr: "Confirmée", ar: "مؤكدة" },
   en_preparation: { fr: "En préparation", ar: "قيد التحضير" },

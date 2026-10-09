@@ -140,6 +140,15 @@ export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, { fr: string; emoji
   other: { fr: "Autre", emoji: "🧾" },
 };
 
+/**
+ * A category is one of the presets above or any name the shop types (« Cadeaux clientes »,
+ * « Shooting photo »…): those custom ones get a tag emoji and are shown as typed.
+ */
+export function expenseCategoryLabel(category: string): { fr: string; emoji: string; custom: boolean } {
+  const preset = (EXPENSE_CATEGORY_LABEL as Record<string, { fr: string; emoji: string }>)[category];
+  return preset ? { ...preset, custom: false } : { fr: category, emoji: "🏷️", custom: true };
+}
+
 export const PAYMENT_METHODS = ["cash", "ccp", "baridimob", "card", "transfer", "other"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -167,7 +176,7 @@ export interface PnlInput {
   /** packaging per parcel (Paramètres → Alertes) */
   packaging: number;
   /** operating expenses of the period, by category */
-  expenses: Partial<Record<ExpenseCategory, number>>;
+  expenses: Record<string, number>;
 }
 
 export interface PnlResult {

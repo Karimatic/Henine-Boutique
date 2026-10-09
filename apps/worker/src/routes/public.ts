@@ -38,7 +38,7 @@ import { answer } from "../lib/assistant-intents";
 import { withAiVoice } from "../lib/assistant-ai";
 import { activeFlash, featuredDrop, getCollection, getProductDetail, imageRef, listCategories, listProductCards, reviewPhotos, variantLabels, type ImageRow } from "../lib/catalog";
 import { cached } from "../lib/edge-cache";
-import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, validate, verifyTurnstile } from "../lib/http";
+import { body, clientIp, HttpError, ipHash, rateLimit, uaShort, validate } from "../lib/http";
 import { designOut, putImage } from "../lib/media";
 import { analyticsStmts, applyStatusChange, createOrder, quote } from "../lib/orders";
 import { detectDuplicates } from "../lib/duplicates";
@@ -88,7 +88,6 @@ publicRoutes.get("/site", (c) =>
       },
       // quick order on the product page: always on
       checkout: { freeShippingOver: s.checkout.free_shipping_over, expressOnProduct: true, deskEnabled: s.checkout.desk_enabled },
-      turnstileSiteKey: c.env.TURNSTILE_SITE_KEY,
       maintenance: { active: s.maintenance.active },
       texts: { ar: s.texts.ar ?? {}, fr: s.texts.fr ?? {} },
       drop,
@@ -204,7 +203,6 @@ publicRoutes.post("/visit", async (c) => {
 publicRoutes.post("/orders", async (c) => {
   await rateLimit(c.env.RL_WRITE, `order:${clientIp(c)}`);
   const input = await body(c, createOrderInput);
-  await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
   const maintenance = await getSetting(c.env, "maintenance");
   if (maintenance.active) throw new HttpError(503, "maintenance");
 
@@ -541,7 +539,6 @@ publicRoutes.post("/track/:code/exchange", async (c) => {
 publicRoutes.post("/track", async (c) => {
   await rateLimit(c.env.RL_LOOKUP, `track:${clientIp(c)}`);
   const input = await body(c, trackLookupInput);
-  await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
   const orders = input.code
     ? await trackedOrders(c, "o.phone = ? AND o.public_code = ?", [input.phone, input.code], false)
     : await trackedOrders(c, "o.phone = ? AND o.created_at > ?", [input.phone, Date.now() - 180 * 86400_000], false);
@@ -623,7 +620,6 @@ publicRoutes.post("/reviews", async (c) => {
   } else {
     input = await body(c, reviewInput);
   }
-  await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
   const o = await c.env.DB.prepare("SELECT id, status, phone, name, track_token_hash FROM orders WHERE public_code = ?")
     .bind(input.code)
     .first<{ id: number; status: string; phone: string; name: string; track_token_hash: string }>();
@@ -665,7 +661,6 @@ publicRoutes.post("/reviews", async (c) => {
 publicRoutes.post("/contact", async (c) => {
   await rateLimit(c.env.RL_WRITE, `contact:${clientIp(c)}`);
   const input = await body(c, contactInput);
-  await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
   await c.env.DB.prepare("INSERT INTO contact_messages (name, phone, subject, message, status, created_at) VALUES (?, ?, ?, ?, 'new', ?)")
     .bind(input.name, input.phone ?? null, input.subject ?? null, input.message, Date.now())
     .run();
@@ -679,7 +674,6 @@ publicRoutes.post("/contact", async (c) => {
 publicRoutes.post("/stock-alert", async (c) => {
   await rateLimit(c.env.RL_WRITE, `alert:${clientIp(c)}`);
   const input = await body(c, stockAlertInput);
-  await verifyTurnstile(c.env, input.turnstileToken, clientIp(c));
   await c.env.DB.prepare(
     `INSERT INTO stock_alerts (variant_id, phone, created_at)
      SELECT ?, ?, ? WHERE NOT EXISTS (SELECT 1 FROM stock_alerts WHERE variant_id = ? AND phone = ? AND notified_at IS NULL)`,

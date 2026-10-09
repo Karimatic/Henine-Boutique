@@ -5,15 +5,13 @@ import { Markdown } from "@/components/ui/Markdown";
 import { ErrorBox, inputCls, PageTitle, Spinner } from "@/components/ui/kit";
 import { apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
-import { Turnstile, useTurnstileToken } from "@/lib/turnstile";
 
 /* ───────── Contact ───────── */
 
 export function ContactView() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const site = useApi<SiteConfigDTO>("/site");
   const [form, setForm] = useState({ name: "", phone: "", subject: "", message: "" });
-  const turnstile = useTurnstileToken();
   const [state, setState] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const c = site.data?.contact;
   const wa = c?.whatsapp ? toE164(c.whatsapp)?.replace("+", "") : null;
@@ -36,9 +34,7 @@ export function ContactView() {
               if (form.phone && !phone) return setState("error");
               setState("sending");
               try {
-                await turnstile.submit((turnstileToken) =>
-                  apiPost("/contact", { name: form.name.trim(), phone: phone ?? undefined, subject: form.subject.trim() || undefined, message: form.message.trim(), turnstileToken }),
-                );
+                await apiPost("/contact", { name: form.name.trim(), phone: phone ?? undefined, subject: form.subject.trim() || undefined, message: form.message.trim() });
                 setState("sent");
               } catch {
                 setState("error");
@@ -49,7 +45,6 @@ export function ContactView() {
             <input className={inputCls} placeholder={t.contact.phone} value={form.phone} onChange={set("phone")} type="tel" dir="ltr" aria-label={t.contact.phone} />
             <input className={inputCls} placeholder={t.contact.subject} value={form.subject} onChange={set("subject")} maxLength={120} aria-label={t.contact.subject} />
             <textarea className={`${inputCls} h-36 py-3`} placeholder={t.contact.message} value={form.message} onChange={set("message")} maxLength={2000} aria-label={t.contact.message} />
-            <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
             {state === "error" && <p className="text-sm text-danger">{t.checkout.errors.generic}</p>}
             <button type="submit" disabled={state === "sending"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-7 font-semibold text-white">
               {state === "sending" && <Spinner className="size-4" />}

@@ -171,11 +171,22 @@ financeRoutes.post("/finance/remittances/:id/void", requirePermission("finance.e
 const expenseInput = z.object({
   spentOn: day,
   amount: amount.min(1),
-  category: z.enum(EXPENSE_CATEGORIES),
+  // a preset (EXPENSE_CATEGORIES) or a name of the shop's own
+  category: cleanText(40).pipe(z.string().min(2)),
   description: cleanText(200).pipe(z.string().min(2)),
   paymentMethod: z.enum(PAYMENT_METHODS).nullable().optional(),
   reference: cleanText(80).optional(),
   notes: cleanText(1000).optional(),
+});
+
+/** The shop's own categories already used, for the category list (most used first). */
+financeRoutes.get("/expenses/categories", requirePermission("finance.view"), async (c) => {
+  const { results } = await c.env.DB.prepare(
+    `SELECT category FROM expenses WHERE category NOT IN (${EXPENSE_CATEGORIES.map(() => "?").join(",")}) GROUP BY category ORDER BY COUNT(*) DESC LIMIT 50`,
+  )
+    .bind(...EXPENSE_CATEGORIES)
+    .all<{ category: string }>();
+  return c.json(results.map((r) => r.category));
 });
 
 financeRoutes.get("/expenses", requirePermission("finance.view"), async (c) => {
@@ -192,7 +203,7 @@ financeRoutes.get("/expenses", requirePermission("finance.view"), async (c) => {
     binds.push(to);
   }
   const category = c.req.query("category");
-  if (category && (EXPENSE_CATEGORIES as readonly string[]).includes(category)) {
+  if (category && category.length <= 40) {
     where.push("category = ?");
     binds.push(category);
   }

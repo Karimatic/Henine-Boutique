@@ -115,9 +115,25 @@ describe("finance: expenses", () => {
       { spentOn: "2026-10-06", amount: 0, category: "rent", description: "Loyer" },
       { spentOn: "2026-10-06", amount: 10.5, category: "rent", description: "Loyer" },
       { spentOn: "hier", amount: 100, category: "rent", description: "Loyer" },
-      { spentOn: "2026-10-06", amount: 100, category: "voyage", description: "Loyer" },
+      { spentOn: "2026-10-06", amount: 100, category: "x", description: "Loyer" },
+      { spentOn: "2026-10-06", amount: 100, category: "a".repeat(41), description: "Loyer" },
     ])
       expect((await app.call("POST", "/expenses", bad)).status).toBe(422);
+  });
+});
+
+describe("finance: the shop's own expense categories", () => {
+  it("a typed category is saved, offered again, filtered and counted in the result", async () => {
+    const { app } = setup();
+    const today = new Date().toISOString().slice(0, 10);
+    expect((await app.call("POST", "/expenses", { spentOn: today, amount: 3_000, category: "Shooting photo", description: "Photos collection été" })).status).toBe(201);
+    await app.call("POST", "/expenses", { spentOn: today, amount: 1_000, category: "advertising", description: "Pub Instagram" });
+
+    expect((await app.call<string[]>("GET", "/expenses/categories")).body).toEqual(["Shooting photo"]);
+    expect((await app.call<{ total: number; count: number }>("GET", `/expenses?category=${encodeURIComponent("Shooting photo")}`)).body).toMatchObject({ total: 3_000, count: 1 });
+    const r = await app.call<{ pnl: { operatingExpenses: number; expensesByCategory: Record<string, number> } }>("GET", "/finance/summary?range=30");
+    expect(r.body.pnl.operatingExpenses).toBe(4_000);
+    expect(r.body.pnl.expensesByCategory).toMatchObject({ "Shooting photo": 3_000, advertising: 1_000 });
   });
 });
 

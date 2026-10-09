@@ -28,6 +28,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export const apiGet = <T,>(path: string) => request<T>(path);
 export const apiPost = <T,>(path: string, data: unknown) => request<T>(path, { method: "POST", body: JSON.stringify(data) });
 /** multipart form (files): the browser sets the Content-Type with its boundary */
+/** one key per checkout: a double tap or a retry never creates two orders */
+export function newIdempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
 export const apiForm = <T,>(path: string, form: FormData) => request<T>(path, { method: "POST", body: form, headers: {} });
 
 /* Tiny SWR-style cache: identical GETs across components share one request. */

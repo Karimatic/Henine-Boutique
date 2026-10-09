@@ -10,7 +10,6 @@ import { apiPost, slugFromPath, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { pushSupported, subscribeRestock } from "@/lib/push";
 import { cart, rememberViewed, toggleFavorite, useFavorites } from "@/lib/stores";
-import { Turnstile, useTurnstileToken } from "@/lib/turnstile";
 import { Badges } from "./Badges";
 import { AskWhatsApp, DeliveryEstimate } from "./DeliveryEstimate";
 import { Lightbox } from "./Lightbox";
@@ -395,7 +394,7 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
           )}
 
           {soldOut ? (
-            <NotifyMe variantId={variant.id} siteKey={site.data?.turnstileSiteKey ?? ""} />
+            <NotifyMe variantId={variant.id} />
           ) : (
             // larger screens; phones use the bar fixed at the bottom
             <div className="mt-3 hidden gap-3 md:grid md:grid-cols-2">
@@ -515,10 +514,9 @@ function ProductDetail({ p }: { p: ProductDetailDTO }) {
   );
 }
 
-function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }) {
+function NotifyMe({ variantId }: { variantId: number }) {
   const { t, locale } = useLocale();
   const [phone, setPhone] = useState("");
-  const turnstile = useTurnstileToken();
   const [state, setState] = useState<"idle" | "sending" | "done" | "error">("idle");
   // a notification on this phone: one tap, nothing to type
   const [canPush, setCanPush] = useState(false);
@@ -557,7 +555,7 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
         if (!p) return setState("error");
         setState("sending");
         try {
-          await turnstile.submit((turnstileToken) => apiPost("/stock-alert", { variantId, phone: p, turnstileToken }));
+          await apiPost("/stock-alert", { variantId, phone: p });
           setState("done");
         } catch {
           setState("error");
@@ -572,7 +570,6 @@ function NotifyMe({ variantId, siteKey }: { variantId: number; siteKey: string }
         </button>
       </div>
       {state === "error" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
-      <Turnstile siteKey={siteKey} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
     </form>
     </div>
   );

@@ -61,9 +61,9 @@ Bot commands: `/id` (your Telegram ID, to link it in Équipe), `/jour` (today's 
 1. `npx wrangler login`
 2. `npx wrangler d1 create henine-boutique-db --location weur` → paste the `database_id` into `apps/worker/wrangler.jsonc`
 3. `npx wrangler r2 bucket create henine-media`
-4. Secrets (from `apps/worker`): `npx wrangler secret put <NAME>` for `TURNSTILE_SECRET`, `IP_HASH_SALT`, `TRACK_TOKEN_PEPPER`, `AUTH_PEPPER`,
+4. Secrets (from `apps/worker`): `npx wrangler secret put <NAME>` for `IP_HASH_SALT`, `TRACK_TOKEN_PEPPER`, `AUTH_PEPPER`,
    `SETTINGS_KEY` (32 random bytes, base64). Email is optional: `MAIL_API_KEY` as a secret with `MAIL_PROVIDER` (`resend`) and `MAIL_FROM`
-   in `wrangler.jsonc` vars (without it, admins sign in with an authenticator app). Set `TURNSTILE_SITE_KEY` in the vars.
+   in `wrangler.jsonc` vars (without it, admins sign in with an authenticator app).
 5. Set `PUBLIC_ORIGIN` (your `*.workers.dev` URL for now) in `wrangler.jsonc` vars.
 6. `npm run migrate:remote --workspace @henine/worker`, `npm run seed:remote --workspace @henine/worker`, then `npm run deploy`
 7. Create the owner: `npm run admin:invite -- --email <email> --name Ilyas --role owner --remote --origin https://<your-url>`

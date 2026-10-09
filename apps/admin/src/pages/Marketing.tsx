@@ -949,7 +949,7 @@ export function CollectionsPage() {
                 <button type="button" onClick={() => setEdit(c)} className="w-full rounded-xl border border-line bg-surface p-4 text-start transition hover:border-plum-600/40">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate font-semibold">{c.name_fr}</p>
+                      <p className="truncate font-semibold rtl:text-right" dir="auto">{c.name_fr}</p>
                       <p className="truncate font-mono text-xs text-plum-600">{origin}/collection/{c.slug}</p>
                     </div>
                     <Badge tone={tone}>{label}</Badge>

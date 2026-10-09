@@ -86,7 +86,8 @@ export function SlaBadge({ sla }: { sla: OrderOpsData["sla"] }) {
   if (!sla) return null;
   const spent = Math.floor((Date.now() - sla.since) / 60_000);
   const left = sla.limit - spent;
-  const fmt = (m: number) => (m >= 60 * 48 ? `${Math.round(m / 1440)} j` : m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`);
+  // isolated left-to-right so "5 h 15" keeps its order inside an Arabic sentence
+  const fmt = (m: number) => "⁦" + (m >= 60 * 48 ? `${Math.round(m / 1440)} j` : m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`) + "⁩";
   return sla.late > 0 ? (
     <Badge tone="bg-red-100 text-red-800">{tr("⏰ En retard de {0} ({1})", { 0: fmt(sla.late), 1: STAGE_LABEL[sla.stage] })}</Badge>
   ) : (

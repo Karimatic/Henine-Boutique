@@ -11,7 +11,6 @@ import {
   orderProfit,
   reconcileCodOrder,
   type CodOrderResult,
-  type ExpenseCategory,
   type PnlResult,
   type ReconciliationStatus,
 } from "@henine/shared";
@@ -111,7 +110,8 @@ export interface PnlReport extends PnlResult {
   deliveryCosts: number;
   returnCosts: number;
   packaging: number;
-  expensesByCategory: Record<ExpenseCategory, number>;
+  /** preset categories (0 when unused) and the shop's own ones */
+  expensesByCategory: Record<string, number>;
   /** delivered orders / returned parcels counted */
   delivered: number;
   returned: number;
@@ -175,8 +175,8 @@ export async function profitAndLoss(env: Env, since: number, until: number): Pro
       if (r.missingCost) missingCost++;
     }
   }
-  const expensesByCategory = Object.fromEntries(EXPENSE_CATEGORIES.map((k) => [k, 0])) as Record<ExpenseCategory, number>;
-  for (const e of spent!.results as { category: ExpenseCategory; amount: number }[]) if (e.category in expensesByCategory) expensesByCategory[e.category] = e.amount;
+  const expensesByCategory: Record<string, number> = Object.fromEntries(EXPENSE_CATEGORIES.map((k) => [k, 0]));
+  for (const e of spent!.results as { category: string; amount: number }[]) expensesByCategory[e.category] = e.amount;
   const pnl = businessPnl({ revenue, discounts, cogs, deliveryCosts, returnCosts, packaging, expenses: expensesByCategory });
   return { ...pnl, discounts, cogs, deliveryCosts, returnCosts, packaging, expensesByCategory, delivered, returned, missingCost, estimatedFees };
 }

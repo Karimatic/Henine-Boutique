@@ -58,18 +58,6 @@ export async function rateLimit(binding: RateLimit | undefined, key: string): Pr
   if (!success) throw new HttpError(429, "rate_limited");
 }
 
-/** Cloudflare Turnstile verification. In development any token passes (test keys always pass anyway). */
-export async function verifyTurnstile(env: Env, token: string, ip: string): Promise<void> {
-  if (isDev(env)) return;
-  const form = new FormData();
-  form.append("secret", env.TURNSTILE_SECRET);
-  form.append("response", token);
-  form.append("remoteip", ip);
-  const res = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", { method: "POST", body: form });
-  const out = (await res.json().catch(() => ({ success: false }))) as { success: boolean };
-  if (!out.success) throw new HttpError(403, "turnstile_failed");
-}
-
 export function uaShort(c: Context<AppEnv>): string {
   const ua = c.req.header("User-Agent") ?? "";
   const os = /Android/.test(ua) ? "Android" : /iPhone|iPad/.test(ua) ? "iOS" : /Windows/.test(ua) ? "Windows" : /Mac OS/.test(ua) ? "macOS" : "Autre";

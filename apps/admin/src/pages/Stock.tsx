@@ -277,7 +277,7 @@ function ProductStockCard({ p, editable }: { p: StockProduct; editable: boolean 
       <div className="mb-3 flex items-center gap-3">
         {p.image ? <img src={p.image} alt="" className="h-14 w-11 shrink-0 rounded-lg object-cover" /> : <span className="grid h-14 w-11 shrink-0 place-items-center rounded-lg bg-rose-100 text-xl">👗</span>}
         <div className="min-w-0 flex-1">
-          <Link to="/produits/$id" params={{ id: String(p.id) }} className="block truncate font-semibold hover:text-plum-700">
+          <Link to="/produits/$id" params={{ id: String(p.id) }} className="block truncate font-semibold hover:text-plum-700 rtl:text-right" dir="auto">
             {p.name}
           </Link>
           <p className="truncate text-xs text-ink-soft">

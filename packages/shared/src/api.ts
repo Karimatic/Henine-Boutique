@@ -217,7 +217,6 @@ export interface SiteConfigDTO {
     followers: string | null;
   };
   checkout: { freeShippingOver: number | null; expressOnProduct: boolean; deskEnabled: boolean };
-  turnstileSiteKey: string;
   maintenance: { active: boolean };
   /** the team's edits to the built-in store texts, per language (see resolveStoreTexts) */
   texts: { ar: StoreTextOverrides; fr: StoreTextOverrides };

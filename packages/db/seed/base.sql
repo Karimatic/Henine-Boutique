@@ -16,7 +16,7 @@ INSERT OR IGNORE INTO settings (key, value) VALUES
 ('hero', '{"eyebrow_fr":"Nouvelle collection","eyebrow_ar":"تشكيلة جديدة","title_fr":"L’élégance & la qualité au meilleur prix","title_ar":"الأناقة والجودة بأفضل سعر","subtitle_fr":"Pyjamas, lingerie, nuisettes et djebbas choisis avec soin, livrés partout en Algérie.","subtitle_ar":"بيجامات، ملابس داخلية، قمصان نوم وجبب مختارة بعناية، تصلك إلى كل أنحاء الجزائر."}'),
 ('notifications', '{"telegram_new_order":true,"telegram_status_change":true,"telegram_low_stock":true,"telegram_review":true,"telegram_contact":true,"trust_group_members":true}'),
 ('announcement', '{"active":true,"messages_fr":["🚚 Livraison dans les 69 wilayas","💵 Paiement à la livraison","🔄 Échange possible","🌸 Boutique à Boumerdès · 7j/7"],"messages_ar":["🚚 التوصيل إلى 69 ولاية","💵 الدفع عند الاستلام","🔄 إمكانية التبديل","🌸 محلنا في بومرداس · 7/7"]}'),
-('checkout', '{"cod":true,"express_on_product":true,"require_turnstile":true,"max_orders_per_phone_per_hour":3,"free_shipping_over":null,"desk_enabled":true}'),
+('checkout', '{"cod":true,"express_on_product":true,"max_orders_per_phone_per_hour":3,"free_shipping_over":null,"desk_enabled":true}'),
 ('loyalty', '{"enabled":false,"points_per_100da":1,"redeem_value_da":5,"min_redeem":100,"expiry_days":365}'),
 ('maintenance', '{"active":false,"message_fr":"","message_ar":""}');
 

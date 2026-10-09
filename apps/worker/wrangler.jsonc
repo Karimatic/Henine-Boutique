@@ -126,7 +126,6 @@
     "ENVIRONMENT": "production",
     "PUBLIC_ORIGIN": "https://henine-boutique.karimmaticmz.workers.dev",
     "MEDIA_ORIGIN": "",
-    "TURNSTILE_SITE_KEY": "0x4AAAAAAFPeknmAStiuhKG6",
     // "console": no email service, admins sign in with an authenticator app
     "MAIL_PROVIDER": "console",
     "MAIL_FROM": "Henine Boutique <no-reply@example.com>",

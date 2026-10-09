@@ -195,7 +195,6 @@ export const ar: Dictionary = {
       delivery_unavailable: "التوصيل غير متوفر لهذا الاختيار.",
       too_many_orders: "طلبات كثيرة بهذا الرقم. حاولي لاحقا أو تواصلي معنا.",
       rate_limited: "محاولات كثيرة، انتظري دقيقة.",
-      turnstile_failed: "فشل التحقق، حاولي مجددا.",
       maintenance: STORE_TEXTS.ar.pause,
       network: "تعذر الاتصال. تحققي من الإنترنت.",
       generic: "حدث خطأ، حاولي مجددا.",
@@ -231,7 +230,7 @@ export const ar: Dictionary = {
   },
   links: { title: "Henine Boutique", subtitle: "كل روابطنا" },
   status: {
-    nouvelle: "تم الاستلام", injoignable: "في انتظار التأكيد", confirmee: "مؤكدة", en_preparation: "قيد التحضير",
+    nouvelle: "تم تسجيل الطلب", injoignable: "في انتظار التأكيد", confirmee: "مؤكدة", en_preparation: "قيد التحضير",
     expediee: "تم الشحن", en_livraison: "قيد التوصيل", livree: "تم التوصيل", retour: "قيد الإرجاع",
     retour_recu: "مُرجعة", annulee: "ملغاة", doublon: "ملغاة", fausse: "ملغاة",
   },

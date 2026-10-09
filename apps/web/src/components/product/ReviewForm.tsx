@@ -1,11 +1,9 @@
 import { useState } from "react";
 import { normalizeDzPhone } from "@henine/shared";
 import { inputCls, Spinner } from "@/components/ui/kit";
-import { ApiError, apiForm, useApi } from "@/lib/api";
+import { ApiError, apiForm } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useSavedOrders } from "@/lib/stores";
-import { Turnstile, useTurnstileToken } from "@/lib/turnstile";
-import type { SiteConfigDTO } from "@henine/shared";
 
 /** A phone photo made light for upload: WebP, 1600 px at most (EXIF orientation applied by the browser). */
 async function shrink(file: File): Promise<Blob> {
@@ -27,15 +25,13 @@ async function shrink(file: File): Promise<Blob> {
  * (or picks an order saved on this device, which carries its token).
  */
 export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDone }: { productId: number; code?: string; token?: string; onDone?: (status: string) => void }) {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const R = t.reviewsPlus;
-  const site = useApi<SiteConfigDTO>("/site");
   const saved = useSavedOrders();
   const [code, setCode] = useState(fixedCode ?? saved[0]?.code ?? "");
   const [phone, setPhone] = useState("");
   const [rating, setRating] = useState(5);
   const [text, setText] = useState("");
-  const turnstile = useTurnstileToken();
   const [state, setState] = useState<"idle" | "sending" | "error">("idle");
   const [photos, setPhotos] = useState<{ blob: Blob; url: string }[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -51,12 +47,10 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
     if (!token && !p) return setError(t.checkout.errors.phone_invalid!);
     setState("sending");
     try {
-      const res = await turnstile.submit((turnstileToken) => {
-        const form = new FormData();
-        form.set("data", JSON.stringify({ code: normalizedCode, token, phone: p ?? undefined, productId, rating, text: text.trim() || undefined, turnstileToken }));
-        for (const ph of photos) form.append("photo", ph.blob, ph.blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
-        return apiForm<{ status: string }>("/reviews", form);
-      });
+      const form = new FormData();
+      form.set("data", JSON.stringify({ code: normalizedCode, token, phone: p ?? undefined, productId, rating, text: text.trim() || undefined }));
+      for (const ph of photos) form.append("photo", ph.blob, ph.blob.type === "image/webp" ? "photo.webp" : "photo.jpg");
+      const res = await apiForm<{ status: string }>("/reviews", form);
       setState("idle");
       onDone?.(res.status);
     } catch (err) {
@@ -128,7 +122,6 @@ export function ReviewForm({ productId, code: fixedCode, token: fixedToken, onDo
         </div>
         {photos.length > 0 && <p className="mt-1 text-xs text-ink-soft">{t.plus.reviews.photosHint}</p>}
       </div>
-      <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
       <button type="submit" disabled={state === "sending"} className="flex h-11 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white disabled:opacity-60">
         {state === "sending" && <Spinner className="size-4" />}

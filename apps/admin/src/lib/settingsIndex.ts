@@ -36,7 +36,6 @@ export const SETTINGS_INDEX: { tab: TabKey; find: string; label: string; words: 
   { tab: "compte", find: "🌐 Langue de l'administration", label: tr("Langue de l'administration"), words: "langue arabe français اللغة عربي فرنسي" },
   { tab: "compte", find: "🌗 Apparence", label: tr("Mode sombre / clair"), words: "sombre clair nuit thème apparence dark الوضع الداكن المظهر" },
   { tab: "connexions", find: "📱 Telegram : commandes dans le groupe de l'équipe", label: tr("Telegram"), words: "telegram bot groupe تيليغرام" },
-  { tab: "connexions", find: "✉️ Emails (codes de connexion, invitations)", label: tr("Emails"), words: "email mail code connexion invitation بريد" },
   { tab: "connexions", find: "🚚 ZR Express", label: tr("ZR Express"), words: "zr express transporteur livraison suivi شركة التوصيل" },
   { tab: "connexions", find: "📈 Pixels publicitaires", label: tr("Pixels publicitaires (Meta, TikTok)"), words: "pixel meta facebook tiktok publicité إعلانات" },
 ];

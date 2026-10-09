@@ -5,11 +5,10 @@
  */
 import {
   EXPENSE_CATEGORIES,
-  EXPENSE_CATEGORY_LABEL,
+  expenseCategoryLabel,
   PAYMENT_METHOD_LABEL,
   PAYMENT_METHODS,
   RECONCILIATION_LABEL,
-  type ExpenseCategory,
   type PaymentMethod,
   type ReconciliationStatus,
 } from "@henine/shared";
@@ -29,7 +28,7 @@ import { SubNav } from "../lib/subnav";
 
 interface Pnl {
   revenue: number; discounts: number; cogs: number; grossProfit: number; deliveryCosts: number; returnCosts: number; packaging: number;
-  orderProfit: number; operatingExpenses: number; netProfit: number; netMargin: number | null; expensesByCategory: Record<ExpenseCategory, number>;
+  orderProfit: number; operatingExpenses: number; netProfit: number; netMargin: number | null; expensesByCategory: Record<string, number>;
   delivered: number; returned: number; missingCost: number; estimatedFees: number;
 }
 interface CodTotals {
@@ -52,7 +51,7 @@ interface Remittance {
   voided_at: number | null; voided_by: string | null; void_reason: string | null; orders: number;
 }
 interface Expense {
-  id: number; spent_on: string; amount: number; category: ExpenseCategory; description: string; payment_method: PaymentMethod | null; reference: string | null;
+  id: number; spent_on: string; amount: number; category: string; description: string; payment_method: PaymentMethod | null; reference: string | null;
   has_receipt: number; notes: string | null; created_by: string; created_at: number; updated_by: string | null; voided_at: number | null; void_reason: string | null;
 }
 
@@ -129,7 +128,7 @@ function ResultTab() {
   const d = q.data;
   if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
   const p = d?.pnl;
-  const expenses = p ? (Object.entries(p.expensesByCategory) as [ExpenseCategory, number][]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]) : [];
+  const expenses = p ? Object.entries(p.expensesByCategory).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]) : [];
   return (
     <div className="space-y-4">
       {picker}
@@ -161,7 +160,7 @@ function ResultTab() {
                 <Line label={tr("Emballage")} value={p.packaging} minus />
                 <Line label={tr("Bénéfice des commandes")} value={p.orderProfit} strong />
                 {expenses.map(([k, v]) => (
-                  <Line key={k} label={`${EXPENSE_CATEGORY_LABEL[k].emoji} ${tr(EXPENSE_CATEGORY_LABEL[k].fr)}`} value={v} minus />
+                  <Line key={k} label={categoryText(k)} value={v} minus />
                 ))}
                 {!expenses.length && <Line label={tr("Dépenses")} value={0} minus />}
                 <Line label={tr("Bénéfice net")} value={p.netProfit} strong />
@@ -523,11 +522,13 @@ function ExpensesTab({ canEdit }: { canEdit: boolean }) {
   const [voided, setVoided] = useState(false);
   const [page, setPage] = useState(0);
   const [editing, setEditing] = useState<Partial<Expense> | null>(null);
+  const ownCategories = useOwnCategories();
   useEffect(() => setPage(0), [from, to, category, q, voided]);
   const query = `from=${from}&to=${to}&category=${category}&q=${encodeURIComponent(q)}&voided=${voided ? 1 : 0}&page=${page}`;
   const list = useQuery({ queryKey: ["expenses", query], queryFn: () => api<{ rows: Expense[]; total: number; count: number; page: number; pages: number }>(`/expenses?${query}`), placeholderData: (p) => p });
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: ["expenses"] });
+    void qc.invalidateQueries({ queryKey: ["expense-categories"] });
     void qc.invalidateQueries({ queryKey: ["finance-summary"] });
   };
   const voidIt = useMutation({
@@ -554,9 +555,9 @@ function ExpensesTab({ canEdit }: { canEdit: boolean }) {
         <TextField label={tr("Au")} type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} />
         <Select label={tr("Catégorie")} value={category} onChange={(e) => setCategory(e.target.value)}>
           <option value="">{tr("Toutes")}</option>
-          {EXPENSE_CATEGORIES.map((k) => (
+          {[...EXPENSE_CATEGORIES, ...(ownCategories.data ?? [])].map((k) => (
             <option key={k} value={k}>
-              {EXPENSE_CATEGORY_LABEL[k].emoji} {tr(EXPENSE_CATEGORY_LABEL[k].fr)}
+              {categoryText(k)}
             </option>
           ))}
         </Select>
@@ -591,10 +592,10 @@ function ExpensesTab({ canEdit }: { canEdit: boolean }) {
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <span className="min-w-0">
                   <span className="font-medium">
-                    {EXPENSE_CATEGORY_LABEL[e.category]?.emoji} {e.description}
+                    {expenseCategoryLabel(e.category).emoji} {e.description}
                   </span>
                   <span className="block text-xs text-ink-soft">
-                    {dayLabel(e.spent_on)} · {tr(EXPENSE_CATEGORY_LABEL[e.category]?.fr ?? e.category)}
+                    {dayLabel(e.spent_on)} · {categoryText(e.category, false)}
                     {e.payment_method ? ` · ${tr(PAYMENT_METHOD_LABEL[e.payment_method])}` : ""}
                     {e.reference ? ` · ${e.reference}` : ""} · {tr("par {0}", { 0: actorName(e.created_by) })}
                   </span>
@@ -656,11 +657,28 @@ async function receiptJpeg(file: File): Promise<Blob> {
   return new Promise((ok, ko) => canvas.toBlob((b) => (b ? ok(b) : ko(new Error("receipt"))), "image/jpeg", 0.85));
 }
 
+/** The shop's own categories already used (the presets are always offered). */
+function useOwnCategories() {
+  return useQuery({ queryKey: ["expense-categories"], queryFn: () => api<string[]>("/expenses/categories"), staleTime: 60_000 });
+}
+
+/** "📣 Publicité" for a preset, "🏷️ Shooting photo" for one the shop typed (never translated) */
+function categoryText(k: string, emoji = true) {
+  const l = expenseCategoryLabel(k);
+  const name = l.custom ? l.fr : tr(l.fr);
+  return emoji ? `${l.emoji} ${name}` : name;
+}
+
+const NEW_CATEGORY = "__new";
+
 function ExpenseSheet({ expense, onClose, onSaved }: { expense: Partial<Expense>; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
   const [spentOn, setSpentOn] = useState(expense.spent_on ?? today());
   const [amount, setAmount] = useState<number | null>(expense.amount ?? null);
-  const [category, setCategory] = useState<ExpenseCategory>(expense.category ?? "advertising");
+  const [category, setCategory] = useState<string>(expense.category ?? "advertising");
+  const [newCategory, setNewCategory] = useState("");
+  const ownCategories = useOwnCategories();
+  const chosen = category === NEW_CATEGORY ? newCategory.trim() : category;
   const [description, setDescription] = useState(expense.description ?? "");
   const [method, setMethod] = useState<PaymentMethod | "">(expense.payment_method ?? "");
   const [reference, setReference] = useState(expense.reference ?? "");
@@ -669,7 +687,7 @@ function ExpenseSheet({ expense, onClose, onSaved }: { expense: Partial<Expense>
   const save = useMutation({
     mutationFn: async () => {
       const data = {
-        spentOn, amount: amount ?? 0, category, description: description.trim(), paymentMethod: method || null,
+        spentOn, amount: amount ?? 0, category: chosen, description: description.trim(), paymentMethod: method || null,
         reference: reference.trim() || undefined, notes: notes.trim() || undefined,
       };
       const id = expense.id ?? (await post<{ id: number }>("/expenses", data)).id;
@@ -693,7 +711,7 @@ function ExpenseSheet({ expense, onClose, onSaved }: { expense: Partial<Expense>
       onClose={onClose}
       title={expense.id ? tr("Modifier la dépense") : tr("Nouvelle dépense")}
       footer={
-        <Button variant="primary" loading={save.isPending} disabled={!amount || description.trim().length < 2} onClick={() => save.mutate()}>
+        <Button variant="primary" loading={save.isPending} disabled={!amount || description.trim().length < 2 || chosen.length < 2} onClick={() => save.mutate()}>
           {tr("Enregistrer")}
         </Button>
       }
@@ -703,13 +721,24 @@ function ExpenseSheet({ expense, onClose, onSaved }: { expense: Partial<Expense>
           <TextField label={tr("Date")} type="date" value={spentOn} max={today()} onChange={(e) => setSpentOn(e.target.value)} />
           <NumberField label={tr("Montant")} value={amount} onChange={setAmount} suffix="DA" min={1} />
         </div>
-        <Select label={tr("Catégorie")} value={category} onChange={(e) => setCategory(e.target.value as ExpenseCategory)}>
-          {EXPENSE_CATEGORIES.map((k) => (
+        <Select label={tr("Catégorie")} value={category} onChange={(e) => setCategory(e.target.value)}>
+          {[...new Set<string>([...EXPENSE_CATEGORIES, ...(ownCategories.data ?? []), ...(expense.category ? [expense.category] : [])])].map((k) => (
             <option key={k} value={k}>
-              {EXPENSE_CATEGORY_LABEL[k].emoji} {tr(EXPENSE_CATEGORY_LABEL[k].fr)}
+              {categoryText(k)}
             </option>
           ))}
+          <option value={NEW_CATEGORY}>{tr("➕ Nouvelle catégorie…")}</option>
         </Select>
+        {category === NEW_CATEGORY && (
+          <TextField
+            label={tr("Nom de la catégorie")}
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value)}
+            maxLength={40}
+            placeholder={tr("Ex. : Shooting photo, cadeaux clientes…")}
+            autoFocus
+          />
+        )}
         {(category === "delivery" || category === "returns" || category === "packaging") && (
           <p className="rounded-lg bg-amber-50 p-2.5 text-xs text-amber-900">
             {tr("Les frais de livraison, de retour et l'emballage des commandes sont déjà comptés automatiquement : n'ajoutez ici que les frais en plus, sinon ils seraient comptés deux fois.")}

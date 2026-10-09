@@ -104,7 +104,6 @@ describe("createOrderInput", () => {
     deliveryType: "domicile" as const,
     address: "Cité 500 logements, bt 12",
     lines: [{ variantId: 1, qty: 2 }],
-    turnstileToken: "x",
   };
 
   it("accepts a valid order and normalizes the phone", () => {

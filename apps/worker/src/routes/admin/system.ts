@@ -686,7 +686,6 @@ systemRoutes.get("/integrations", requirePermission("integrations.manage"), asyn
     mail: { provider: mailProvider(c.env), from: c.env.MAIL_FROM ?? null },
     zr: { configured: !!zrId, idMasked: maskSecret(zrId) },
     pixels: { metaPixelId: s.integrations.meta_pixel_id, tiktokPixelId: s.integrations.tiktok_pixel_id },
-    turnstile: { siteKey: c.env.TURNSTILE_SITE_KEY, testKeys: c.env.TURNSTILE_SITE_KEY.startsWith("1x000") },
     publicOrigin: c.env.PUBLIC_ORIGIN,
   });
 });
@@ -815,6 +814,44 @@ systemRoutes.put("/content/wilayas", requirePermission("delivery.edit"), async (
   if (input.markVerified) stmts.push(setSettingStmt(c.env, "shipping.prices_verified", true));
   stmts.push(bumpCatalogStmt(c.env), auditStmt(c.env, actorOf(c.get("member")), "update", "wilayas", input.codes.join(","), { ...input, codes: undefined }));
   await c.env.DB.batch(stmts);
+  return c.json({ ok: true });
+});
+
+/**
+ * Communes of a wilaya: home delivery possible or not, and a home price of their own when it
+ * differs from the wilaya's (remote communes). Read by the checkout (empty price = the wilaya's).
+ */
+systemRoutes.get("/content/wilayas/:code/communes", requirePermission("delivery.edit"), async (c) => {
+  const code = intParam(c, "code");
+  const { results } = await c.env.DB.prepare(
+    "SELECT id, name_fr, name_ar, daira_fr, home_price, home_supported, is_active FROM communes WHERE wilaya_code = ? ORDER BY name_fr",
+  )
+    .bind(code)
+    .all();
+  return c.json(results);
+});
+
+systemRoutes.put("/content/communes", requirePermission("delivery.edit"), async (c) => {
+  const input = await body(
+    c,
+    z.object({
+      ids: z.array(z.number().int().positive()).min(1).max(200),
+      homePrice: priceField.optional(),
+      homeSupported: z.boolean().optional(),
+      isActive: z.boolean().optional(),
+    }),
+  );
+  const sets: string[] = [];
+  const vals: unknown[] = [];
+  if ("homePrice" in input) (sets.push("home_price = ?"), vals.push(input.homePrice));
+  if ("homeSupported" in input) (sets.push("home_supported = ?"), vals.push(input.homeSupported ? 1 : 0));
+  if ("isActive" in input) (sets.push("is_active = ?"), vals.push(input.isActive ? 1 : 0));
+  if (!sets.length) throw new HttpError(400, "nothing_to_update");
+  await c.env.DB.batch([
+    c.env.DB.prepare(`UPDATE communes SET ${sets.join(", ")} WHERE id IN (${input.ids.map(() => "?").join(",")})`).bind(...vals, ...input.ids),
+    bumpCatalogStmt(c.env),
+    auditStmt(c.env, actorOf(c.get("member")), "update", "communes", input.ids.join(","), { ...input, ids: undefined }),
+  ]);
   return c.json({ ok: true });
 });
 

@@ -69,7 +69,6 @@ export const createOrderInput = z
     lines: z.array(orderLine).min(1).max(30),
     channel: z.enum(["web", "express"]).default("web"),
     locale: z.enum(["fr", "ar"]).default("fr"),
-    turnstileToken: z.string().min(1).max(4096),
     utm: z
       .object({
         source: cleanText(64).optional(),
@@ -98,7 +97,6 @@ export type CreateOrderInput = z.infer<typeof createOrderInput>;
 export const trackLookupInput = z.object({
   phone: dzPhone,
   code: z.string().trim().toUpperCase().max(12).optional(),
-  turnstileToken: z.string().min(1).max(4096),
 });
 
 const couponCode = z
@@ -150,7 +148,6 @@ export const reviewInput = z
     productId: z.number().int().positive(),
     rating: z.number().int().min(1).max(5),
     text: cleanText(1000).optional(),
-    turnstileToken: z.string().min(1).max(4096),
   })
   .refine((r) => !!r.token || !!r.phone, { message: "proof_required", path: ["phone"] });
 
@@ -159,13 +156,11 @@ export const contactInput = z.object({
   phone: dzPhone.optional(),
   subject: cleanText(120).optional(),
   message: cleanText(2000).pipe(z.string().min(5)),
-  turnstileToken: z.string().min(1).max(4096),
 });
 
 export const stockAlertInput = z.object({
   variantId: z.number().int().positive(),
   phone: dzPhone,
-  turnstileToken: z.string().min(1).max(4096),
 });
 
 /** "Prévenez-moi" by notification: the browser's push subscription for one variant. */

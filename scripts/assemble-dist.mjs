@@ -28,11 +28,11 @@ for (const entry of readdirSync(dist)) rmSync(join(dist, entry), { recursive: tr
 cpSync(web, dist, { recursive: true });
 cpSync(admin, join(dist, "admin"), { recursive: true });
 
-// Storefront CSP: scripts only from the site itself, Cloudflare Turnstile and the page's own
+// Storefront CSP: scripts only from the site itself and the page's own
 // inline scripts (the theme and splash boot scripts), each allowed by its
 // sha256, never 'unsafe-inline'. Data only goes back to the site itself; frames only for
-// Turnstile and the shop's Google Maps card; every font is self-hosted.
-const SCRIPT_SRC = "script-src 'self' https://challenges.cloudflare.com";
+// the shop's Google Maps card; every font is self-hosted.
+const SCRIPT_SRC = "script-src 'self'";
 const pagePolicy = (hashes) =>
   [
     "default-src 'self'",
@@ -42,7 +42,7 @@ const pagePolicy = (hashes) =>
     "img-src 'self' data: blob: https:",
     "media-src 'self' blob: https:",
     "connect-src 'self'",
-    "frame-src https://challenges.cloudflare.com https://www.google.com",
+    "frame-src https://www.google.com",
     "worker-src 'self'",
     "manifest-src 'self'",
     "object-src 'none'",

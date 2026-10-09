@@ -123,7 +123,6 @@ interface Integrations {
   mail: { provider: string; from: string | null };
   zr: { configured: boolean; idMasked: string | null };
   pixels: { metaPixelId: string | null; tiktokPixelId: string | null };
-  turnstile: { siteKey: string; testKeys: boolean };
   publicOrigin: string;
 }
 
@@ -177,12 +176,22 @@ export function MyAccount() {
     <ColorModeCard />
     <Card title={tr("👤 Mon compte")}>
       {q.data && <p className="mb-3 text-sm">{q.data.member.name} · {q.data.member.email} · <Badge>{q.data.member.roleName}</Badge></p>}
+      {/* its own form with the username inside, so the browser's password manager fills
+          this account here and never the settings search box above */}
+      <form
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (pw.current && pw.next) void changePassword();
+        }}
+      >
+      <input type="text" name="username" autoComplete="username" value={q.data?.member.email ?? ""} readOnly hidden />
       <div className="grid gap-3 sm:grid-cols-3">
         <TextField label={tr("Mot de passe actuel")} type="password" autoComplete="current-password" value={pw.current} onChange={(e) => setPw({ ...pw, current: e.target.value })} />
         <TextField label={tr("Nouveau")} type="password" autoComplete="new-password" value={pw.next} onChange={(e) => setPw({ ...pw, next: e.target.value })} />
         <TextField label={tr("Confirmer")} type="password" autoComplete="new-password" value={pw.confirm} onChange={(e) => setPw({ ...pw, confirm: e.target.value })} />
       </div>
-      <Button className="mt-3" loading={busy} disabled={!pw.current || !pw.next} onClick={changePassword}>{tr("Changer le mot de passe")}</Button>
+      <Button type="submit" className="mt-3" loading={busy} disabled={!pw.current || !pw.next}>{tr("Changer le mot de passe")}</Button>
+      </form>
       <h3 className="mb-2 mt-5 text-sm font-semibold">{tr("Appareils connectés")}</h3>
       <ul className="space-y-2 text-sm">
         {q.data?.sessions.map((s) => (
@@ -272,20 +281,6 @@ export function IntegrationsSection() {
         </div>
       </Card>
 
-
-      <Card title={tr("✉️ Emails (codes de connexion, invitations)")}>
-        <p className="text-sm">
-          {tr("Fournisseur :")} <b>{q.data.mail.provider === "console" ? tr("aucun") : q.data.mail.provider}</b>
-          {q.data.mail.from && q.data.mail.provider !== "console" ? tr(" · expéditeur {0}", { 0: q.data.mail.from }) : ""}
-        </p>
-        {q.data.mail.provider === "console" && (
-          <p className="mt-2 text-xs text-ink-soft">{tr("Pas besoin : la connexion et les invitations se font avec une application d'authentification (Google Authenticator).")}</p>
-        )}
-        {q.data.mail.provider !== "console" && (
-          <Button size="sm" className="mt-2" onClick={() => run(() => post("/integrations/mail/test"), tr("Email de test envoyé (vérifiez votre boîte)"))}>{tr("M'envoyer un email de test")}</Button>
-        )}
-      </Card>
-
       <Card title={tr("🚚 ZR Express")}>
         <p className="mb-3 text-sm text-ink-soft">
           {q.data.zr.configured ? tr("Identifiants enregistrés ({0}).", { 0: q.data.zr.idMasked }) : tr("Non connecté.")} {tr("La création automatique des colis et le suivi ZR arrivent dans une prochaine étape ; en attendant, saisissez le n° de suivi dans la commande.")}
@@ -304,10 +299,6 @@ export function IntegrationsSection() {
           <Button onClick={() => run(() => put("/integrations/pixels", { metaPixelId: pixels.meta || null, tiktokPixelId: pixels.tiktok || null }), tr("Pixels enregistrés"))}>{tr("Enregistrer")}</Button>
         </div>
         <p className="mt-2 text-xs text-ink-soft">{tr("L'activation des pixels sur la boutique (avec consentement) arrive avec la mise en ligne.")}</p>
-      </Card>
-
-      <Card title={tr("🛡 Anti-robots (Cloudflare Turnstile)")}>
-        <p className="text-sm">{q.data.turnstile.testKeys ? tr("Clés de test (développement). Créez un widget Turnstile gratuit avant la mise en ligne.") : tr("Clés de production actives ✓")}</p>
       </Card>
     </>
   );
@@ -361,6 +352,7 @@ interface WilayaRow {
 function DeliveryPrices() {
   const q = useQuery({ queryKey: ["wilayas-admin"], queryFn: () => api<{ rows: WilayaRow[]; verified: boolean }>("/content/wilayas") });
   const [filter, setFilter] = useState("");
+  const [communesOf, setCommunesOf] = useState<WilayaRow | null>(null);
   const save = useSave((body: Record<string, unknown>) => put("/content/wilayas", body), ["wilayas-admin"], tr("Tarifs mis à jour ✓"));
   if (q.error) return <ErrorState error={q.error} onRetry={q.refetch} />;
   if (!q.data) return <ListSkeleton />;
@@ -390,7 +382,10 @@ function DeliveryPrices() {
               <tr key={w.code} className={`border-b border-line/60 last:border-0 ${w.is_active ? "" : "opacity-50"}`}>
                 <td className="px-3 py-2">
                   {w.code} - {w.name_fr}
-                  {w.parent_code ? <span className="block text-xs text-ink-soft">{tr("nouvelle wilaya (ex-")}{w.parent_code}) · {w.communes} {tr("communes")}</span> : null}
+                  {w.parent_code ? <span className="block text-xs text-ink-soft">{tr("nouvelle wilaya (ex-")}{w.parent_code})</span> : null}
+                  <button type="button" onClick={() => setCommunesOf(w)} className="block text-xs font-semibold text-plum-600 hover:underline">
+                    {tr("{0} communes →", { 0: w.communes })}
+                  </button>
                 </td>
                 <td className="px-1 text-end">
                   <CellInput value={w.home_price} suffix={tr("DA")} label={tr("Domicile {0}", { 0: w.name_fr })} onSave={(v) => save.mutate({ codes: [w.code], homePrice: v })} />
@@ -409,17 +404,97 @@ function DeliveryPrices() {
           </tbody>
         </table>
       </div>
+      {communesOf && <CommunesSheet wilaya={communesOf} onClose={() => setCommunesOf(null)} />}
     </div>
   );
 }
 
+interface CommuneRow {
+  id: number;
+  name_fr: string;
+  name_ar: string;
+  daira_fr: string | null;
+  home_price: number | null;
+  home_supported: number;
+  is_active: number;
+}
+
+/**
+ * The communes of one wilaya: home delivery possible or not, and a home price of their own for
+ * remote communes (empty = the wilaya's price). The checkout follows these settings at once.
+ */
+function CommunesSheet({ wilaya, onClose }: { wilaya: WilayaRow; onClose: () => void }) {
+  const q = useQuery({ queryKey: ["communes-admin", wilaya.code], queryFn: () => api<CommuneRow[]>(`/content/wilayas/${wilaya.code}/communes`) });
+  const [filter, setFilter] = useState("");
+  const save = useSave((body: Record<string, unknown>) => put("/content/communes", body), ["communes-admin"], tr("Commune mise à jour ✓"));
+  const rows = (q.data ?? []).filter((c) => !filter || `${c.name_fr} ${c.name_ar} ${c.daira_fr ?? ""}`.toLowerCase().includes(filter.toLowerCase()));
+  return (
+    <Sheet open onClose={onClose} wide title={tr("Communes de {0}", { 0: `${wilaya.code} - ${wilaya.name_fr}` })}>
+      <p className="mb-3 text-sm text-ink-soft">
+        {tr("Prix à domicile vide = celui de la wilaya ({0}). Mettez un prix pour une commune éloignée, ou décochez « Domicile » si le livreur n'y va pas (la cliente choisit alors le bureau).", {
+          0: wilaya.home_price == null ? "—" : `${wilaya.home_price} DA`,
+        })}
+      </p>
+      <input className={`${inputCls} mb-3`} placeholder={tr("Chercher une commune…")} value={filter} onChange={(e) => setFilter(e.target.value)} aria-label={tr("Chercher une commune")} />
+      {q.error ? (
+        <ErrorState error={q.error} onRetry={q.refetch} />
+      ) : !q.data ? (
+        <ListSkeleton />
+      ) : (
+        <div className="rounded-xl border border-line bg-surface">
+          <table className="w-full table-fixed text-sm">
+            <thead className="text-xs text-ink-soft">
+              <tr className="border-b border-line">
+                <th className="px-3 py-2 text-start font-medium">{tr("Commune")}</th>
+                <th className="w-16 px-1 text-center font-medium">{tr("Domicile")}</th>
+                <th className="w-28 px-1 text-end font-medium">{tr("Prix domicile")}</th>
+                <th className="w-14 px-2 text-end font-medium">{tr("Active")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((cm) => (
+                <tr key={cm.id} className={`border-b border-line/60 last:border-0 ${cm.is_active ? "" : "opacity-50"}`}>
+                  <td className="px-3 py-2">
+                    <span className="block break-words font-medium">{cm.name_fr}</span>
+                    <span className="block text-xs text-ink-soft" dir="rtl">{cm.name_ar}</span>
+                  </td>
+                  <td className="px-2 text-center">
+                    <input
+                      type="checkbox"
+                      className="size-4 accent-plum-600"
+                      aria-label={tr("Livraison à domicile à {0}", { 0: cm.name_fr })}
+                      checked={!!cm.home_supported}
+                      onChange={(e) => save.mutate({ ids: [cm.id], homeSupported: e.target.checked })}
+                    />
+                  </td>
+                  <td className="px-1 text-end">
+                    {cm.home_supported ? (
+                      <CellInput clearable value={cm.home_price} suffix={tr("DA")} label={tr("Prix domicile {0}", { 0: cm.name_fr })} onSave={(v) => save.mutate({ ids: [cm.id], homePrice: v })} />
+                    ) : (
+                      <span className="text-xs text-ink-soft">{tr("bureau seulement")}</span>
+                    )}
+                  </td>
+                  <td className="px-3 text-end">
+                    <input type="checkbox" className="size-4 accent-plum-600" aria-label={tr("Livrer {0}", { 0: cm.name_fr })} checked={!!cm.is_active} onChange={(e) => save.mutate({ ids: [cm.id], isActive: e.target.checked })} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Sheet>
+  );
+}
+
 /** A price or delay typed right in the table: saved when leaving the box (or Enter) if it changed. */
-function CellInput({ value, onSave, suffix, label, text = false }: { value: number | string | null; onSave: (v: never) => void; suffix: string; label: string; text?: boolean }) {
+function CellInput({ value, onSave, suffix, label, text = false, clearable = false }: { value: number | string | null; onSave: (v: never) => void; suffix: string; label: string; text?: boolean; /** an emptied box saves "no value" */ clearable?: boolean }) {
   const [v, setV] = useState(value == null ? "" : String(value));
   useEffect(() => setV(value == null ? "" : String(value)), [value]);
   const commit = () => {
     const raw = v.trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660));
     if (raw === (value == null ? "" : String(value))) return;
+    if (clearable && raw === "") return onSave(null as never);
     if (text) {
       if (/^\d{1,2}(-\d{1,2})?$/.test(raw)) onSave(raw as never);
       else setV(value == null ? "" : String(value));

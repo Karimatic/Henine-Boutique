@@ -20,7 +20,7 @@ export interface Settings {
   announcement: { active: boolean; messages_fr: string[]; messages_ar: string[]; /** how the messages move: see ANNOUNCEMENT_ANIMATIONS */ animation?: AnnouncementAnimation };
   hero: { eyebrow_fr: string; eyebrow_ar: string; title_fr: string; title_ar: string; subtitle_fr: string; subtitle_ar: string };
   checkout: {
-    cod: boolean; express_on_product: boolean; require_turnstile: boolean; max_orders_per_phone_per_hour: number;
+    cod: boolean; express_on_product: boolean; max_orders_per_phone_per_hour: number;
     free_shipping_over: number | null; desk_enabled: boolean;
   };
   loyalty: { enabled: boolean; points_per_100da: number; redeem_value_da: number; min_redeem: number; expiry_days: number };
@@ -78,7 +78,7 @@ export const DEFAULTS: Settings = {
     subtitle_ar: "بيجامات، ملابس داخلية، قمصان نوم وجبب مختارة بعناية، تصلك إلى كل أنحاء الجزائر.",
   },
   checkout: {
-    cod: true, express_on_product: true, require_turnstile: true, max_orders_per_phone_per_hour: 3,
+    cod: true, express_on_product: true, max_orders_per_phone_per_hour: 3,
     free_shipping_over: null, desk_enabled: true,
   },
   loyalty: { enabled: false, points_per_100da: 1, redeem_value_da: 5, min_redeem: 100, expiry_days: 365 }, // 1 pt / 100 DA, 1 pt = 5 DA → 5 % back

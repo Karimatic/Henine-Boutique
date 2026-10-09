@@ -211,6 +211,8 @@ export function SearchBox({ value, onChange, placeholder = "Rechercher…" }: { 
   return (
     <input
       type="search"
+      name="search"
+      autoComplete="off"
       className={`${inputCls} mb-4`}
       placeholder={placeholder}
       value={value}

@@ -19,13 +19,11 @@ export interface Env {
   ENVIRONMENT: "production" | "preview" | "development";
   PUBLIC_ORIGIN: string;
   MEDIA_ORIGIN: string;
-  TURNSTILE_SITE_KEY: string;
   /** Optional extra gate: when set, /api/admin also requires a valid Cloudflare Access JWT. */
   ACCESS_TEAM_DOMAIN?: string;
   ACCESS_AUD?: string;
 
   // secrets
-  TURNSTILE_SECRET: string;
   IP_HASH_SALT: string;
   TRACK_TOKEN_PEPPER: string;
   /** Server-side pepper for admin password hashes and email codes. */

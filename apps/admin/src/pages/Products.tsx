@@ -170,7 +170,7 @@ export function ProductsPage() {
                       {p.image ? <img src={p.image} alt="" className="h-20 w-16 shrink-0 rounded-lg object-cover" /> : <span className="grid h-20 w-16 shrink-0 place-items-center rounded-lg bg-rose-100 text-2xl">👗</span>}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-start justify-between gap-2">
-                          <p className="truncate font-semibold">{p.name_fr}</p>
+                          <p className="truncate font-semibold rtl:text-right" dir="auto">{p.name_fr}</p>
                           <Badge tone={STATUS_BADGE[p.status]?.[1]}>{tr(STATUS_BADGE[p.status]?.[0] ?? "") ?? p.status}</Badge>
                         </div>
                         <p className="text-sm tabular-nums">

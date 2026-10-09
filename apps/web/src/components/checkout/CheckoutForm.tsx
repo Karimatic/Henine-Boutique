@@ -5,7 +5,7 @@ import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useStoreTexts } from "@/lib/storeTexts";
 import { cart, checkoutMemory, pendingCoupon, saveOrder, takePendingCoupon } from "@/lib/stores";
-import { newIdempotencyKey, Turnstile, useTurnstileToken } from "@/lib/turnstile";
+import { newIdempotencyKey } from "@/lib/api";
 import { Picker } from "./Picker";
 import { visitAttribution } from "@/lib/attribution";
 
@@ -50,7 +50,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [coupon, setCoupon] = useState(linkedCoupon ?? "");
   const [showCoupon, setShowCoupon] = useState(!!linkedCoupon);
   const [usePoints, setUsePoints] = useState(false);
-  const turnstile = useTurnstileToken();
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -142,7 +141,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
     setSubmitting(true);
     try {
       const params = new URLSearchParams(location.search);
-      const order = await turnstile.submit((turnstileToken) => apiPost<CreatedOrderDTO>("/orders", {
+      const order = await apiPost<CreatedOrderDTO>("/orders", {
         idempotencyKey: idem.current,
         cartId: normalizedPhone ? cartId(channel) : undefined,
         name: name.trim(),
@@ -159,12 +158,11 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         lines,
         channel,
         locale,
-        turnstileToken,
         // how she arrived (this page's campaign link, else the one remembered from her visit)
         utm: params.get("utm_source")
           ? { source: params.get("utm_source") ?? undefined, medium: params.get("utm_medium") ?? undefined, campaign: params.get("utm_campaign") ?? undefined, landing: location.pathname }
           : visitAttribution(),
-      }));
+      });
       saveOrder({ code: order.code, token: order.token, total: order.total, createdAt: Date.now() });
       if (coupon) pendingCoupon.set(null); // used: not offered again
       try {
@@ -428,7 +426,6 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         </dl>
         <p className="text-sm font-medium text-ink-soft">{L.cod}</p>
 
-        <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
         {formError && (
           <p role="alert" className="rounded-xl bg-rose-100 p-3 text-sm text-rose-700">
             {formError}

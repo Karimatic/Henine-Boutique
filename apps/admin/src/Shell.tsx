@@ -206,6 +206,29 @@ function ProfileMenu({ me }: { me: Me }) {
 
 /* ───────────── Shell ───────────── */
 
+/**
+ * On a phone, tab rows scroll sideways: bring the chosen tab into view (Paramètres → Mon compte,
+ * Finance → Dépenses…) instead of leaving it hidden past the edge.
+ */
+function useRevealSelectedTabs() {
+  const where = useRouterState({ select: (s) => s.location.href });
+  useEffect(() => {
+    const reveal = () => {
+      for (const el of document.querySelectorAll<HTMLElement>('main [aria-selected="true"], main [aria-current="page"], main [aria-pressed="true"]')) {
+        const box = el.closest<HTMLElement>(".overflow-x-auto");
+        if (!box) continue;
+        const b = box.getBoundingClientRect();
+        const r = el.getBoundingClientRect();
+        if (r.left < b.left) box.scrollLeft -= b.left - r.left + 16;
+        else if (r.right > b.right) box.scrollLeft += r.right - b.right + 16;
+      }
+    };
+    // again once the page's data (and its tabs) have loaded
+    const timers = [50, 400, 1200].map((ms) => setTimeout(reveal, ms));
+    return () => timers.forEach(clearTimeout);
+  }, [where]);
+}
+
 export function Shell() {
   const me = useMe();
   useDevTelegramPolling(me.data);
@@ -213,6 +236,7 @@ export function Shell() {
   const crumbs = useCrumbs(path);
   // ?find=… (from the search bar): scroll to that feature and make it glow
   useFindOnPage();
+  useRevealSelectedTabs();
   // French ↔ Arabic fields fill each other (lib/autoTranslate.ts)
   const toast = useToast();
   useEffect(
@@ -358,7 +382,7 @@ export function Shell() {
             </div>
           </div>
         </header>
-        <main className="mx-auto w-full max-w-[90rem] flex-1 px-4 py-6 sm:px-6">
+        <main className="mx-auto w-full min-w-0 max-w-[90rem] flex-1 px-4 py-6 sm:px-6">
           <Outlet />
           <UpdateBar />
         </main>

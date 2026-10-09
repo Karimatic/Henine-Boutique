@@ -64,6 +64,11 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+  /* on a phone a long name or a wide table must never make the page wider than the screen:
+     grid cells may shrink below their content (tables scroll inside their own box) */
+  main .grid > * {
+    min-width: 0;
+  }
   input, select, textarea {
     font-size: max(16px, 1rem);
   }

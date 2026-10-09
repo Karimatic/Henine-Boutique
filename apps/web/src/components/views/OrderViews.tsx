@@ -6,7 +6,6 @@ import { ErrorBox, inputCls, PageTitle, ProductImage, Spinner } from "@/componen
 import { ApiError, apiGet, apiPost, useApi } from "@/lib/api";
 import { useLocale } from "@/lib/locale";
 import { useSavedOrders } from "@/lib/stores";
-import { Turnstile, useTurnstileToken } from "@/lib/turnstile";
 
 /* ───────── Thank you ───────── */
 
@@ -368,17 +367,15 @@ function OrderCard({ o: initial, token }: { o: TrackedOrderDTO; token?: string }
 }
 
 export function TrackView() {
-  const { t, locale } = useLocale();
+  const { t } = useLocale();
   const saved = useSavedOrders();
-  const site = useApi<SiteConfigDTO>("/site");
   const [linkOrder, setLinkOrder] = useState<TrackedOrderDTO | null>(null);
   const [linkToken, setLinkToken] = useState<string | undefined>();
   const [mine, setMine] = useState<TrackedOrderDTO[]>([]);
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
-  const turnstile = useTurnstileToken();
   const [results, setResults] = useState<TrackedOrderDTO[] | null>(null);
-  const [state, setState] = useState<"idle" | "loading" | "error" | "invalid" | "check">("idle");
+  const [state, setState] = useState<"idle" | "loading" | "error" | "invalid">("idle");
 
   // 1) private link (?c=&t=)
   useEffect(() => {
@@ -404,10 +401,10 @@ export function TrackView() {
     if (!p) return setState("invalid");
     setState("loading");
     try {
-      setResults(await turnstile.submit((turnstileToken) => apiPost<TrackedOrderDTO[]>("/track", { phone: p, code: code.trim() || undefined, turnstileToken })));
+      setResults(await apiPost<TrackedOrderDTO[]>("/track", { phone: p, code: code.trim() || undefined }));
       setState("idle");
     } catch (err) {
-      setState(err instanceof ApiError && err.code === "validation_failed" ? "invalid" : err instanceof ApiError && err.code === "turnstile_failed" ? "check" : "error");
+      setState(err instanceof ApiError && err.code === "validation_failed" ? "invalid" : "error");
     }
   }
 
@@ -431,11 +428,8 @@ export function TrackView() {
           <input className={inputCls} type="tel" inputMode="tel" dir="ltr" placeholder={t.track.phone} value={phone} onChange={(e) => setPhone(e.target.value)} aria-label={t.track.phone} />
           <input className={`${inputCls} uppercase`} dir="ltr" placeholder={t.track.code} value={code} onChange={(e) => setCode(e.target.value)} aria-label={t.track.code} maxLength={12} />
         </div>
-        <Turnstile siteKey={site.data?.turnstileSiteKey ?? ""} onToken={turnstile.onToken} onReady={turnstile.onReady} locale={locale} />
         {state === "invalid" && <p className="text-sm text-danger">{t.checkout.errors.phone_invalid}</p>}
         {state === "error" && <ErrorBox />}
-        {/* the anti-robot check failed twice: say so (not "check your connection") */}
-        {state === "check" && <p className="text-sm text-danger">{t.checkout.errors.turnstile_failed}</p>}
         <button type="submit" disabled={state === "loading"} className="flex h-12 items-center gap-2 rounded-full bg-plum-600 px-6 font-semibold text-white">
           {state === "loading" && <Spinner className="size-4" />}
           {t.track.search}

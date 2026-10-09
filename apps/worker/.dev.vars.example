@@ -4,10 +4,6 @@ PUBLIC_ORIGIN=http://localhost:8787
 # Email: "console" prints login codes in this terminal and shows them on screen (localhost only)
 MAIL_PROVIDER=console
 
-# Cloudflare Turnstile always-pass test keys
-TURNSTILE_SITE_KEY=1x00000000000000000000AA
-TURNSTILE_SECRET=1x0000000000000000000000000000000AA
-
 IP_HASH_SALT=dev-salt-change-me
 TRACK_TOKEN_PEPPER=dev-pepper-change-me
 AUTH_PEPPER=dev-auth-pepper-change-me

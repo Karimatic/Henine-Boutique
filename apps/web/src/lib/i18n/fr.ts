@@ -193,7 +193,6 @@ export const fr = {
       delivery_unavailable: "Livraison indisponible pour ce choix.",
       too_many_orders: "Trop de commandes récentes avec ce numéro. Réessayez plus tard ou contactez-nous.",
       rate_limited: "Trop de tentatives, patientez une minute.",
-      turnstile_failed: "Vérification anti-robot échouée, réessayez.",
       maintenance: STORE_TEXTS.fr.pause,
       network: "Connexion impossible. Vérifiez votre internet.",
       generic: "Une erreur est survenue, réessayez.",
