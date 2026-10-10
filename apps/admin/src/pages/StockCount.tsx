@@ -7,7 +7,7 @@ import { COUNT_REASON_LABEL, COUNT_REASONS, COUNT_STATUS_LABEL, type CountReason
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { api, errorMessage, post, put } from "../api";
+import { api, del, errorMessage, post, put } from "../api";
 import { isAr, tr } from "../i18n";
 import { CategoryOptions, type CategoryLite } from "../lib/categories";
 import { dateTime } from "../lib/format";
@@ -38,10 +38,31 @@ const TONE: Record<CountStatus, string> = {
 };
 const who = (a: string | null) => (a ? a.split(":").slice(2).join(":") || a : "—");
 
+/** Counts are named by the server in French ("Inventaire · Pyjamas"): shown in the admin's language. */
+const countTitle = (t: string) => t.replace(/^Inventaire(?= ·|$)/, tr("Inventaire")).replace(/ article\(s\)$/, ` ${tr("article(s)")}`);
+
+/** Delete a count (owner only): a validated count's stock correction stays. */
+function useDeleteCount() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  return useMutation({
+    mutationFn: async (id: number) => {
+      if (!confirm(tr("Supprimer ce comptage ? Le stock déjà corrigé ne change pas."))) throw new Error("cancelled");
+      return del(`/stock-counts/${id}`);
+    },
+    onSuccess: () => {
+      toast(tr("Comptage supprimé"));
+      void qc.invalidateQueries({ queryKey: ["stock-counts"] });
+    },
+    onError: (e) => (e as Error).message !== "cancelled" && toast(errorMessage(e), "error"),
+  });
+}
+
 export function StockCountsPage() {
   const can = useCan();
   const navigate = useNavigate();
   const q = useQuery({ queryKey: ["stock-counts"], queryFn: () => api<CountSummaryRow[]>("/stock-counts") });
+  const remove = useDeleteCount();
   const [starting, setStarting] = useState(false);
   return (
     <div className="space-y-4">
@@ -71,15 +92,15 @@ export function StockCountsPage() {
       ) : (
         <ul className="space-y-2">
           {q.data.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} className="flex items-stretch gap-2">
               <button
                 type="button"
                 onClick={() => void navigate({ to: "/stock/inventaire/$id", params: { id: String(c.id) } })}
-                className="flex w-full flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface p-3 text-start hover:border-plum-600/40"
+                className="flex min-w-0 flex-1 flex-wrap items-center justify-between gap-2 rounded-xl border border-line bg-surface p-3 text-start hover:border-plum-600/40"
               >
                 <span>
                   <span className="flex flex-wrap items-center gap-2">
-                    <b>{c.title}</b>
+                    <b>{countTitle(c.title)}</b>
                     <Badge tone={TONE[c.status]}>{tr(COUNT_STATUS_LABEL[c.status])}</Badge>
                   </span>
                   <span className="mt-0.5 block text-xs text-ink-soft">
@@ -91,6 +112,9 @@ export function StockCountsPage() {
                   {(c.discrepancies ?? 0) > 0 && <span className="block text-xs font-semibold text-amber-800">{tr("{0} écart(s)", { 0: c.discrepancies })}</span>}
                 </span>
               </button>
+              <Button ownerOnly variant="danger" className="h-auto shrink-0" aria-label={tr("Supprimer {0}", { 0: countTitle(c.title) })} loading={remove.isPending && remove.variables === c.id} onClick={() => remove.mutate(c.id)}>
+                🗑
+              </Button>
             </li>
           ))}
         </ul>
@@ -171,6 +195,8 @@ export function StockCountPage() {
   const qc = useQueryClient();
   const toast = useToast();
   const can = useCan();
+  const navigate = useNavigate();
+  const remove = useDeleteCount();
   const q = useQuery({ queryKey: ["stock-count", id], queryFn: () => api<CountDetail>(`/stock-counts/${id}`) });
   const [filter, setFilter] = useState<"todo" | "diff" | "all">("all");
   const [search, setSearch] = useState("");
@@ -234,7 +260,7 @@ export function StockCountPage() {
     <div className="space-y-4 pb-24">
       <PageHeader
         group={tr("Inventaire physique")}
-        title={d.title}
+        title={countTitle(d.title)}
         subtitle={
           <span className="flex flex-wrap items-center gap-2">
             <Badge tone={TONE[d.status]}>{tr(COUNT_STATUS_LABEL[d.status])}</Badge>
@@ -243,9 +269,14 @@ export function StockCountPage() {
           </span>
         }
         actions={
-          <Link to="/stock/inventaire" className="inline-flex h-9 items-center rounded-lg border border-line px-3.5 text-sm font-semibold">
-            {tr("← Inventaires")}
-          </Link>
+          <span className="flex gap-2">
+            <Link to="/stock/inventaire" className="inline-flex h-9 items-center rounded-lg border border-line px-3.5 text-sm font-semibold">
+              {tr("← Inventaires")}
+            </Link>
+            <Button ownerOnly variant="danger" size="sm" loading={remove.isPending} onClick={() => remove.mutate(d.id, { onSuccess: () => void navigate({ to: "/stock/inventaire" }) })}>
+              {tr("🗑 Supprimer")}
+            </Button>
+          </span>
         }
       />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

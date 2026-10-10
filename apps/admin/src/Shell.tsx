@@ -72,7 +72,7 @@ function useAdminPath(): string {
 /** Breadcrumb for the current screen: "Commandes › Clients", "Catalogue › Produits"… */
 function useCrumbs(path: string): string[] {
   if (path === "/") return [DASHBOARD.label];
-  if (path === "/plus") return ["Menu"];
+  if (path === "/plus") return [tr("Menu")];
   const inner = INNER_PAGES.find((i) => path === i.path || path.startsWith(`${i.path}/`));
   if (inner) {
     const parent = NAV.flatMap((g) => g.items).find((i) => i.path === inner.parent);
@@ -80,7 +80,7 @@ function useCrumbs(path: string): string[] {
   }
   for (const g of NAV) {
     const item = [...g.items].sort((a, b) => b.path.length - a.path.length).find((i) => path === i.path || path.startsWith(`${i.path}/`));
-    if (item) return path === item.path ? [g.label, item.label] : [g.label, item.label, path.endsWith("/nouveau") ? "Nouveau" : "Fiche"];
+    if (item) return path === item.path ? [g.label, item.label] : [g.label, item.label, path.endsWith("/nouveau") ? tr("Nouveau") : tr("Fiche")];
   }
   return [];
 }

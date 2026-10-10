@@ -245,6 +245,22 @@ stockCountRoutes.post("/stock-counts/:id/reject", requirePermission("stock.appro
 stockCountRoutes.post("/stock-counts/:id/reopen", requirePermission("stock.edit"), async (c) => decide(c, intParam(c, "id"), "counting"));
 stockCountRoutes.post("/stock-counts/:id/cancel", requirePermission("stock.edit"), async (c) => decide(c, intParam(c, "id"), "cancelled"));
 
+/**
+ * Removes a count and its lines (owner only, like every deletion). A validated count already
+ * corrected the stock: removing it only removes it from the history, the stock stays as it is.
+ */
+stockCountRoutes.delete("/stock-counts/:id", requirePermission("stock.edit"), async (c) => {
+  const id = intParam(c, "id");
+  const row = await c.env.DB.prepare("SELECT title, status FROM stock_counts WHERE id = ?").bind(id).first<{ title: string; status: string }>();
+  if (!row) throw new HttpError(404, "not_found");
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM stock_count_lines WHERE count_id = ?").bind(id),
+    c.env.DB.prepare("DELETE FROM stock_counts WHERE id = ?").bind(id),
+    auditStmt(c.env, actorOf(c.get("member")), "delete", "stock_count", id, row),
+  ]);
+  return c.json({ ok: true });
+});
+
 async function decide(c: Context<AppEnv>, id: number, to: CountStatus, note?: string) {
   const s = await c.env.DB.prepare("SELECT status FROM stock_counts WHERE id = ?").bind(id).first<{ status: CountStatus }>();
   if (!s) throw new HttpError(404, "not_found");

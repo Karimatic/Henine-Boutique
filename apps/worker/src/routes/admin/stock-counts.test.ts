@@ -77,4 +77,18 @@ describe("stock count", () => {
     expect((await app.as(member(["stock.view"])).call("POST", "/stock-counts", { scope: "all" })).status).toBe(403);
     expect((await app.as(OWNER).call("POST", `/stock-counts/${body.id}/approve`, {})).status).toBe(200);
   });
+
+  it("deleting a count removes it and its lines, never the stock already corrected", async () => {
+    const { db, app } = setup();
+    const id = (await app.call<{ id: number }>("POST", "/stock-counts", { scope: "product", productId: 1 })).body.id;
+    await app.call("PUT", `/stock-counts/${id}/lines`, { lines: [{ variantId: 1, countedQty: 17, reason: "missing" }] });
+    await app.call("POST", `/stock-counts/${id}/submit`);
+    await app.call("POST", `/stock-counts/${id}/approve`, {});
+    expect(await stock(db, 1)).toBe(17);
+    expect((await app.call("DELETE", `/stock-counts/${id}`)).status).toBe(200);
+    expect((await app.call("GET", `/stock-counts/${id}`)).status).toBe(404);
+    expect(await db.prepare("SELECT COUNT(*) AS n FROM stock_count_lines WHERE count_id = ?").bind(id).first("n")).toBe(0);
+    expect(await stock(db, 1)).toBe(17);
+    expect((await app.call("DELETE", `/stock-counts/${id}`)).status).toBe(404);
+  });
 });

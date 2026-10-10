@@ -2206,4 +2206,8 @@ export const AR: Record<string, string> = {
   "Groupe « {0} » relié ✓ un message test y a été envoyé": "تم ربط المجموعة «{0}» ✓ وأُرسلت إليها رسالة اختبار",
   "Nom & prix": "الاسم والسعر",
   "Quantités": "الكميات",
+  "Fiche": "التفاصيل",
+  "Supprimer ce comptage ? Le stock déjà corrigé ne change pas.": "حذف عملية العدّ هذه؟ المخزون الذي تم تصحيحه لا يتغير.",
+  "Comptage supprimé": "تم حذف عملية العدّ",
+  "Supprimer {0}": "حذف {0}",
 };
