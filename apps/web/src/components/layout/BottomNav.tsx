@@ -35,7 +35,7 @@ export function BottomNav() {
     { to: "/", label: t.nav.home, Icon: HomeIcon, match: (p: string) => p === "/" },
     { to: "/categories", label: t.nav.categories, Icon: GridIcon, match: (p: string) => p.startsWith("/categories") || p.startsWith("/c/") },
     // an order on its way: the tab opens it directly and shows a dot
-    { to: order ? order.link : "/suivi", label: t.nav.track, Icon: PackageIcon, match: (p: string) => p.startsWith("/suivi") },
+    { to: order ? order.link : "/suivi", label: t.nav.trackShort, Icon: PackageIcon, match: (p: string) => p.startsWith("/suivi") },
     { to: "/favoris", label: t.nav.favorites, Icon: HeartIcon, match: (p: string) => p.startsWith("/favoris") },
     { to: "/panier", label: t.nav.cart, Icon: BagIcon, match: (p: string) => p.startsWith("/panier") || p.startsWith("/commande") },
   ];
@@ -57,8 +57,8 @@ export function BottomNav() {
                 <span className={`grid h-7 w-12 place-items-center rounded-full transition ${active ? "bg-ink text-on-ink" : ""}`}>
                   <Icon size={20} />
                 </span>
-                {label}
-                {label === t.nav.track && order && (
+                <span className="max-w-full truncate px-0.5">{label}</span>
+                {label === t.nav.trackShort && order && (
                   <span className="absolute top-1.5 size-2.5 rounded-full bg-rose-500 ring-2 ring-white ms-7" aria-label={t.status[order.status]} />
                 )}
                 {to === "/panier" && count > 0 && (

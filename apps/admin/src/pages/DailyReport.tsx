@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { api } from "../api";
-import { isAr, tr } from "../i18n";
+import { tr } from "../i18n";
 import { da, ltr } from "../lib/format";
 import { Card, ErrorState, ListSkeleton } from "../ui";
 
@@ -56,10 +56,11 @@ export function DailyReportCard() {
     <Card
       title={tr("📊 Rapport du jour")}
       actions={
-        <div className="flex items-center gap-1">
-          <button type="button" aria-label={tr("Jour précédent")} onClick={() => setDay((d) => shift(d, -1))} className="grid size-10 place-items-center rounded-lg border border-line"><span aria-hidden>{isAr ? "›" : "‹"}</span></button>
+        // time runs left → right (like the charts): previous day ‹ on the left, next day › on the right
+        <div className="flex items-center gap-1" dir="ltr">
+          <button type="button" aria-label={tr("Jour précédent")} onClick={() => setDay((d) => shift(d, -1))} className="grid size-10 place-items-center rounded-lg border border-line"><span aria-hidden>‹</span></button>
           <input type="date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm" aria-label={tr("Jour")} />
-          <button type="button" aria-label={tr("Jour suivant")} disabled={isToday} onClick={() => setDay((d) => shift(d, 1))} className="grid size-10 place-items-center rounded-lg border border-line disabled:opacity-40"><span aria-hidden>{isAr ? "‹" : "›"}</span></button>
+          <button type="button" aria-label={tr("Jour suivant")} disabled={isToday} onClick={() => setDay((d) => shift(d, 1))} className="grid size-10 place-items-center rounded-lg border border-line disabled:opacity-40"><span aria-hidden>›</span></button>
         </div>
       }
     >

@@ -93,7 +93,7 @@ export function SiteFooter() {
           </p>
           <div className="flex flex-wrap items-center gap-2 pe-14 md:pe-0">
             <ColorModeSwitch tone="dark" />
-            <LanguageSwitch className="inline-flex" />
+            <LanguageSwitch tone="dark" />
           </div>
         </div>
       </div>

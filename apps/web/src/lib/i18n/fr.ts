@@ -10,7 +10,7 @@ export const fr = {
   brand: { tagline: "L’élégance & la qualité au meilleur prix" },
   announcement: STORE_TEXTS.fr.announcement,
   skip: "Aller au contenu",
-  nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Mes commandes", menu: "Menu", language: "Langue", shop: "La boutique", help: "Aide", follow: "Suivez-nous" },
+  nav: { home: "Accueil", categories: "Catégories", search: "Recherche", favorites: "Favoris", cart: "Panier", track: "Mes commandes", trackShort: "Commandes", menu: "Menu", language: "Langue", shop: "La boutique", help: "Aide", follow: "Suivez-nous" },
   hero: {
     eyebrow: STORE_TEXTS.fr.eyebrow,
     title: STORE_TEXTS.fr.title,

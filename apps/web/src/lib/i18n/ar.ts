@@ -12,7 +12,7 @@ export const ar: Dictionary = {
   brand: { tagline: "الأناقة والجودة بأفضل سعر" },
   announcement: STORE_TEXTS.ar.announcement,
   skip: "انتقل إلى المحتوى",
-  nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع طلباتي", menu: "القائمة", language: "اللغة", shop: "المتجر", help: "مساعدة", follow: "تابعينا" },
+  nav: { home: "الرئيسية", categories: "الأقسام", search: "بحث", favorites: "المفضلة", cart: "السلة", track: "تتبع طلباتي", trackShort: "طلباتي", menu: "القائمة", language: "اللغة", shop: "المتجر", help: "مساعدة", follow: "تابعينا" },
   hero: {
     eyebrow: STORE_TEXTS.ar.eyebrow,
     title: STORE_TEXTS.ar.title,

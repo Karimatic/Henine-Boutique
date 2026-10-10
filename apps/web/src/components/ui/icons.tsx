@@ -22,6 +22,9 @@ function Icon({ size = 22, children, ...rest }: IconProps & { children: React.Re
   );
 }
 
+export const GlobeIcon = (p: IconProps) => (
+  <Icon {...p}><circle cx="12" cy="12" r="9" /><path d="M3 12h18" /><path d="M12 3c2.5 2.6 3.8 5.6 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.6-3.8-9S9.5 5.6 12 3Z" /></Icon>
+);
 export const HomeIcon = (p: IconProps) => (
   <Icon {...p}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V21h14V9.5" /><path d="M10 21v-6h4v6" /></Icon>
 );
