@@ -121,10 +121,11 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
       activeOptions={{ exact }}
       title={collapsed ? label : undefined}
       // pages opened from inside this tab keep it highlighted
-      className={`${also.some((a) => path === a || path.startsWith(`${a}/`)) ? "active " : ""}group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink transition hover:bg-ivory-deep [&.active]:bg-plum-600/10 [&.active]:font-medium [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
+      className={`${also.some((a) => path === a || path.startsWith(`${a}/`)) ? "active " : ""}group flex h-9 items-center gap-2.5 rounded-lg text-sm text-ink hover:bg-ivory-deep [&.active]:bg-plum-600/10 [&.active]:text-plum-700 ${collapsed ? "justify-center px-0" : "px-2.5"}`}
     >
       <span className="relative">
-        <Icon className="size-[18px] shrink-0 text-ink-soft transition group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
+        {/* icon and text change together, at once: no fade of one before the other */}
+        <Icon className="size-[18px] shrink-0 text-ink-soft group-hover:text-plum-600 group-[.active]:text-plum-600" strokeWidth={1.8} />
         {collapsed && to === "/commandes" && <NewBadge className="absolute -end-2.5 -top-2" />}
       </span>
       {!collapsed && <span className="truncate">{label}</span>}
@@ -143,7 +144,7 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
               // a section that is a tab too (Marketing, Analyse)
               <Link
                 to={g.path}
-                className="mb-1.5 flex items-center justify-between rounded-md px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70 transition hover:text-plum-600 [&.active]:text-plum-600"
+                className="mb-1.5 flex items-center justify-between rounded-md px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70 hover:text-plum-600 [&.active]:text-plum-600"
               >
                 {g.label}
                 <ChevronRight className="size-3.5 rtl:rotate-180" />
@@ -308,7 +309,7 @@ export function Shell() {
     <div className="flex min-h-dvh">
       {/* Desktop sidebar (full or icon rail) */}
       <aside
-        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-line bg-sidebar transition-[width] duration-200 md:flex ${collapsed ? "w-[4.25rem]" : "w-64"}`}
+        className={`sticky top-0 hidden h-dvh shrink-0 flex-col border-e border-line bg-sidebar md:flex ${collapsed ? "w-[4.25rem]" : "w-64"}`}
       >
         <Link to="/" className={`flex h-16 shrink-0 items-center ${collapsed ? "justify-center" : "px-4"}`}>
           <Wordmark size="sm" subtitle={tr("Administration")} iconOnly={collapsed} badge />

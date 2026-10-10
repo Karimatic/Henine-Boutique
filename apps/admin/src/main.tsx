@@ -27,12 +27,26 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ToastProvider>
-        <RouterProvider router={router} />
-      </ToastProvider>
-    </QueryClientProvider>
-  </StrictMode>,
+/**
+ * The admin's fonts load with "swap": without this, text first shows in a system font and
+ * jumps a moment later while the icons stay still (a flicker next to the menu icons). Wait for
+ * the fonts of the menu (cached after the first visit), never more than 1.2 s.
+ */
+async function fontsReady() {
+  if (!document.fonts?.load) return;
+  const ar = document.documentElement.lang === "ar";
+  const wanted = ar ? ['400 14px "Tajawal"', '500 14px "Tajawal"', '400 14px "DM Sans Variable"'] : ['400 14px "DM Sans Variable"', '500 14px "DM Sans Variable"'];
+  await Promise.race([Promise.all(wanted.map((f) => document.fonts.load(f, ar ? "ابج" : "abc"))), new Promise((r) => setTimeout(r, 1200))]).catch(() => undefined);
+}
+
+void fontsReady().then(() =>
+  createRoot(document.getElementById("root")!).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <ToastProvider>
+          <RouterProvider router={router} />
+        </ToastProvider>
+      </QueryClientProvider>
+    </StrictMode>,
+  ),
 );
