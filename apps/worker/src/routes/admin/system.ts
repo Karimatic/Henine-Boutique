@@ -4,7 +4,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { cleanText, hasPermission, PERMISSIONS, ROLE_PRESETS, type Permission } from "@henine/shared";
-import type { AppEnv } from "../../env";
+import type { AppEnv, Env } from "../../env";
 import { isDev } from "../../env";
 import { auditStmt } from "../../lib/audit";
 import { checkPassword, devEcho, hashPassword, passwordKeyValid } from "../../lib/auth";
@@ -621,6 +621,17 @@ systemRoutes.get("/account", async (c) => {
   return c.json({ member: { id: m.id, email: m.email, name: m.name, roleName: m.roleName }, sessions: results.map((s) => ({ ...s, current: s.id === m.sessionId })) });
 });
 
+/** Anyone changes the name the team sees (orders history, Telegram, the welcome line). */
+systemRoutes.post("/account/name", async (c) => {
+  const m = c.get("member");
+  const { name } = await body(c, z.object({ name: cleanText(60).pipe(z.string().min(2)) }));
+  await c.env.DB.batch([
+    c.env.DB.prepare("UPDATE team_members SET name = ? WHERE id = ?").bind(name, m.id),
+    auditStmt(c.env, actorOf(m), "update", "team_member", m.id, { name: { from: m.name, to: name } }),
+  ]);
+  return c.json({ name });
+});
+
 systemRoutes.post("/account/password", async (c) => {
   const m = c.get("member");
   // the current password is checked here too: same brute-force limit as the login
@@ -668,9 +679,28 @@ systemRoutes.post("/integrations/telegram/token", requirePermission("integration
   return c.json({ botUsername: me.result!.username });
 });
 
+/** Telegram webhook for the order buttons (✅ confirm, 📵 no answer…), on the live site. */
+async function enableTelegramWebhook(env: Env, token: string): Promise<string> {
+  const secret = randomToken(24);
+  const url = `${env.PUBLIC_ORIGIN}/api/tg/webhook`;
+  const res = await tgCall(token, "setWebhook", { url, secret_token: secret, allowed_updates: ["message", "callback_query"], drop_pending_updates: false });
+  if (!res.ok) throw new HttpError(409, "telegram_error", { description: res.description });
+  await patchSetting(env, "telegram", { webhook_secret_enc: await encryptSecret(env.SETTINGS_KEY, secret), webhook_url: url });
+  return url;
+}
+
 systemRoutes.post("/integrations/telegram/detect", requirePermission("integrations.manage"), async (c) => {
   const cfg = await telegramConfig(c.env);
   if (!cfg.token) throw new HttpError(409, "telegram_token_missing");
+  // Telegram refuses to list the chats while the buttons' webhook is on: switch it off for the
+  // search (it is switched back on as soon as a chat is chosen)
+  if (cfg.webhook_url) {
+    await tgCall(cfg.token, "deleteWebhook", { drop_pending_updates: false });
+    await patchSetting(c.env, "telegram", { webhook_url: null, webhook_secret_enc: null });
+  } else {
+    const info = await tgCall<{ url: string }>(cfg.token, "getWebhookInfo");
+    if (info.ok && info.result?.url) await tgCall(cfg.token, "deleteWebhook", { drop_pending_updates: false });
+  }
   const res = await tgCall<{ message?: { chat: { id: number; title?: string; type: string; first_name?: string } }; my_chat_member?: { chat: { id: number; title?: string; type: string } } }[]>(
     cfg.token,
     "getUpdates",
@@ -688,8 +718,18 @@ systemRoutes.post("/integrations/telegram/detect", requirePermission("integratio
 systemRoutes.post("/integrations/telegram/chat", requirePermission("integrations.manage"), async (c) => {
   const input = await body(c, z.object({ chatId: z.string().trim().regex(/^-?\d{3,20}$/), chatTitle: cleanText(80).optional() }));
   await patchSetting(c.env, "telegram", { chat_id: input.chatId, chat_title: input.chatTitle ?? null });
-  await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "update", "integration", "telegram_chat")]);
-  return c.json({ ok: true });
+  // the orders that could not be posted while no chat was chosen (last 2 days) go out now
+  await c.env.DB.batch([
+    auditStmt(c.env, actorOf(c.get("member")), "update", "integration", "telegram_chat"),
+    c.env.DB.prepare("UPDATE outbox SET attempts = 0, next_attempt_at = ?, last_error = NULL WHERE kind = 'telegram' AND done_at IS NULL AND created_at > ?").bind(Date.now(), Date.now() - 2 * 86400_000),
+  ]);
+  const cfg = await telegramConfig(c.env);
+  // the order buttons work right away on the live site
+  let webhookUrl: string | null = null;
+  if (cfg.token && c.env.PUBLIC_ORIGIN.startsWith("https://")) webhookUrl = await enableTelegramWebhook(c.env, cfg.token).catch(() => null);
+  const tested = await sendTelegramText(c.env, `🌸 Henine Boutique : ce groupe reçoit maintenant les nouvelles commandes.`);
+  c.executionCtx.waitUntil(processOutbox(c.env, 20).catch(() => 0));
+  return c.json({ ok: true, tested, webhookUrl });
 });
 
 systemRoutes.post("/integrations/telegram/test", requirePermission("integrations.manage"), async (c) => {
@@ -702,12 +742,7 @@ systemRoutes.post("/integrations/telegram/webhook", requirePermission("integrati
   const cfg = await telegramConfig(c.env);
   if (!cfg.token) throw new HttpError(409, "telegram_token_missing");
   if (!c.env.PUBLIC_ORIGIN.startsWith("https://")) throw new HttpError(409, "https_required");
-  const secret = randomToken(24);
-  const url = `${c.env.PUBLIC_ORIGIN}/api/tg/webhook`;
-  const res = await tgCall(cfg.token, "setWebhook", { url, secret_token: secret, allowed_updates: ["message", "callback_query"], drop_pending_updates: false });
-  if (!res.ok) throw new HttpError(409, "telegram_error", { description: res.description });
-  await patchSetting(c.env, "telegram", { webhook_secret_enc: await encryptSecret(c.env.SETTINGS_KEY, secret), webhook_url: url });
-  return c.json({ webhookUrl: url });
+  return c.json({ webhookUrl: await enableTelegramWebhook(c.env, cfg.token) });
 });
 
 systemRoutes.delete("/integrations/telegram", requirePermission("integrations.manage"), async (c) => {

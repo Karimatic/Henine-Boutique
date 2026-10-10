@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { DiscountFields } from "../lib/discount";
 import { studioEnabled, studioPhoto } from "../lib/studio";
 import { useCan } from "../Shell";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -153,7 +154,6 @@ export function ProductWizard() {
             <TextField label={tr("Nom (arabe)")} dir="rtl" placeholder="مثلًا: بيجامة ساتان مخططة" value={info.nameAr} onChange={(e) => setInfo({ ...info, nameAr: e.target.value })} />
             <div className="grid grid-cols-2 gap-3">
               <NumberField label={tr("Prix de vente")} suffix="DA" value={info.price} onChange={(v) => setInfo({ ...info, price: v })} />
-              <NumberField label={tr("Prix barré (facultatif)")} suffix="DA" value={info.compareAt} onChange={(v) => setInfo({ ...info, compareAt: v })} />
               {can("cost.view") && (
                 <NumberField
                   label={tr("Prix d'achat")}
@@ -165,6 +165,7 @@ export function ProductWizard() {
                 />
               )}
             </div>
+            <DiscountFields price={info.price} compareAt={info.compareAt} onChange={(n) => setInfo({ ...info, price: n.price, compareAt: n.compareAt })} />
             <label className="block text-sm font-medium">
               {tr("Catégorie")}
               <select className={`${inputCls} mt-1.5`} value={info.categoryId ?? ""} onChange={(e) => setInfo({ ...info, categoryId: e.target.value ? Number(e.target.value) : null })}>

@@ -176,6 +176,7 @@ export function MyAccount() {
     <ColorModeCard />
     <Card title={tr("👤 Mon compte")}>
       {q.data && <p className="mb-3 text-sm">{q.data.member.name} · {q.data.member.email} · <Badge>{q.data.member.roleName}</Badge></p>}
+      {q.data && <MyName current={q.data.member.name} />}
       {/* its own form with the username inside, so the browser's password manager fills
           this account here and never the settings search box above */}
       <form
@@ -203,6 +204,23 @@ export function MyAccount() {
       </ul>
     </Card>
     </>
+  );
+}
+
+/** Change my own name (what the team sees on orders, Telegram, the welcome line). */
+function MyName({ current }: { current: string }) {
+  const [name, setName] = useState(current);
+  useEffect(() => setName(current), [current]);
+  const save = useSave(() => post("/account/name", { name: name.trim() }), ["account", "me"], tr("Nom modifié ✓"));
+  return (
+    <div className="mb-4 flex flex-wrap items-end gap-2">
+      <div className="min-w-0 flex-1">
+        <TextField label={tr("Mon nom")} value={name} maxLength={60} autoComplete="name" onChange={(e) => setName(e.target.value)} />
+      </div>
+      <Button loading={save.isPending} disabled={name.trim().length < 2 || name.trim() === current} onClick={() => save.mutate(undefined)}>
+        {tr("✏️ Changer le nom")}
+      </Button>
+    </div>
   );
 }
 
@@ -247,6 +265,16 @@ export function IntegrationsSection() {
             <Button onClick={() => run(() => post("/integrations/telegram/token", { token }).then(() => setToken("")), tr("Bot connecté ✓"))} disabled={!token}>{tr("Enregistrer")}</Button>
           </div>
           {t.botUsername && <p className="text-sm">{tr("Bot :")} <b>@{t.botUsername}</b></p>}
+          {t.botUsername && !t.chatId && (
+            <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+              <p className="font-semibold">{tr("⚠️ Dernière étape : aucun groupe n'est relié, les commandes ne sont pas envoyées.")}</p>
+              <ol className="mt-1 list-decimal space-y-0.5 ps-5">
+                <li>{tr("Ajoutez @{0} dans votre groupe Telegram (ou ouvrez une discussion avec lui).", { 0: t.botUsername })}</li>
+                <li>{tr("Envoyez /start dans ce groupe.")}</li>
+                <li>{tr("Touchez « Détecter le groupe » ci-dessous puis choisissez-le.")}</li>
+              </ol>
+            </div>
+          )}
           {t.botUsername && (
             <div>
               <Button size="sm" onClick={() => run(() => post<{ id: number; title: string; type: string }[]>("/integrations/telegram/detect").then(setChats), tr("Recherche terminée"))}>{tr("Détecter le groupe")}</Button>
@@ -256,7 +284,15 @@ export function IntegrationsSection() {
                 <ul className="mt-2 space-y-1">
                   {chats.map((c) => (
                     <li key={c.id}>
-                      <button type="button" className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-start text-sm hover:border-plum-600" onClick={() => run(() => post("/integrations/telegram/chat", { chatId: String(c.id), chatTitle: c.title }), `Groupe « ${c.title} » sélectionné`)}>
+                      <button type="button" className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-start text-sm hover:border-plum-600" onClick={() =>
+                          run(
+                            () => post<{ tested: boolean }>("/integrations/telegram/chat", { chatId: String(c.id), chatTitle: c.title }).then((r) => {
+                              setChats(null);
+                              if (!r.tested) throw new Error(tr("Groupe relié, mais le message test n'est pas passé : vérifiez que le bot est bien membre du groupe."));
+                            }),
+                            tr("Groupe « {0} » relié ✓ un message test y a été envoyé", { 0: c.title }),
+                          )
+                        }>
                         {c.type === "private" ? "👤" : "👥"} {c.title} <span className="text-xs text-ink-soft">({c.id})</span>
                       </button>
                     </li>

@@ -9,6 +9,7 @@ import {
   customerRiskSql,
   customerSegment,
   dzPhone,
+  formatDzPhone,
   nextStatuses,
   ORDER_STATUSES,
   orderLine,
@@ -16,6 +17,7 @@ import {
   OUTCOME_REASONS,
   RISK_LEVELS,
   segmentSql,
+  sourceLabel,
   EXTRA_SEGMENTS,
   extraSegmentSql,
   STATUS_LABELS,
@@ -83,11 +85,11 @@ export function attentionSql(now: number, sla: SlaSettings = DEFAULT_SLA): Recor
   };
 }
 
-orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
-  const status = c.req.query("status") ?? "active";
-  const attention = c.req.query("attention");
-  const q = (c.req.query("q") ?? "").trim();
-  const page = Math.max(0, Number(c.req.query("page") ?? 0));
+/** The orders list's filters (status tab, attention, search, wilaya, dates, source), shared with the CSV export. */
+function orderFilters(q: (k: string) => string | undefined, sla: Parameters<typeof attentionSql>[1]): { where: string[]; binds: unknown[] } {
+  const status = q("status") ?? "active";
+  const attention = q("attention");
+  const text = (q("q") ?? "").trim();
   const where: string[] = [];
   const binds: unknown[] = [];
   const groups: Record<string, string[]> = {
@@ -98,8 +100,7 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     annule: ["annulee", "doublon", "fausse"],
     retours: ["retour", "retour_recu"],
   };
-  const { operations } = await getSettings(c.env, ["operations"]);
-  const attentions = attentionSql(Date.now(), operations.sla);
+  const attentions = attentionSql(Date.now(), sla);
   const attn = attention && Object.hasOwn(attentions, attention) ? attentions[attention] : undefined;
   if (attn) where.push(attn);
   else if (groups[status]) {
@@ -109,18 +110,18 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     where.push("o.status = ?");
     binds.push(status);
   }
-  if (q) {
-    const digits = q.replace(/\D/g, "");
+  if (text) {
+    const digits = text.replace(/\D/g, "");
     where.push("(o.public_code LIKE ? OR o.name LIKE ? OR o.phone LIKE ? OR o.tracking_number = ?)");
-    binds.push(`%${q.toUpperCase()}%`, `%${q}%`, `%${digits || q}%`, q);
+    binds.push(`%${text.toUpperCase()}%`, `%${text}%`, `%${digits || text}%`, text);
   }
-  const wilaya = Number(c.req.query("wilaya") ?? 0);
+  const wilaya = Number(q("wilaya") ?? 0);
   if (Number.isInteger(wilaya) && wilaya >= 1 && wilaya <= 69) {
     where.push("o.wilaya_code = ?");
     binds.push(wilaya);
   }
-  const from = Number(c.req.query("from") ?? 0);
-  const to = Number(c.req.query("to") ?? 0);
+  const from = Number(q("from") ?? 0);
+  const to = Number(q("to") ?? 0);
   if (from > 0) {
     where.push("o.created_at >= ?");
     binds.push(from);
@@ -130,11 +131,18 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     binds.push(to);
   }
   // Statistiques → Sources: the orders of one source
-  const source = (c.req.query("source") ?? "").trim();
+  const source = (q("source") ?? "").trim();
   if (source && source.length <= 30) {
     where.push("COALESCE(o.source, 'direct') = ?");
     binds.push(source);
   }
+  return { where, binds };
+}
+
+orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
+  const page = Math.max(0, Number(c.req.query("page") ?? 0));
+  const { operations } = await getSettings(c.env, ["operations"]);
+  const { where, binds } = orderFilters((k) => c.req.query(k), operations.sla);
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const [rows, counts] = await c.env.DB.batch([
     c.env.DB.prepare(
@@ -432,27 +440,79 @@ orderRoutes.post("/orders/:id/note", requirePermission("orders.view"), async (c)
   return c.json({ ok: true }, 201);
 });
 
+/** Column titles of the orders export, in the admin's language. */
+const CSV_COLUMNS = {
+  fr: ["N° commande", "Date", "Heure", "Statut", "Cliente", "Téléphone", "Wilaya", "Commune", "Adresse", "Livraison", "Articles", "Pièces", "Sous-total (DA)", "Remise (DA)", "Livraison (DA)", "Total (DA)", "Code promo", "Source", "N° de suivi"],
+  ar: ["رقم الطلب", "التاريخ", "الساعة", "الحالة", "الزبونة", "الهاتف", "الولاية", "البلدية", "العنوان", "التوصيل", "المنتجات", "عدد القطع", "المجموع الفرعي (دج)", "التخفيض (دج)", "سعر التوصيل (دج)", "المجموع (دج)", "كود الخصم", "المصدر", "رقم التتبع"],
+};
+
+/**
+ * Orders as a spreadsheet (Excel / Google Sheets): one order per line, titles in the admin's
+ * language, date and time apart, the products written out, a totals line at the end. Follows
+ * the filters on screen (tab, search, wilaya, source, dates).
+ */
 orderRoutes.get("/orders.csv", requirePermission("orders.export"), async (c) => {
-  const days = Math.min(365, Number(c.req.query("days") ?? 30));
+  const lang = c.req.query("lang") === "ar" ? "ar" : "fr";
+  const days = Math.min(365, Math.max(1, Number(c.req.query("days") ?? 90) || 90));
+  const { operations, sources } = await getSettings(c.env, ["operations", "sources"]);
+  const { where, binds } = orderFilters((k) => (k === "status" ? (c.req.query("status") ?? "all") : c.req.query(k)), operations.sla);
+  // without dates, the last `days` days
+  if (!c.req.query("from")) {
+    where.push("o.created_at >= ?");
+    binds.push(Date.now() - days * 86400_000);
+  }
   const { results } = await c.env.DB.prepare(
-    `SELECT o.public_code, o.created_at, o.status, o.channel, o.name, o.phone, w.name_fr AS wilaya, cm.name_fr AS commune, o.address,
-            o.delivery_type, o.subtotal, o.discount_total, o.shipping_price, o.total, o.coupon_code, o.tracking_number,
-            (SELECT GROUP_CONCAT(name_fr || COALESCE(' ' || options_label, '') || ' x' || qty, ' | ') FROM order_items WHERE order_id = o.id) AS articles
+    `SELECT o.public_code, o.created_at, o.status, o.source, o.name, o.phone, o.wilaya_code, w.name_fr AS wilaya_fr, w.name_ar AS wilaya_ar,
+            cm.name_fr AS commune_fr, cm.name_ar AS commune_ar, o.commune_text, o.address, o.delivery_type,
+            o.subtotal, o.discount_total, o.shipping_price, o.total, o.coupon_code, o.tracking_number,
+            (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS pieces,
+            (SELECT GROUP_CONCAT(qty || ' × ' || name_fr || COALESCE(' (' || options_label || ')', ''), ' / ') FROM order_items WHERE order_id = o.id) AS articles
        FROM orders o LEFT JOIN wilayas w ON w.code = o.wilaya_code LEFT JOIN communes cm ON cm.id = o.commune_id
-      WHERE o.created_at > ? ORDER BY o.created_at DESC`,
+      WHERE ${where.join(" AND ")} ORDER BY o.created_at DESC LIMIT 5000`,
   )
-    .bind(Date.now() - days * 86400_000)
-    .all<Record<string, unknown>>();
-  const cols = ["public_code", "created_at", "status", "channel", "name", "phone", "wilaya", "commune", "address", "delivery_type", "subtotal", "discount_total", "shipping_price", "total", "coupon_code", "tracking_number", "articles"];
+    .bind(...binds)
+    .all<Record<string, string | number | null>>();
   const cell = (v: unknown) => {
     let s = v == null ? "" : String(v);
     if (/^[=+\-@]/.test(s)) s = `'${s}`; // spreadsheet formula injection
     return `"${s.replace(/"/g, '""')}"`;
   };
-  const csv = [cols.join(";"), ...results.map((r) => cols.map((k) => (k === "created_at" ? cell(new Date(Number(r[k]) + 3600_000).toISOString().slice(0, 16).replace("T", " ")) : k === "status" ? cell(STATUS_LABELS[r[k] as OrderStatus]?.fr ?? r[k]) : cell(r[k]))).join(";"))].join("\r\n");
+  const algiers = (ts: number) => new Date(ts + 3600_000).toISOString();
+  const lines = results.map((r) => {
+    const at = algiers(Number(r.created_at));
+    return [
+      r.public_code,
+      at.slice(0, 10),
+      at.slice(11, 16),
+      STATUS_LABELS[r.status as OrderStatus]?.[lang] ?? r.status,
+      r.name,
+      // spaced like on a phone: a spreadsheet keeps it as text (and its leading 0)
+      formatDzPhone(String(r.phone ?? "")),
+      `${String(r.wilaya_code).padStart(2, "0")} - ${(lang === "ar" ? r.wilaya_ar : r.wilaya_fr) ?? ""}`,
+      (lang === "ar" ? r.commune_ar : r.commune_fr) ?? r.commune_text,
+      r.address,
+      r.delivery_type === "bureau" ? (lang === "ar" ? "المكتب" : "Bureau") : lang === "ar" ? "المنزل" : "Domicile",
+      r.articles,
+      r.pieces,
+      r.subtotal,
+      r.discount_total || "",
+      r.shipping_price,
+      r.total,
+      r.coupon_code,
+      sourceLabel(String(r.source ?? "direct"), sources, lang).name,
+      r.tracking_number,
+    ].map(cell).join(";");
+  });
+  const sum = (k: string) => results.reduce((t, r) => t + Number(r[k] ?? 0), 0);
+  const totalLine = [lang === "ar" ? `المجموع: ${results.length} طلب` : `Total : ${results.length} commandes`, "", "", "", "", "", "", "", "", "", "", sum("pieces"), sum("subtotal"), sum("discount_total"), sum("shipping_price"), sum("total"), "", "", ""]
+    .map(cell)
+    .join(";");
+  const csv = [CSV_COLUMNS[lang].map(cell).join(";"), ...lines, totalLine].join("\r\n");
   await c.env.DB.batch([auditStmt(c.env, actorOf(c.get("member")), "export", "orders", null, { days, rows: results.length })]);
-  return new Response(`﻿${csv}`, {
-    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="commandes-${new Date().toISOString().slice(0, 10)}.csv"` },
+  const name = `commandes-${algiers(Date.now()).slice(0, 10)}.csv`;
+  // the BOM makes Excel read the Arabic and the accents correctly
+  return new Response(`\uFEFF${csv}`, {
+    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${name}"` },
   });
 });
 

@@ -6,8 +6,8 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { api } from "../api";
-import { tr } from "../i18n";
-import { da } from "../lib/format";
+import { isAr, tr } from "../i18n";
+import { da, ltr } from "../lib/format";
 import { Card, ErrorState, ListSkeleton } from "../ui";
 
 interface DailyReport {
@@ -36,7 +36,7 @@ const shift = (day: string, n: number) => new Date(Date.parse(`${day}T12:00:00Z`
 function Delta({ now, before }: { now: number; before: number }) {
   if (!before) return null;
   const d = Math.round(((now - before) / before) * 100);
-  return <span className={`ms-1 text-xs font-semibold ${d >= 0 ? "text-emerald-700" : "text-red-700"}`}>{d >= 0 ? "▲" : "▼"} {Math.abs(d)} %</span>;
+  return <span className={`ms-1 text-xs font-semibold ${d >= 0 ? "text-emerald-700" : "text-red-700"}`}>{ltr(`${d >= 0 ? "▲" : "▼"} ${Math.abs(d)} %`)}</span>;
 }
 
 export function DailyReportCard() {
@@ -57,9 +57,9 @@ export function DailyReportCard() {
       title={tr("📊 Rapport du jour")}
       actions={
         <div className="flex items-center gap-1">
-          <button type="button" aria-label={tr("Jour précédent")} onClick={() => setDay((d) => shift(d, -1))} className="grid size-10 place-items-center rounded-lg border border-line"><span dir="ltr">‹</span></button>
+          <button type="button" aria-label={tr("Jour précédent")} onClick={() => setDay((d) => shift(d, -1))} className="grid size-10 place-items-center rounded-lg border border-line"><span aria-hidden>{isAr ? "›" : "‹"}</span></button>
           <input type="date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm" aria-label={tr("Jour")} />
-          <button type="button" aria-label={tr("Jour suivant")} disabled={isToday} onClick={() => setDay((d) => shift(d, 1))} className="grid size-10 place-items-center rounded-lg border border-line disabled:opacity-40"><span dir="ltr">›</span></button>
+          <button type="button" aria-label={tr("Jour suivant")} disabled={isToday} onClick={() => setDay((d) => shift(d, 1))} className="grid size-10 place-items-center rounded-lg border border-line disabled:opacity-40"><span aria-hidden>{isAr ? "‹" : "›"}</span></button>
         </div>
       }
     >

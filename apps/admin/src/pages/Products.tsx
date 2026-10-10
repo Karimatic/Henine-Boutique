@@ -1,4 +1,5 @@
 import { imageUrl, type ImageRef } from "@henine/shared";
+import { DiscountFields } from "../lib/discount";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
@@ -412,7 +413,6 @@ export function ProductEditor() {
           <Card title={tr("Prix")}>
             <div className="grid gap-3 sm:grid-cols-3">
               <NumberField label={tr("Prix de vente")} suffix={tr("DA")} value={form.price} onChange={(v) => set("price", v)} />
-              <NumberField label={tr("Prix barré")} hint={tr("avant promo")} suffix={tr("DA")} value={form.compareAtPrice} onChange={(v) => set("compareAtPrice", v)} />
               {can("cost.view") && (
                 <NumberField
                   label={tr("Prix d'achat")}
@@ -422,6 +422,16 @@ export function ProductEditor() {
                   onChange={(v) => set("costPrice", v)}
                 />
               )}
+            </div>
+            <div className="mt-3">
+              <DiscountFields
+                price={form.price}
+                compareAt={form.compareAtPrice}
+                onChange={(n) => {
+                  set("price", n.price);
+                  set("compareAtPrice", n.compareAt);
+                }}
+              />
             </div>
           </Card>
 

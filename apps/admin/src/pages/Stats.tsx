@@ -4,7 +4,7 @@ import { api } from "../api";
 import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import { da, ltr } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
-import { tr } from "../i18n";
+import { isAr, tr } from "../i18n";
 import { usePeriod } from "../lib/period";
 import { DailyReportCard } from "./DailyReport";
 import { ReturnsSection } from "./Insights";
@@ -239,7 +239,7 @@ export function StatsPage() {
         group={tr("Analyse")}
         title={tr("Statistiques")}
         subtitle={tr("Commandes passées sur la période. Les annulées ne comptent jamais dans le chiffre d'affaires.")}
-        actions={<a href={`/api/admin/orders.csv?days=${csvDays}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
+        actions={<a href={`/api/admin/orders.csv?days=${csvDays}&lang=${isAr ? "ar" : "fr"}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">{tr("Export CSV")}</a>}
       />
       <SubNav of="analysis" />
       <DailyReportCard />

@@ -336,9 +336,9 @@ function CodTab({ canEdit }: { canEdit: boolean }) {
       )}
       {list.data && list.data.pages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm">
-          <Button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>←</Button>
+          <Button disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label={tr("Page précédente")}>{isAr ? "→" : "←"}</Button>
           <span>{tr("Page {0} sur {1}", { 0: page + 1, 1: list.data.pages })}</span>
-          <Button disabled={page + 1 >= list.data.pages} onClick={() => setPage((p) => p + 1)}>→</Button>
+          <Button disabled={page + 1 >= list.data.pages} onClick={() => setPage((p) => p + 1)} aria-label={tr("Page suivante")}>{isAr ? "←" : "→"}</Button>
         </div>
       )}
 
@@ -697,9 +697,9 @@ function ExpensesTab({ canEdit }: { canEdit: boolean }) {
       )}
       {list.data && list.data.pages > 1 && (
         <div className="flex items-center justify-center gap-3 text-sm">
-          <Button disabled={page === 0} onClick={() => setPage((p) => p - 1)}>←</Button>
+          <Button disabled={page === 0} onClick={() => setPage((p) => p - 1)} aria-label={tr("Page précédente")}>{isAr ? "→" : "←"}</Button>
           <span>{tr("Page {0} sur {1}", { 0: page + 1, 1: list.data.pages })}</span>
-          <Button disabled={page + 1 >= list.data.pages} onClick={() => setPage((p) => p + 1)}>→</Button>
+          <Button disabled={page + 1 >= list.data.pages} onClick={() => setPage((p) => p + 1)} aria-label={tr("Page suivante")}>{isAr ? "←" : "→"}</Button>
         </div>
       )}
       {editing && <ExpenseSheet expense={editing} onClose={() => setEditing(null)} onSaved={refresh} />}

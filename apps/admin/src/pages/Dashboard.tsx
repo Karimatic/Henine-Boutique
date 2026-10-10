@@ -497,33 +497,26 @@ export function Dashboard() {
               {d.recent.length === 0 ? (
                 <p className="px-6 pb-6 text-sm text-ink-soft">{tr("Aucune commande pour le moment. Passez une commande test sur la boutique !")}</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-y border-line bg-ivory text-start text-xs text-ink-soft">
-                      <th className="px-6 py-2.5 text-start font-medium">{tr("Cliente")}</th>
-                      <th className="hidden px-3 py-2.5 text-start font-medium sm:table-cell">{tr("Wilaya")}</th>
-                      <th className="px-3 py-2.5 text-end font-medium">{tr("Total")}</th>
-                      <th className="px-6 py-2.5 text-end font-medium">{tr("Statut")}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {d.recent.map((o) => (
-                      <tr key={o.id} className="transition hover:bg-ivory-deep/50">
-                        <td className="px-6 py-3">
-                          <Link to="/commandes" search={{ o: o.id }} className="block">
-                            <span className="block truncate font-medium">{o.name}</span>
-                            <span className="text-xs text-ink-soft">{o.public_code} · {ago(o.created_at)}</span>
-                          </Link>
-                        </td>
-                        <td className="hidden px-3 py-3 text-ink-soft sm:table-cell">{o.wilaya}</td>
-                        <td className="px-3 py-3 text-end font-medium tabular-nums">{da(o.total)}</td>
-                        <td className="px-6 py-3 text-end">
+                // a list, not a table: fits a phone (name and time | total over status)
+                <ul className="divide-y divide-line border-t border-line">
+                  {d.recent.map((o) => (
+                    <li key={o.id}>
+                      <Link to="/commandes" search={{ o: o.id }} className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-ivory-deep/50 md:px-6">
+                        <span className="min-w-0">
+                          <span className="block truncate font-medium">{o.name}</span>
+                          <span className="block truncate text-xs text-ink-soft">
+                            {o.public_code} · {ago(o.created_at)}
+                            {o.wilaya ? ` · ${o.wilaya}` : ""}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 flex-col items-end gap-1">
+                          <span className="whitespace-nowrap font-semibold tabular-nums">{da(o.total)}</span>
                           <StatusBadge status={o.status} />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               )}
             </Card>
 

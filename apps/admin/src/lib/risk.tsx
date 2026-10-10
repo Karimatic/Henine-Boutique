@@ -28,7 +28,7 @@ export function RiskBadge({ level, score }: { level: RiskLevel; score?: number }
   );
 }
 
-/** Level + every reason with its points: the score is never a black box. */
+/** Level + every reason, said as a good sign or something to check: the score is never a black box. */
 export function RiskPanel({ risk }: { risk: RiskAssessment }) {
   return (
     <div className="rounded-xl bg-ivory-deep p-3 text-sm">
@@ -44,10 +44,8 @@ export function RiskPanel({ risk }: { risk: RiskAssessment }) {
                 {r.count > 1 ? `${r.count} ` : ""}
                 {tr(RISK_REASON_LABEL[r.code])}
               </span>
-              <b className={r.points < 0 ? "text-emerald-700" : "text-red-700"}>
-                {r.points > 0 ? "+" : ""}
-                {r.points}
-              </b>
+              {/* in words, not points: a good sign or something to check */}
+              <b className={`shrink-0 ${r.points < 0 ? "text-emerald-700" : "text-red-700"}`}>{r.points < 0 ? tr("👍 rassurant") : tr("⚠️ à vérifier")}</b>
             </li>
           ))}
         </ul>

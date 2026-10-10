@@ -34,7 +34,7 @@ import {
 } from "./OrderOps";
 import { useCan, useMe } from "../Shell";
 import { Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, PageHeader, Pills, SearchBox, Sheet, StatusBadge, TextArea, TextField, useToast } from "../ui";
-import { tr } from "../i18n";
+import { isAr, tr } from "../i18n";
 import { FailedDeliveryButton } from "./Logistics";
 import { SubNav } from "../lib/subnav";
 
@@ -160,7 +160,7 @@ export function OrdersPage() {
         title={tr("Commandes")}
         subtitle={toConfirm ? tr("{0} à confirmer", { 0: toConfirm }) : tr("Tout est à jour ✓")}
         actions={
-          <a href="/api/admin/orders.csv?days=90" className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">
+          <a href={`/api/admin/orders.csv?days=90&lang=${isAr ? "ar" : "fr"}&status=${status}&q=${encodeURIComponent(debounced)}${extra}`} className="inline-flex h-9 items-center rounded-lg border border-line bg-surface px-3.5 text-sm font-semibold">
             {tr("Export CSV")}
           </a>
         }

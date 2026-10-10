@@ -2,7 +2,7 @@ import { boutiqueStatus, DAY_NAMES, DEFAULT_BOUTIQUE, type BoutiqueDTO } from "@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, errorMessage, put } from "../api";
-import { lang, tr } from "../i18n";
+import { isAr, lang, tr } from "../i18n";
 import { Button, Card, ErrorState, inputCls, ListSkeleton, TextField, Toggle, useToast } from "../ui";
 
 /** Paramètres → Contact: the shop page (/boutique) — address, map, opening hours. */
@@ -61,7 +61,7 @@ export function BoutiqueSettingsCard() {
               {h ? (
                 <>
                   <input type="time" className={`${inputCls} h-9 w-28`} value={h.open} onChange={(e) => setDay(d, { ...h, open: e.target.value })} aria-label={tr("Ouverture")} />
-                  <span>→</span>
+                  <span aria-hidden>{isAr ? "←" : "→"}</span>
                   <input type="time" className={`${inputCls} h-9 w-28`} value={h.close} onChange={(e) => setDay(d, { ...h, close: e.target.value })} aria-label={tr("Fermeture")} />
                 </>
               ) : (

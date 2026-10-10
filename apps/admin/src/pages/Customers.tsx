@@ -257,15 +257,15 @@ interface CartRow {
   locale: string | null;
 }
 
-/** "نسيت شيئًا في سلتك 🛒": the reminder in her language, with the link that refills her cart (and the code). */
-function reminderText(c: CartRow, code: string): string {
+/** "نسيت شيئًا في سلتك 🛒": the reminder in her language, with the link that refills her cart. */
+function reminderText(c: CartRow): string {
   const ar = c.locale !== "fr";
-  const link = `${location.origin}${ar ? "" : "/fr"}/panier?r=${c.id}${code ? `&code=${encodeURIComponent(code)}` : ""}`;
+  const link = `${location.origin}${ar ? "" : "/fr"}/panier?r=${c.id}`;
   const items = c.items.map((i) => i.name).join(ar ? "، " : ", ");
   if (ar) {
-    return `السلام عليكم ${c.name ?? ""} 🌸\nنسيتِ شيئًا في سلتك 🛒: ${items}.${code ? `\nهدية لك: الرمز ${code} يُطبَّق تلقائيًا 🎁` : ""}\nأكملي طلبك من هنا: ${link}\nHenine Boutique`;
+    return `السلام عليكم ${c.name ?? ""} 🌸\nنسيتِ شيئًا في سلتك 🛒: ${items}.\nأكملي طلبك من هنا: ${link}\nHenine Boutique`;
   }
-  return `Bonjour ${c.name ?? ""} 🌸\nVous avez oublié quelque chose dans votre panier 🛒 : ${items}.${code ? `\nCadeau : le code ${code} est appliqué automatiquement 🎁` : ""}\nTerminez votre commande ici : ${link}\nHenine Boutique`;
+  return `Bonjour ${c.name ?? ""} 🌸\nVous avez oublié quelque chose dans votre panier 🛒 : ${items}.\nTerminez votre commande ici : ${link}\nHenine Boutique`;
 }
 
 const STEP_LABEL: Record<string, [string, number]> = {
@@ -286,10 +286,6 @@ export function CartsPage() {
     refetchInterval: 60_000,
   });
   const s = q.data?.stats;
-  // a promo code to offer in the reminders (optional)
-  const coupons = useQuery({ queryKey: ["coupons"], queryFn: () => api<{ coupons: { code: string; is_active: number; ends_at: number | null }[] }>("/coupons") });
-  const usable = (coupons.data?.coupons ?? []).filter((x) => x.is_active && (x.ends_at == null || x.ends_at > Date.now()));
-  const [code, setCode] = useState("");
   return (
     <div>
       <PageHeader
@@ -304,16 +300,6 @@ export function CartsPage() {
           <Stat label={tr("Valeur non récupérée")} value={da(s.lost_value)} />
         </div>
       )}
-      <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-ivory-deep p-3 text-sm">
-        <span className="font-medium">{tr("🎁 Offrir un code dans le message :")}</span>
-        <select className="h-9 rounded-lg border border-line bg-surface px-2" value={code} onChange={(e) => setCode(e.target.value)}>
-          <option value="">{tr("Aucun code")}</option>
-          {usable.map((x) => (
-            <option key={x.code} value={x.code}>{x.code}</option>
-          ))}
-        </select>
-        <span className="text-xs text-ink-soft">{tr("Le lien remet ses articles dans son panier, sur n'importe quel téléphone.")}</span>
-      </div>
       <Pills
         value={filter}
         onChange={setFilter}
@@ -356,7 +342,7 @@ export function CartsPage() {
                   {tr("📞 Appeler")}
                 </a>
                 <a
-                  href={waLink(c.phone, reminderText(c, code))}
+                  href={waLink(c.phone, reminderText(c))}
                   target="_blank"
                   rel="noreferrer"
                   onClick={() => void post(`/carts/${c.id}/contacted`).then(() => qc.invalidateQueries({ queryKey: ["carts"] }))}
