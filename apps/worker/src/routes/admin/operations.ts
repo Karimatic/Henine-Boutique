@@ -8,6 +8,7 @@ import { z } from "zod";
 import {
   DEFAULT_DUPLICATE_SETTINGS,
   cleanText,
+  orderCostLines,
   CONTACT_KIND_LABEL,
   CONTACT_KINDS,
   hasPermission,
@@ -269,6 +270,7 @@ operationRoutes.get("/operations/settings", requirePermission("orders.view"), as
   const { operations } = await getSettings(c.env, ["operations"]);
   return c.json({
     ...operations,
+    order_costs: orderCostLines(operations),
     soundUrl: operations.sound ? mediaUrl(c.env, operations.sound) : null,
     soundSeconds: operations.sound_seconds === undefined ? 5 : operations.sound_seconds,
     duplicates: { ...DEFAULT_DUPLICATE_SETTINGS, ...(operations.duplicates ?? {}) },
@@ -312,6 +314,8 @@ operationRoutes.put("/operations/settings", requirePermission("orders.edit"), as
     z.object({
       sla: z.object({ confirmMinutes: minutes, prepareMinutes: minutes, shipMinutes: minutes }),
       packagingCost: z.number().int().min(0).max(10_000).optional(),
+      /** the shop's own per-parcel costs (packaging, card, sticker…): their total is the parcel cost */
+      orderCosts: z.array(z.object({ label: cleanText(40).pipe(z.string().min(1)), amount: z.number().int().min(0).max(10_000) })).max(15).optional(),
       /** possible duplicate orders: on / off, how far apart, how sure */
       duplicates: z.object({ enabled: z.boolean(), windowHours: z.number().int().min(1).max(168), threshold: z.number().int().min(40).max(120) }).optional(),
     }),
@@ -319,10 +323,12 @@ operationRoutes.put("/operations/settings", requirePermission("orders.edit"), as
   const { operations } = await getSettings(c.env, ["operations"]);
   // the packaging cost feeds the profit: only for those who see costs
   const canCost = hasPermission(c.get("member").permissions, "cost.view");
+  const costs = canCost && input.orderCosts ? input.orderCosts : null;
   const next = {
     ...operations,
     sla: input.sla,
-    packaging_cost: canCost && input.packagingCost != null ? input.packagingCost : operations.packaging_cost,
+    ...(costs ? { order_costs: costs } : {}),
+    packaging_cost: costs ? costs.reduce((s, l) => s + l.amount, 0) : canCost && input.packagingCost != null ? input.packagingCost : operations.packaging_cost,
     ...(input.duplicates ? { duplicates: input.duplicates } : {}),
   };
   await c.env.DB.batch([setSettingStmt(c.env, "operations", next), auditStmt(c.env, actorOf(c.get("member")), "update", "settings", "operations", next)]);

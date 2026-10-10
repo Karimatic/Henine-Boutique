@@ -157,7 +157,7 @@ function ResultTab() {
                 <Line label={tr("Marge brute")} value={p.grossProfit} strong />
                 <Line label={tr("Livraison payée par la boutique")} value={p.deliveryCosts} minus hint={tr("livraison offerte ou moins chère que le tarif du livreur")} />
                 <Line label={tr("Colis retournés (frais du livreur)")} value={p.returnCosts} minus hint={tr("{0} retour(s)", { 0: p.returned })} />
-                <Line label={tr("Emballage")} value={p.packaging} minus />
+                <Line label={tr("Coûts par colis (emballage…)")} value={p.packaging} minus />
                 <Line label={tr("Bénéfice des commandes")} value={p.orderProfit} strong />
                 {expenses.map(([k, v]) => (
                   <Line key={k} label={categoryText(k)} value={v} minus />
@@ -217,7 +217,46 @@ function CodTab({ canEdit }: { canEdit: boolean }) {
   const [selected, setSelected] = useState<Map<number, CodRow>>(new Map());
   const [editing, setEditing] = useState<CodRow | null>(null);
   const [paying, setPaying] = useState(false);
+  const qc = useQueryClient();
+  const toast = useToast();
   useEffect(() => setPage(0), [status, outcome, q]);
+  const picked = [...selected.values()];
+  const owed = picked.filter((r) => r.outstanding !== 0);
+  const done = (msg: string) => {
+    toast(msg);
+    setSelected(new Map());
+    for (const k of ["finance-cod", "finance-summary", "finance-remittances"]) void qc.invalidateQueries({ queryKey: [k] });
+  };
+  /**
+   * The statuses follow the money: « Rapproché » = everything owed has been paid, so moving
+   * parcels there records one payment of what is still owed on each of them.
+   */
+  const settle = useMutation({
+    mutationFn: () =>
+      post<{ amount: number }>("/finance/remittances", {
+        receivedOn: today(),
+        allocations: owed.map((r) => ({ orderId: r.id, amount: r.outstanding })),
+      }),
+    onSuccess: (r) => done(tr("Versement de {0} enregistré", { 0: da(r.amount) })),
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  /** « Litige » / back out of it: the courier's figures stay as they are, only the flag and the note change */
+  const dispute = useMutation({
+    mutationFn: ({ on, note }: { on: boolean; note?: string }) =>
+      Promise.all(
+        picked.map((r) =>
+          put(`/finance/cod/${r.id}`, {
+            collected: r.outcome === "delivered" && r.recorded ? r.collected : null,
+            carrierFee: r.outcome === "delivered" && !r.estimated ? r.carrierFee : null,
+            returnFee: r.outcome === "returned" && !r.estimated ? r.returnFee : null,
+            disputed: on,
+            note: note ?? r.note ?? undefined,
+          }),
+        ),
+      ),
+    onSuccess: (_, v) => done(v.on ? tr("Mis en litige") : tr("Litige levé")),
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
   const query = `status=${status === "all" ? "" : status}&outcome=${outcome}&q=${encodeURIComponent(q)}&page=${page}`;
   const list = useQuery({ queryKey: ["finance-cod", query], queryFn: () => api<{ totals: CodTotals; rows: CodRow[]; page: number; pages: number }>(`/finance/cod?${query}`), placeholderData: (p) => p });
   const toggle = (r: CodRow) =>
@@ -264,7 +303,6 @@ function CodTab({ canEdit }: { canEdit: boolean }) {
                   type="checkbox"
                   className="mt-1 size-5 shrink-0 accent-plum-600"
                   checked={selected.has(r.id)}
-                  disabled={r.outstanding === 0 && !selected.has(r.id)}
                   onChange={() => toggle(r)}
                   aria-label={tr("Sélectionner {0}", { 0: r.code })}
                 />
@@ -309,9 +347,33 @@ function CodTab({ canEdit }: { canEdit: boolean }) {
           <span className="text-sm">
             {tr("{0} colis sélectionné(s)", { 0: selected.size })} · <b className="tabular-nums">{da([...selected.values()].reduce((s, r) => s + r.outstanding, 0))}</b>
           </span>
-          <span className="flex gap-2">
+          <span className="flex flex-wrap gap-2">
             <Button onClick={() => setSelected(new Map())}>{tr("Désélectionner")}</Button>
-            <Button variant="primary" onClick={() => setPaying(true)}>{tr("💵 Enregistrer un versement")}</Button>
+            {picked.some((r) => r.disputed) ? (
+              <Button loading={dispute.isPending} onClick={() => dispute.mutate({ on: false })}>{tr("↩️ Lever le litige")}</Button>
+            ) : (
+              <Button
+                loading={dispute.isPending}
+                onClick={() => {
+                  const note = window.prompt(tr("Quel est le problème avec ce versement ? (montant manquant, colis perdu…)"))?.trim();
+                  if (note && note.length >= 3) dispute.mutate({ on: true, note });
+                }}
+              >
+                {tr("⚠️ Litige")}
+              </Button>
+            )}
+            {owed.length > 0 && (
+              <>
+                <Button onClick={() => setPaying(true)}>{tr("💵 Autre montant…")}</Button>
+                <Button
+                  variant="primary"
+                  loading={settle.isPending}
+                  onClick={() => confirmAction(tr("Le livreur a versé {0} pour ces colis ? Ils passent en « Rapproché ».", { 0: da(owed.reduce((s, r) => s + r.outstanding, 0)) })) && settle.mutate()}
+                >
+                  {tr("✓ Rapproché (tout est payé)")}
+                </Button>
+              </>
+            )}
           </span>
         </div>
       )}
@@ -320,7 +382,7 @@ function CodTab({ canEdit }: { canEdit: boolean }) {
       {editing && <StatementSheet row={editing} onClose={() => setEditing(null)} />}
       {paying && (
         <RemittanceSheet
-          rows={[...selected.values()]}
+          rows={owed}
           onClose={() => setPaying(false)}
           onDone={() => {
             setPaying(false);

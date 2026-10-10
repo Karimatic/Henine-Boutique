@@ -2,7 +2,7 @@
  * Typed access to the `settings` key/value table. Values are JSON; missing keys fall back
  * to defaults, so the store works even on an empty database.
  */
-import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings, type DuplicateSettings, type AnnouncementAnimation } from "@henine/shared";
+import { DEFAULT_BOUTIQUE, DEFAULT_DESIGN, type BoutiqueDTO, type DesignDTO, type StoreTextOverrides, DEFAULT_SLA, type SeasonSetting, type SlaSettings, type OrderCostLine, DEFAULT_SOURCE_SETTINGS, type SourceSettings, type DuplicateSettings, type AnnouncementAnimation } from "@henine/shared";
 import type { Env } from "../env";
 
 export interface Settings {
@@ -25,8 +25,10 @@ export interface Settings {
   };
   loyalty: { enabled: boolean; points_per_100da: number; redeem_value_da: number; min_redeem: number; expiry_days: number };
   /** order handling: how long each step may take (SLA), packaging cost per parcel (real profit) */
-  operations: { sla: SlaSettings; packaging_cost: number; /** the shop's own new-order sound (R2 key), else the built-in chime */ sound?: string | null; /** how long it plays (s), null = the whole file */ sound_seconds?: number | null; /** possible duplicate orders */ duplicates?: Partial<DuplicateSettings> };
+  operations: { sla: SlaSettings; /** total of order_costs, what each parcel costs besides products and delivery */ packaging_cost: number; /** the costs behind that total, named by the shop */ order_costs?: OrderCostLine[]; /** the shop's own new-order sound (R2 key), else the built-in chime */ sound?: string | null; /** how long it plays (s), null = the whole file */ sound_seconds?: number | null; /** possible duplicate orders */ duplicates?: Partial<DuplicateSettings> };
   maintenance: { active: boolean; message_fr: string; message_ar: string };
+  /** where customers come from: the shop's own sources, renamed / hidden built-in ones, the checkout question */
+  sources: SourceSettings;
   notifications: {
     telegram_new_order: boolean; telegram_status_change: boolean; telegram_low_stock: boolean;
     telegram_review: boolean; telegram_contact: boolean; trust_group_members: boolean;
@@ -84,6 +86,7 @@ export const DEFAULTS: Settings = {
   loyalty: { enabled: false, points_per_100da: 1, redeem_value_da: 5, min_redeem: 100, expiry_days: 365 }, // 1 pt / 100 DA, 1 pt = 5 DA → 5 % back
   operations: { sla: DEFAULT_SLA, packaging_cost: 0 },
   maintenance: { active: false, message_fr: "", message_ar: "" },
+  sources: DEFAULT_SOURCE_SETTINGS,
   notifications: {
     telegram_new_order: true, telegram_status_change: true, telegram_low_stock: true,
     telegram_review: true, telegram_contact: true, trust_group_members: true,

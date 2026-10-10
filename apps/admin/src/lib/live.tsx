@@ -42,8 +42,10 @@ export const DEFAULT_PREFS: SoundPrefs = { sound: true, volume: 0.8, tone: "bout
 
 export function loadPrefs(): SoundPrefs {
   try {
-    // the new-order sound is always on (only its volume and tone are chosen)
-    return { ...DEFAULT_PREFS, ...(JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Partial<SoundPrefs>), sound: true };
+    const saved = JSON.parse(localStorage.getItem(PREFS_KEY) ?? "{}") as Partial<SoundPrefs> & { v?: number };
+    // the new-order sound is always on (only its volume and tone are chosen); choices saved
+    // before the shop's own sound existed (the old chimes) move to it once
+    return { ...DEFAULT_PREFS, ...saved, tone: saved.v === 2 && saved.tone ? saved.tone : "boutique", sound: true };
   } catch {
     return DEFAULT_PREFS;
   }
@@ -51,7 +53,7 @@ export function loadPrefs(): SoundPrefs {
 
 export function savePrefs(p: SoundPrefs) {
   try {
-    localStorage.setItem(PREFS_KEY, JSON.stringify(p));
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ ...p, v: 2 }));
   } catch {
     /* private mode */
   }
@@ -140,49 +142,79 @@ function playChime(c: AudioContext, volume: number) {
 export const SHOP_SOUND_DEFAULT_SECONDS = 5;
 /** The built-in new-order sound, until the shop sends its own file. */
 export const DEFAULT_SHOP_SOUND_URL = `${import.meta.env.BASE_URL}sounds/annonce.mp3`;
-let shopSound: HTMLAudioElement | null = null;
 let shopSoundUrl: string | null = null;
-let defaultSound: HTMLAudioElement | null = null;
-const builtIn = () => (defaultSound ??= Object.assign(new Audio(DEFAULT_SHOP_SOUND_URL), { preload: "auto" }));
 let shopSoundSeconds: number | null = SHOP_SOUND_DEFAULT_SECONDS;
-let fadeTimer: ReturnType<typeof setInterval> | undefined;
 /** an order rang before the page could make sound: it rings at the first click */
 let missedRing = false;
 
+/*
+ * The file is downloaded and decoded once, then played by the same Web Audio context the
+ * first click unlocked: no <audio> element that the browser may still refuse (it used to fall
+ * back to the old synthesised chime), and no download delay when an order comes in.
+ */
+const decoded = new Map<string, AudioBuffer>();
+const loading = new Map<string, Promise<AudioBuffer | null>>();
+function loadSound(c: AudioContext, url: string): Promise<AudioBuffer | null> {
+  const ready = decoded.get(url);
+  if (ready) return Promise.resolve(ready);
+  let p = loading.get(url);
+  if (!p) {
+    p = fetch(url, { credentials: "same-origin" })
+      .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(String(r.status)))))
+      .then((b) => c.decodeAudioData(b))
+      .then((buf) => (decoded.set(url, buf), buf))
+      .catch(() => (loading.delete(url), null));
+    loading.set(url, p);
+  }
+  return p;
+}
+const currentUrl = () => shopSoundUrl ?? DEFAULT_SHOP_SOUND_URL;
+
 export function setShopSound(url: string | null, seconds: number | null = SHOP_SOUND_DEFAULT_SECONDS) {
   shopSoundSeconds = seconds;
-  if (url === shopSoundUrl) return;
   shopSoundUrl = url;
-  shopSound = url ? Object.assign(new Audio(url), { preload: "auto" }) : null;
+  const c = ctx();
+  if (c) void loadSound(c, currentUrl());
 }
 
-function playShopSound(a: HTMLAudioElement, volume: number, c: AudioContext) {
-  clearInterval(fadeTimer);
-  a.pause();
-  a.currentTime = 0;
-  a.volume = Math.min(1, Math.max(0, volume));
-  // a file that can't play (deleted, blocked) still rings: the chime instead
-  void a.play().catch(() => playChime(c, volume));
-  // whole file, or stopped at the chosen length with a short fade
-  const max = shopSoundSeconds;
-  if (max == null) return true;
-  const fade = Math.min(0.3, max / 3);
-  const started = performance.now();
-  fadeTimer = setInterval(() => {
-    const t = (performance.now() - started) / 1000;
-    if (t >= max) {
-      a.pause();
-      clearInterval(fadeTimer);
-    } else if (t > max - fade) a.volume = Math.max(0, (volume * (max - t)) / fade);
-  }, 30);
+let playing: AudioBufferSourceNode | null = null;
+function playShopSound(url: string, volume: number, c: AudioContext) {
+  const start = (buf: AudioBuffer) => {
+    try {
+      playing?.stop();
+    } catch {
+      /* already over */
+    }
+    const src = c.createBufferSource();
+    const gain = c.createGain();
+    src.buffer = buf;
+    src.connect(gain).connect(c.destination);
+    const v = Math.min(1, Math.max(0, volume));
+    const t0 = c.currentTime + 0.01;
+    gain.gain.setValueAtTime(v, t0);
+    // whole file, or stopped at the chosen length with a short fade
+    const max = shopSoundSeconds;
+    if (max != null && max < buf.duration) {
+      const fade = Math.min(0.3, max / 3);
+      gain.gain.setValueAtTime(v, t0 + max - fade);
+      gain.gain.linearRampToValueAtTime(0, t0 + max);
+      src.stop(t0 + max + 0.05);
+    }
+    src.start(t0);
+    playing = src;
+  };
+  const buf = decoded.get(url);
+  if (buf) start(buf);
+  // not decoded yet (first ring right after opening): as soon as it is; a file that can't play still rings
+  else void loadSound(c, url).then((b) => (b ? start(b) : playChime(c, volume)));
   return true;
 }
 
 export function playTone(tone: SoundKey, volume: number) {
   const c = ctx();
   if (!c || c.state !== "running") return false;
-  if (tone === "boutique") return playShopSound(shopSound ?? builtIn(), volume, c);
-  if (tone === "annonce") return playShopSound(builtIn(), volume, c);
+  if (tone === "boutique") return playShopSound(currentUrl(), volume, c);
+  if (tone === "annonce") return playShopSound(DEFAULT_SHOP_SOUND_URL, volume, c);
   const t0 = c.currentTime + 0.02;
   for (const [freq, start, dur] of SOUNDS[tone].notes as readonly (readonly [number, number, number])[]) {
     const osc = c.createOscillator();
@@ -296,8 +328,8 @@ export function LiveProvider({ enabled, children }: { enabled: boolean; children
     queryKey: ["unseen"],
     queryFn: () => api<{ count: number; last: number | null }>("/orders/unseen"),
     enabled,
-    // a safety net only: the WebSocket updates it instantly
-    refetchInterval: 5 * 60_000,
+    // a safety net: the WebSocket updates it instantly, but a phone asleep loses its connection
+    refetchInterval: 60_000,
   });
 
   useEffect(() => {
@@ -329,6 +361,39 @@ export function LiveProvider({ enabled, children }: { enabled: boolean; children
       for (const e of events) window.removeEventListener(e, onFirst, true);
     };
   }, [enabled, prefs.sound]);
+
+  /*
+   * Orders that came in while the connection slept (screen off, tab frozen) ring as soon as the
+   * admin wakes up or the background check sees them, not only with the live message.
+   */
+  const lastRung = useRef<number | null>(null);
+  useEffect(() => {
+    if (!unseen.data) return;
+    const last = unseen.data.last;
+    if (lastRung.current == null) {
+      lastRung.current = last ?? 0; // what was already there when the admin opened
+      return;
+    }
+    if (last == null) return;
+    if (last <= lastRung.current) return;
+    lastRung.current = last;
+    void claim(`late-${last}`).then((mine) => {
+      const p = prefsRef.current;
+      if (mine && p.sound && !playTone(p.tone, p.volume)) {
+        missedRing = true;
+        setNeedsUnlock(true);
+      }
+    });
+  }, [unseen.data]);
+  useEffect(() => {
+    const wake = () => document.visibilityState === "visible" && void qc.invalidateQueries({ queryKey: ["unseen"] });
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("online", wake);
+    return () => {
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("online", wake);
+    };
+  }, [qc]);
 
   // the tab title blinks while the admin looks elsewhere
   const flashTitle = useCallback((text: string) => {
@@ -365,6 +430,7 @@ export function LiveProvider({ enabled, children }: { enabled: boolean; children
       const text = `${e.name} · ${da(e.total)}${e.wilaya ? ` · ${e.wilaya}` : ""}`;
       pushCard({ key: `o${e.id}`, kind: "order", title, text, orderId: e.id });
       flashTitle(title);
+      lastRung.current = Math.max(lastRung.current ?? 0, e.at);
       // sound + system notification: one tab only
       if (!(await claim(`o${e.id}`))) return;
       const p = prefsRef.current;

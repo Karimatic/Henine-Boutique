@@ -85,6 +85,17 @@ export const RECEIPT_ISSUE_LABEL: Record<ReceiptIssue, { fr: string; ar: string 
 
 /* ── Real profit of an order ── */
 
+/** One cost the shop pays on every parcel it sends (bag, box, thank-you card, sticker…). */
+export interface OrderCostLine {
+  label: string;
+  amount: number;
+}
+
+/** The shop's per-parcel costs; settings saved before the list existed held one packaging amount. */
+export function orderCostLines(ops: { packaging_cost: number; order_costs?: OrderCostLine[] | null }): OrderCostLine[] {
+  return ops.order_costs ?? (ops.packaging_cost > 0 ? [{ label: "Emballage", amount: ops.packaging_cost }] : []);
+}
+
 export interface ProfitInput {
   /** items: selling price (after any line discount) and unit cost (null = unknown) */
   items: { unitPrice: number; qty: number; unitCost: number | null }[];

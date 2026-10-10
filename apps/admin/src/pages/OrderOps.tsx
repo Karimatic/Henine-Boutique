@@ -25,7 +25,7 @@ import {
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { api, errorMessage, post, put } from "../api";
-import { tr } from "../i18n";
+import { isAr, tr } from "../i18n";
 import { ago, da, daMinus, dateTime, telLink, waLink } from "../lib/format";
 import { variantLabel } from "../lib/variants";
 import { Badge, Button, Card, inputCls, SearchBox, StatusBadge, useToast } from "../ui";
@@ -86,8 +86,14 @@ export function SlaBadge({ sla }: { sla: OrderOpsData["sla"] }) {
   if (!sla) return null;
   const spent = Math.floor((Date.now() - sla.since) / 60_000);
   const left = sla.limit - spent;
-  // isolated left-to-right so "5 h 15" keeps its order inside an Arabic sentence
-  const fmt = (m: number) => "⁦" + (m >= 60 * 48 ? `${Math.round(m / 1440)} j` : m >= 60 ? `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}` : `${m} min`) + "⁩";
+  // "30 دقيقة", "5 سا 15 د", "3 أيام" in Arabic; "30 min", "5 h 15", "3 j" in French
+  const fmt = (m: number) => {
+    const d = Math.round(m / 1440);
+    const h = Math.floor(m / 60);
+    const mm = String(m % 60).padStart(2, "0");
+    if (isAr) return m >= 60 * 48 ? `${d} ${d <= 10 ? "أيام" : "يومًا"}` : m >= 60 ? `${h} سا ${mm} د` : `${m} دقيقة`;
+    return m >= 60 * 48 ? `${d} j` : m >= 60 ? `${h} h ${mm}` : `${m} min`;
+  };
   return sla.late > 0 ? (
     <Badge tone="bg-red-100 text-red-800">{tr("⏰ En retard de {0} ({1})", { 0: fmt(sla.late), 1: STAGE_LABEL[sla.stage] })}</Badge>
   ) : (
@@ -369,7 +375,7 @@ export function ProfitBlock({ profit }: { profit: ProfitResult }) {
         {row(tr("Vente des articles"), profit.revenue, false)}
         {row(tr("Coût des produits"), profit.productCost)}
         {row(tr("Livraison payée par la boutique"), profit.shippingCost)}
-        {row(tr("Emballage"), profit.packaging)}
+        {row(tr("Coûts par colis (emballage…)"), profit.packaging)}
         {row(tr("Remises"), profit.discount)}
         <div className={`mt-1 flex items-center justify-between gap-3 border-t border-line pt-2 text-base font-semibold ${profit.profit < 0 ? "text-red-700" : "text-emerald-700"}`}>
           <dt className="flex flex-wrap items-center gap-2">

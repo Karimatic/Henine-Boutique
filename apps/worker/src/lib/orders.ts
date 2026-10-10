@@ -3,7 +3,7 @@
  * status changes (stock effects, customer counters, loyalty). Used by the storefront,
  * the admin (manual sales, status buttons) and the Telegram bot.
  */
-import { classifySource, sourceOfChannel,
+import { askableSources, classifySource, sourceOfChannel,
   assessRisk,
   canTransition,
   computeTotals,
@@ -249,6 +249,8 @@ export interface NewOrder {
   channel: "web" | "express" | "instagram" | "whatsapp" | "boutique" | "telephone";
   locale: "fr" | "ar";
   utm?: { source?: string; medium?: string; campaign?: string; referrer?: string; landing?: string; clickId?: "fb" | "google" | "tiktok" };
+  /** her answer to « How did you hear about us? » (a source key), when the shop asks it */
+  heardFrom?: string;
   ipHash?: string;
   uaShort?: string;
   /** checkout autosave to mark as recovered */
@@ -286,6 +288,15 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
   const shipping = input.shippingOverride ?? q.shipping;
   if (shipping == null) throw new HttpError(422, "delivery_unavailable");
   const total = q.subtotal - q.discount + shipping;
+
+  // where it came from: the team's channel, else the visit (the shop's own links, campaign
+  // links, ad clicks, referrers), else what she answered at checkout
+  let source: string | null = sourceOfChannel(input.channel) ?? (isAdmin ? "other" : null);
+  if (!source) {
+    const { sources } = await getSettings(env, ["sources"]);
+    source = classifySource({ utmSource: input.utm?.source, utmMedium: input.utm?.medium, referrer: input.utm?.referrer, clickId: input.utm?.clickId }, sources.custom);
+    if (source === "direct" && sources.ask && input.heardFrom && askableSources(sources).includes(input.heardFrom)) source = input.heardFrom;
+  }
 
   // Storefront only: abuse limit + risk signals. The score is decision support for the team;
   // it never rejects an order (only the per-phone hourly limit does, against floods).
@@ -356,8 +367,7 @@ export async function createOrder(env: Env, input: NewOrder): Promise<CreatedOrd
         q.subtotal, q.discount, shipping, total, q.couponRow?.code ?? null, q.pointsUsed, input.note ?? null, input.internalNote ?? null, risk,
         riskFlags ? JSON.stringify(riskFlags) : null,
         input.utm?.source ?? null, input.utm?.medium ?? null, input.utm?.campaign ?? null, input.utm?.referrer ?? null,
-        // where it came from: the team's channel, else the visit (campaign link, ad click, referrer), classified here
-        sourceOfChannel(input.channel) ?? (isAdmin ? "other" : classifySource({ utmSource: input.utm?.source, utmMedium: input.utm?.medium, referrer: input.utm?.referrer, clickId: input.utm?.clickId })),
+        source,
         input.utm?.landing ?? null, input.ipHash ?? null, input.uaShort ?? null,
         now, now, status === "confirmee" || status === "livree" ? now : null, status === "livree" ? now : null, input.contactTime ?? null,
       ),

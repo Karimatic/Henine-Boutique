@@ -28,7 +28,7 @@ export const SETTINGS_INDEX: { tab: TabKey; find: string; label: string; words: 
   { tab: "commandes", find: "Protection contre les fausses commandes", label: tr("Protection contre les fausses commandes"), words: "fausses commandes limite spam protection طلبات وهمية حماية" },
   { tab: "alertes", find: "🔔 Nouvelles commandes", label: tr("Son et notifications des nouvelles commandes"), words: "son sonnerie volume notification alerte nouvelle commande fichier mp3 personnalisé صوت تنبيه إشعار رنة ملف" },
   { tab: "alertes", find: "⏰ Délais de traitement (SLA)", label: tr("Délais de traitement (retards)"), words: "délai retard sla temps confirmation préparation expédition آجال تأخير" },
-  { tab: "alertes", find: "Coût d'emballage par colis", label: tr("Coût d'emballage (bénéfice)"), words: "emballage coût bénéfice profit تغليف تكلفة ربح" },
+  { tab: "alertes", find: "💰 Coûts de chaque commande", label: tr("Coûts de chaque commande (bénéfice réel)"), words: "emballage coût coûts bénéfice profit charges تغليف تكلفة تكاليف ربح مصاريف" },
   { tab: "textes", find: "", label: tr("Textes de la boutique (accueil, FAQ, annonces)"), words: "texte accueil hero titre faq question message نصوص الأسئلة" },
   { tab: "contact", find: "Coordonnées affichées sur la boutique", label: tr("Téléphone, WhatsApp et réseaux"), words: "téléphone whatsapp instagram tiktok facebook maps abonnés contact هاتف واتساب انستغرام متابعين" },
   { tab: "compte", find: "👤 Mon compte", label: tr("Mon compte et mot de passe"), words: "compte mot de passe password profil حسابي كلمة السر" },

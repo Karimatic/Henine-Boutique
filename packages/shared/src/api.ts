@@ -210,6 +210,8 @@ export type AnnouncementAnimation = (typeof ANNOUNCEMENT_ANIMATIONS)[number];
 
 export interface SiteConfigDTO {
   store: { name: string };
+  /** « How did you hear about us? » at checkout: its answers (null = not asked) */
+  heardFrom: { key: string; ar: string; fr: string; emoji: string }[] | null;
   announcement: { active: boolean; animation: AnnouncementAnimation };
   contact: {
     phone: string | null; whatsapp: string | null; instagram: string | null; tiktok: string | null; facebook: string | null; maps: string | null;

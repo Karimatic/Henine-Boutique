@@ -5,23 +5,65 @@
  * statistics can compare sources.
  */
 
-export const ORDER_SOURCES = ["direct", "instagram", "facebook", "tiktok", "google", "whatsapp", "telegram", "referral", "campaign", "push", "boutique", "other"] as const;
+export const ORDER_SOURCES = ["direct", "instagram", "facebook", "tiktok", "google", "whatsapp", "telegram", "word_of_mouth", "referral", "campaign", "push", "boutique", "other"] as const;
 export type OrderSource = (typeof ORDER_SOURCES)[number];
 
-export const ORDER_SOURCE_LABEL: Record<OrderSource, { fr: string; emoji: string }> = {
-  direct: { fr: "Site (accès direct)", emoji: "🌐" },
-  instagram: { fr: "Instagram", emoji: "📸" },
-  facebook: { fr: "Facebook", emoji: "📘" },
-  tiktok: { fr: "TikTok", emoji: "🎵" },
-  google: { fr: "Google", emoji: "🔎" },
-  whatsapp: { fr: "WhatsApp", emoji: "💬" },
-  telegram: { fr: "Telegram", emoji: "✈️" },
-  referral: { fr: "Autre site (lien)", emoji: "🔗" },
-  campaign: { fr: "Campagne", emoji: "📣" },
-  push: { fr: "Notification", emoji: "🔔" },
-  boutique: { fr: "Boutique (en magasin)", emoji: "🏬" },
-  other: { fr: "Autre", emoji: "✨" },
+export const ORDER_SOURCE_LABEL: Record<OrderSource, { fr: string; ar: string; emoji: string }> = {
+  direct: { fr: "Site (accès direct)", ar: "الموقع مباشرة", emoji: "🌐" },
+  instagram: { fr: "Instagram", ar: "إنستغرام", emoji: "📸" },
+  facebook: { fr: "Facebook", ar: "فيسبوك", emoji: "📘" },
+  tiktok: { fr: "TikTok", ar: "تيك توك", emoji: "🎵" },
+  google: { fr: "Google", ar: "غوغل", emoji: "🔎" },
+  whatsapp: { fr: "WhatsApp", ar: "واتساب", emoji: "💬" },
+  telegram: { fr: "Telegram", ar: "تيليغرام", emoji: "✈️" },
+  word_of_mouth: { fr: "Bouche-à-oreille (une amie…)", ar: "من صديقة أو معارف", emoji: "🗣️" },
+  referral: { fr: "Autre site (lien)", ar: "موقع آخر (رابط)", emoji: "🔗" },
+  campaign: { fr: "Campagne", ar: "حملة", emoji: "📣" },
+  push: { fr: "Notification", ar: "إشعار", emoji: "🔔" },
+  boutique: { fr: "Boutique (en magasin)", ar: "المحل", emoji: "🏬" },
+  other: { fr: "Autre", ar: "أخرى", emoji: "✨" },
 };
+
+/* ── The shop's own sources (Statistiques → Sources) ── */
+
+/** A source the shop adds itself (an influencer, a flyer, a story…), reached through its own link `?utm_source=<key>`. */
+export interface CustomSource {
+  key: string;
+  name: string;
+  emoji: string;
+}
+
+export interface SourceSettings {
+  /** built-in sources renamed, given another emoji, or hidden */
+  builtIn: Partial<Record<OrderSource, { name?: string; emoji?: string; hidden?: boolean }>>;
+  custom: CustomSource[];
+  /** ask « How did you hear about us? » at checkout (answer kept when the visit says nothing) */
+  ask: boolean;
+}
+
+export const DEFAULT_SOURCE_SETTINGS: SourceSettings = { builtIn: {}, custom: [], ask: false };
+
+/** the link code of a custom source: lowercase letters, digits and dashes, never a built-in name */
+export const CUSTOM_SOURCE_KEY = /^[a-z0-9][a-z0-9-]{1,29}$/;
+
+/** Built-in sources a customer can name herself at checkout. */
+export const ASKABLE_SOURCES: OrderSource[] = ["instagram", "facebook", "tiktok", "google", "whatsapp", "word_of_mouth", "other"];
+
+/** Name and emoji of a source in a language (the shop's renaming and own sources first). */
+export function sourceLabel(key: string, settings: SourceSettings | null | undefined, lang: "fr" | "ar"): { name: string; emoji: string; custom: boolean } {
+  const own = settings?.custom.find((c) => c.key === key);
+  if (own) return { name: own.name, emoji: own.emoji || "🏷️", custom: true };
+  const base = (ORDER_SOURCE_LABEL as Record<string, { fr: string; ar: string; emoji: string }>)[key];
+  const over = settings?.builtIn[key as OrderSource];
+  if (!base) return { name: key, emoji: "🏷️", custom: true };
+  return { name: over?.name || base[lang], emoji: over?.emoji || base.emoji, custom: false };
+}
+
+/** The checkout question's answers: the shop's own sources, then the visible built-in ones. */
+export function askableSources(settings: SourceSettings): string[] {
+  return [...settings.custom.map((c) => c.key), ...ASKABLE_SOURCES.filter((k) => !settings.builtIn[k]?.hidden)];
+}
+
 
 export interface Touch {
   utmSource?: string | null;
@@ -43,8 +85,17 @@ const BY_NAME: [RegExp, OrderSource][] = [
   [/push/, "push"],
 ];
 
-/** The source of a visit / an order. */
-export function classifySource(t: Touch): OrderSource {
+/**
+ * The source of a visit / an order. A link made for one of the shop's own sources
+ * (`?utm_source=<its key>`) counts for that source.
+ */
+export function classifySource(t: Touch, custom: readonly CustomSource[] = []): string {
+  const s = (t.utmSource ?? "").toLowerCase().trim();
+  if (s && custom.some((c) => c.key === s)) return s;
+  return classifyBuiltIn(t);
+}
+
+function classifyBuiltIn(t: Touch): OrderSource {
   const s = (t.utmSource ?? "").toLowerCase().trim();
   if (s) {
     for (const [re, src] of BY_NAME) if (re.test(s)) return src;

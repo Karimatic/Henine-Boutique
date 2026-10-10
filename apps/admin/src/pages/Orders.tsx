@@ -13,6 +13,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { api, del, errorMessage, patch, post } from "../api";
+import { pickableSources, sourceText, useSourceSettings } from "../lib/sources";
 import { ago, CHANNEL_LABEL, da, daMinus, dateTime, statusLabel, telLink, waLink } from "../lib/format";
 import { RiskBadge, RiskPanel, SegmentBadge } from "../lib/risk";
 import { useLive } from "../lib/live";
@@ -44,6 +45,8 @@ interface OrderRow {
   public_code: string;
   status: OrderStatus;
   channel: string;
+  /** where she came from (Statistiques → Sources) */
+  source: string | null;
   name: string;
   phone: string;
   total: number;
@@ -87,7 +90,7 @@ const TABS = [
 ];
 
 export function OrdersPage() {
-  const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string; q?: string | number };
+  const search = useSearch({ strict: false }) as { status?: string; o?: number; attention?: string; q?: string | number; source?: string };
   const navigate = useNavigate();
   // the red "new orders" counter resets while this page is on screen
   const live = useLive();
@@ -113,8 +116,17 @@ export function OrdersPage() {
     setQ(String(search.q));
     if (search.status) setStatus(search.status);
   }, [search.q, search.status]);
-  // more filters: wilaya and dates (Algiers days)
+  // more filters: wilaya, source and dates (Algiers days)
   const [wilaya, setWilaya] = useState("");
+  // ?source= comes from Statistiques → Sources
+  const [source, setSource] = useState(search.source ?? "");
+  useEffect(() => {
+    if (search.source) {
+      setSource(search.source);
+      setStatus("all");
+    }
+  }, [search.source]);
+  const sources = useSourceSettings();
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const wilayas = useQuery({
@@ -123,7 +135,7 @@ export function OrdersPage() {
     staleTime: 3600_000,
   });
   const day = (s: string, end = false) => (s ? new Date(`${s}T00:00:00+01:00`).getTime() + (end ? 86400_000 : 0) : 0);
-  const extra = `${wilaya ? `&wilaya=${wilaya}` : ""}${from ? `&from=${day(from)}` : ""}${to ? `&to=${day(to, true)}` : ""}`;
+  const extra = `${wilaya ? `&wilaya=${wilaya}` : ""}${source ? `&source=${encodeURIComponent(source)}` : ""}${from ? `&from=${day(from)}` : ""}${to ? `&to=${day(to, true)}` : ""}`;
   const list = useQuery({
     queryKey: ["orders", status, debounced, attention, extra],
     queryFn: () =>
@@ -170,6 +182,12 @@ export function OrdersPage() {
             <option key={w.code} value={w.code}>{String(w.code).padStart(2, "0")} · {w.fr}</option>
           ))}
         </select>
+        <select className={`${inputCls} h-10 w-auto min-w-[11rem]`} value={source} onChange={(e) => setSource(e.target.value)} aria-label={tr("Source")}>
+          <option value="">{tr("Toutes les sources")}</option>
+          {[...new Set([...pickableSources(sources.data), ...(source ? [source] : [])])].map((k) => (
+            <option key={k} value={k}>{sourceText(k, sources.data)}</option>
+          ))}
+        </select>
         <label className="flex items-center gap-1.5 text-sm text-ink-soft">
           {tr("Du")}
           <input type="date" className={`${inputCls} h-10 w-auto`} value={from} onChange={(e) => setFrom(e.target.value)} />
@@ -178,8 +196,8 @@ export function OrdersPage() {
           {tr("au")}
           <input type="date" className={`${inputCls} h-10 w-auto`} value={to} onChange={(e) => setTo(e.target.value)} />
         </label>
-        {(wilaya || from || to) && (
-          <button type="button" onClick={() => { setWilaya(""); setFrom(""); setTo(""); }} className="h-10 rounded-lg px-3 text-sm font-semibold text-plum-700">
+        {(wilaya || source || from || to) && (
+          <button type="button" onClick={() => { setWilaya(""); setSource(""); setFrom(""); setTo(""); }} className="h-10 rounded-lg px-3 text-sm font-semibold text-plum-700">
             {tr("Effacer les filtres ✕")}
           </button>
         )}
@@ -209,6 +227,7 @@ export function OrdersPage() {
                     <p className="text-sm text-ink-soft">
                       {o.wilaya_code} · {o.wilaya} · {o.delivery_type === "bureau" ? tr("Bureau") : tr("Domicile")}
                     </p>
+                    <p className="text-xs text-ink-soft">{sourceText(o.source, sources.data)}</p>
                   </div>
                   <div className="text-end">
                     <p className="font-semibold tabular-nums">{da(o.total)}</p>
@@ -390,6 +409,44 @@ const ACTION: Partial<Record<OrderStatus, { label: string; variant: "primary" | 
 };
 
 
+/**
+ * Where the customer came from (her link, the site, Instagram…). The team can correct it when
+ * she says so on the phone; Statistiques → Sources counts it.
+ */
+function OrderSourceLine({ orderId, source, editable, onChanged }: { orderId: number; source: string | null; editable: boolean; onChanged: () => void }) {
+  const toast = useToast();
+  const settings = useSourceSettings();
+  const save = useMutation({
+    mutationFn: (to: string) => patch(`/orders/${orderId}/source`, { source: to }),
+    onSuccess: () => {
+      toast(tr("Source mise à jour"));
+      onChanged();
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  const current = source || "direct";
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+      <span className="text-ink-soft">{tr("📍 Venue de :")}</span>
+      {editable ? (
+        <select
+          className="h-8 rounded-lg border border-line bg-surface px-2 text-sm font-medium"
+          value={current}
+          disabled={save.isPending}
+          onChange={(e) => save.mutate(e.target.value)}
+          aria-label={tr("Source de la commande")}
+        >
+          {[...new Set([current, ...pickableSources(settings.data)])].map((k) => (
+            <option key={k} value={k}>{sourceText(k, settings.data)}</option>
+          ))}
+        </select>
+      ) : (
+        <b>{sourceText(current, settings.data)}</b>
+      )}
+    </div>
+  );
+}
+
 function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void }) {
   const qc = useQueryClient();
   const toast = useToast();
@@ -510,6 +567,7 @@ function OrderSheet({ id, onClose }: { id: number | null; onClose: () => void })
                 <Link to="/facture" search={{ id: String(o.id) }} className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-lg border border-line bg-surface px-3 text-sm font-semibold">{tr("🧾 Facture PDF")}</Link>
               </div>
             </div>
+            <OrderSourceLine orderId={o.id} source={(o.source as string | null) ?? null} editable={can("orders.edit")} onChanged={refresh} />
             <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
               <ContactTimeBadge value={o.contact_time} />
               <span className="text-ink-soft">{d.lastContactAt ? tr("Dernier contact : {0}", { 0: ago(d.lastContactAt) }) : tr("Pas encore contactée")}</span>

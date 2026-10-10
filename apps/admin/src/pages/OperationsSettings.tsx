@@ -2,7 +2,7 @@
  * Paramètres → Alertes & délais: new-order sound and notifications (this device), the order
  * SLA (how long each step may take) and the packaging cost used in the real profit.
  */
-import { DEFAULT_DUPLICATE_SETTINGS, DEFAULT_SLA, type DuplicateSettings, type SlaSettings } from "@henine/shared";
+import { DEFAULT_DUPLICATE_SETTINGS, DEFAULT_SLA, type DuplicateSettings, type OrderCostLine, type SlaSettings } from "@henine/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { api, del, errorMessage, put, upload } from "../api";
@@ -17,6 +17,7 @@ export function OperationsSettings() {
   return (
     <div className="space-y-4">
       <OrderAlertsCard />
+      {can("orders.edit") && can("cost.view") && <OrderCostsCard />}
       {can("orders.edit") && <SlaCard />}
     </div>
   );
@@ -239,25 +240,110 @@ function ShopSound({ onSent, volume }: { onSent: () => void; volume: number }) {
   );
 }
 
+interface OpsSettings {
+  sla: SlaSettings;
+  packaging_cost: number;
+  order_costs: OrderCostLine[];
+  duplicates?: DuplicateSettings;
+}
+
+const COST_IDEAS = ["Emballage (sachet, boîte)", "Carte de remerciement", "Sticker / étiquette", "Papier de soie", "Petit cadeau"];
+
+/**
+ * What each parcel costs the shop besides the products and the delivery (that one is counted
+ * from the courier's rates): the shop names its own lines, their total comes off every order's
+ * real profit (Finance, the order page, Statistiques). In-store sales pay none of it.
+ */
+function OrderCostsCard() {
+  const qc = useQueryClient();
+  const toast = useToast();
+  const q = useQuery({ queryKey: ["operations-settings"], queryFn: () => api<OpsSettings>("/operations/settings") });
+  const [lines, setLines] = useState<{ label: string; amount: string }[]>([]);
+  useEffect(() => {
+    if (q.data) setLines(q.data.order_costs.map((l) => ({ label: l.label, amount: String(l.amount) })));
+  }, [q.data]);
+  const clean = lines.map((l) => ({ label: l.label.trim(), amount: Math.max(0, Math.round(Number(l.amount) || 0)) })).filter((l) => l.label);
+  const total = clean.reduce((s, l) => s + l.amount, 0);
+  const save = useMutation({
+    mutationFn: () => put("/operations/settings", { sla: q.data!.sla, orderCosts: clean }),
+    onSuccess: () => {
+      toast(tr("Coûts enregistrés ✓"));
+      for (const k of ["operations-settings", "finance-summary", "dashboard", "stats"]) void qc.invalidateQueries({ queryKey: [k] });
+    },
+    onError: (e) => toast(errorMessage(e), "error"),
+  });
+  const set = (i: number, patch: Partial<{ label: string; amount: string }>) => setLines((ls) => ls.map((l, k) => (k === i ? { ...l, ...patch } : l)));
+  return (
+    <Card title={tr("💰 Coûts de chaque commande")}>
+      <p className="mb-3 text-sm text-ink-soft">
+        {tr("Ce que chaque colis vous coûte en plus des produits : ils sont retirés du bénéfice de chaque commande pour montrer le bénéfice réel. La livraison est déjà comptée automatiquement (tarif du livreur moins ce que paie la cliente).")}
+      </p>
+      {!q.data ? null : (
+        <div className="space-y-2">
+          {lines.map((l, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                className={`${inputCls} min-w-0 flex-1`}
+                value={l.label}
+                maxLength={40}
+                placeholder={tr("Nom (ex. : sachet)")}
+                onChange={(e) => set(i, { label: e.target.value })}
+                aria-label={tr("Nom du coût")}
+              />
+              <span className="flex items-center gap-1" dir="ltr">
+                <input
+                  className={`${inputCls} w-24! shrink-0 text-end`}
+                  inputMode="numeric"
+                  value={l.amount}
+                  onChange={(e) => set(i, { amount: e.target.value.replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/\D/g, "") })}
+                  aria-label={tr("Montant de {0}", { 0: l.label || "…" })}
+                />
+                <span className="text-sm text-ink-soft">{tr("DA")}</span>
+              </span>
+              <Button size="sm" variant="ghost" aria-label={tr("Retirer {0}", { 0: l.label || "…" })} onClick={() => setLines((ls) => ls.filter((_, k) => k !== i))}>
+                ✕
+              </Button>
+            </div>
+          ))}
+          {lines.length < 15 && (
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button size="sm" onClick={() => setLines((ls) => [...ls, { label: "", amount: "" }])}>{tr("+ Ajouter un coût")}</Button>
+              {COST_IDEAS.filter((idea) => !lines.some((l) => l.label === tr(idea))).slice(0, 3).map((idea) => (
+                <Button key={idea} size="sm" variant="ghost" onClick={() => setLines((ls) => [...ls, { label: tr(idea), amount: "" }])}>
+                  + {tr(idea)}
+                </Button>
+              ))}
+            </div>
+          )}
+          <p className="pt-2 text-sm">
+            {tr("Total par colis :")} <b className="tabular-nums">{total} {tr("DA")}</b>
+          </p>
+        </div>
+      )}
+      <Button variant="primary" className="mt-3" loading={save.isPending} disabled={!q.data} onClick={() => save.mutate()}>
+        {tr("Enregistrer")}
+      </Button>
+    </Card>
+  );
+}
+
 function SlaCard() {
   const qc = useQueryClient();
   const toast = useToast();
   const can = useCan();
   const q = useQuery({
     queryKey: ["operations-settings"],
-    queryFn: () => api<{ sla: SlaSettings; packaging_cost: number; duplicates?: DuplicateSettings }>("/operations/settings"),
+    queryFn: () => api<OpsSettings>("/operations/settings"),
   });
   const [sla, setSla] = useState<SlaSettings>(DEFAULT_SLA);
-  const [packaging, setPackaging] = useState("0");
   const [dup, setDup] = useState<DuplicateSettings>(DEFAULT_DUPLICATE_SETTINGS);
   useEffect(() => {
     if (!q.data) return;
     setSla(q.data.sla);
-    setPackaging(String(q.data.packaging_cost));
     if (q.data.duplicates) setDup(q.data.duplicates);
   }, [q.data]);
   const save = useMutation({
-    mutationFn: () => put("/operations/settings", { sla, packagingCost: Math.max(0, Math.round(Number(packaging) || 0)), duplicates: dup }),
+    mutationFn: () => put("/operations/settings", { sla, duplicates: dup }),
     onSuccess: () => {
       toast(tr("Délais enregistrés"));
       void qc.invalidateQueries({ queryKey: ["operations-settings"] });
@@ -290,16 +376,6 @@ function SlaCard() {
         {field("prepareMinutes", tr("Confirmée → en préparation"), tr("ex. 120 min (2 h)"))}
         {field("shipMinutes", tr("En préparation → expédiée"), tr("ex. 1440 min (24 h)"))}
       </div>
-      {can("cost.view") && (
-        <label className="mt-4 block text-sm font-medium">
-          {tr("Coût d'emballage par colis")}
-          <span className="mt-1 flex items-center gap-2">
-            <input className={`${inputCls} w-28`} inputMode="numeric" value={packaging} onChange={(e) => setPackaging(e.target.value.replace(/\D/g, ""))} />
-            <span className="text-ink-soft">{tr("DA")}</span>
-          </span>
-          <span className="mt-1 block text-xs font-normal text-ink-soft">{tr("Compté dans le bénéfice réel de chaque commande.")}</span>
-        </label>
-      )}
       <div className="mt-5 border-t border-line pt-4">
         <p className="text-sm font-semibold">{tr("⚠️ Doublons possibles")}</p>
         <p className="mb-3 text-xs text-ink-soft">{tr("Une commande qui ressemble à une autre de la même cliente (mêmes articles, même adresse, à quelques minutes d'écart) est signalée. Rien n'est annulé automatiquement.")}</p>

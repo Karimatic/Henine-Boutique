@@ -251,6 +251,7 @@ export const fr = {
   },
   checkoutPlus: {
     contactTime: "Meilleur moment pour vous appeler pour confirmer la commande",
+    heardFrom: "Comment nous avez-vous connus ? (facultatif)",
     delay: (d: string) => `Livraison en ${d} jour(s) en moyenne`,
     notice: "📞 Votre numéro sert uniquement à confirmer et livrer votre commande, jamais à de la publicité.",
     homeUnavailable: "Pas de livraison à domicile dans cette commune : choisissez le bureau.",

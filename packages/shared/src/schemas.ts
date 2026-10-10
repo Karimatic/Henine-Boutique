@@ -82,6 +82,8 @@ export const createOrderInput = z
         clickId: z.enum(["fb", "google", "tiktok"]).optional(),
       })
       .optional(),
+    /** « How did you hear about us? » (checked against the shop's list by the server) */
+    heardFrom: z.string().trim().max(30).optional(),
   })
   .superRefine((o, ctx) => {
     if (o.deliveryType === "domicile" && (!o.address || o.address.length < 4 || !hasLetters(2)(o.address))) {

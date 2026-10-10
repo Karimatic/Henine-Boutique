@@ -11,6 +11,7 @@ import { financeRoutes } from "./finance";
 import { stockCountRoutes } from "./stock-counts";
 import { duplicateRoutes } from "./duplicates";
 import { logisticsRoutes } from "./logistics";
+import { sourceRoutes } from "./sources";
 import { systemRoutes } from "./system";
 import { translateRoutes } from "./translate";
 
@@ -26,6 +27,7 @@ adminRoutes.route("/", marketingRoutes);
 adminRoutes.route("/", insightRoutes);
 adminRoutes.route("/", searchRoutes);
 adminRoutes.route("/", financeRoutes);
+adminRoutes.route("/", sourceRoutes);
 adminRoutes.route("/", stockCountRoutes);
 adminRoutes.route("/", duplicateRoutes);
 adminRoutes.route("/", logisticsRoutes);

@@ -13,6 +13,7 @@ const SUB_PAGES: Record<string, { to: string; label: string; perm: Permission }[
   analysis: [
     { to: "/statistiques", label: tr("📊 Statistiques"), perm: "stats.view" },
     { to: "/finance", label: tr("💰 Finance"), perm: "finance.view" },
+    { to: "/sources", label: tr("📍 Sources"), perm: "stats.view" },
   ],
   promos: [
     { to: "/promos", label: tr("🏷️ Codes promo"), perm: "promos.edit" },

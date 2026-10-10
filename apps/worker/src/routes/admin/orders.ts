@@ -129,10 +129,16 @@ orderRoutes.get("/orders", requirePermission("orders.view"), async (c) => {
     where.push("o.created_at < ?");
     binds.push(to);
   }
+  // Statistiques → Sources: the orders of one source
+  const source = (c.req.query("source") ?? "").trim();
+  if (source && source.length <= 30) {
+    where.push("COALESCE(o.source, 'direct') = ?");
+    binds.push(source);
+  }
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const [rows, counts] = await c.env.DB.batch([
     c.env.DB.prepare(
-      `SELECT o.id, o.public_code, o.status, o.channel, o.name, o.phone, o.total, o.wilaya_code, w.name_fr AS wilaya, o.delivery_type,
+      `SELECT o.id, o.public_code, o.status, o.channel, o.source, o.name, o.phone, o.total, o.wilaya_code, w.name_fr AS wilaya, o.delivery_type,
               o.created_at, o.risk_score, o.risk_flags, o.confirm_attempts, o.next_callback_at, o.tracking_number, o.outcome_reason,
               (SELECT SUM(qty) FROM order_items WHERE order_id = o.id) AS items,
               c.returned_count, c.delivered_count, c.cancelled_count, c.fake_count, c.is_blacklisted,

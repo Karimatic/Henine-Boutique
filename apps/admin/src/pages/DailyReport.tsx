@@ -76,7 +76,7 @@ export function DailyReportCard() {
             {r.profit != null
               ? tile(tr("Bénéfice estimé"), da(r.profit), r.profitMissingCost ? tr("coûts incomplets") : r.revenue ? tr("marge {0} %", { 0: Math.round((r.profit / r.revenue) * 100) }) : undefined, r.profit < 0 ? "bg-red-50" : "bg-emerald-50/60")
               : tile(tr("Taux de confirmation"), r.confirmRate != null ? `${r.confirmRate} %` : "—")}
-            {tile(tr("Temps moyen de confirmation"), r.avgConfirmMinutes != null ? `${r.avgConfirmMinutes} min` : "—")}
+            {tile(tr("Temps moyen de confirmation"), r.avgConfirmMinutes != null ? `${r.avgConfirmMinutes} ${tr("min")}` : "—")}
           </div>
           <div className="grid grid-cols-3 gap-2 md:grid-cols-6">
             {tile(tr("✅ Confirmées"), r.confirmed)}

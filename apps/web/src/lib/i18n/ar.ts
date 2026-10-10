@@ -253,6 +253,7 @@ export const ar: Dictionary = {
   },
   checkoutPlus: {
     contactTime: "أفضل وقت للاتصال بك لتأكيد الطلبية",
+    heardFrom: "كيف تعرّفتِ علينا؟ (اختياري)",
     delay: (d: string) => {
       // "2" → "يومين", "1-2" → "1-2 أيام", "15" → "15 يومًا"
       const n = Number(d);

@@ -44,6 +44,14 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
   const [address, setAddress] = useState(memory?.address ?? "");
   const [note, setNote] = useState("");
   const [contactTime, setContactTime] = useState<ContactTime | null>(null);
+  // « How did you hear about us? »: only when the shop asks it and her visit says nothing
+  const [heardFrom, setHeardFrom] = useState("");
+  const [untracked, setUntracked] = useState(false);
+  useEffect(() => {
+    const v = visitAttribution();
+    setUntracked(!v?.source && !v?.referrer && !v?.clickId);
+  }, []);
+  const askHeard = untracked ? site.data?.heardFrom : null;
   // a code brought by a link (cart reminder, campaign) is already filled in
   const linkedCoupon = useMemo(() => takePendingCoupon(), []);
   const [couponInput, setCouponInput] = useState(linkedCoupon ?? "");
@@ -153,6 +161,7 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
         address: deliveryType === "domicile" ? address.trim() : undefined,
         note: note.trim() || undefined,
         contactTime: contactTime ?? undefined,
+        heardFrom: heardFrom || undefined,
         coupon: coupon || undefined,
         usePoints: !!quote?.points?.applied,
         lines,
@@ -338,6 +347,20 @@ export function CheckoutForm({ lines, channel, compact = false }: Props) {
             ))}
           </div>
         </fieldset>
+
+        {askHeard && askHeard.length > 0 && (
+          <div>
+            {label(t.checkoutPlus.heardFrom, "heard")}
+            <select id="f-heard" className={inputCls} value={heardFrom} onChange={(e) => setHeardFrom(e.target.value)}>
+              <option value="">—</option>
+              {askHeard.map((o) => (
+                <option key={o.key} value={o.key}>
+                  {o.emoji} {locale === "ar" ? o.ar : o.fr}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {!compact && (
           <div>

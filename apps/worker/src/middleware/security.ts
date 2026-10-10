@@ -63,7 +63,7 @@ export function adminDocumentHeaders(headers: Headers, mediaOrigin: string): voi
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       `img-src ${img}`,
       `media-src 'self' blob: ${mediaOrigin}`.trim(),
-      "connect-src 'self'",
+      `connect-src 'self' ${mediaOrigin}`.trim(),
       "font-src 'self' https://fonts.gstatic.com",
       "worker-src 'self' blob:",
       "object-src 'none'",

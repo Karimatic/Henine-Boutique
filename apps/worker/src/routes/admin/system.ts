@@ -214,7 +214,7 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
   const inRange = "o.created_at >= ?1 AND o.created_at < ?2";
   const valid = `o.status NOT IN ${CANCELLED_SQL}`;
   const day = (ts: number) => new Date(ts + 3600_000).toISOString().slice(0, 10);
-  const [totals, daily, statusRows, wilayas, channels, hours, top, reasons, durations, byType, weekdays, sources, campaigns, visits] = await c.env.DB.batch([
+  const [totals, daily, statusRows, wilayas, channels, hours, top, reasons, durations, byType, weekdays] = await c.env.DB.batch([
     c.env.DB.prepare(
       `SELECT COUNT(*) AS placed,
               SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders,
@@ -279,26 +279,6 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
       `SELECT CAST(strftime('%w', (o.created_at + 3600000) / 1000, 'unixepoch') AS INTEGER) AS dow, COUNT(*) AS orders, COALESCE(SUM(o.total), 0) AS revenue
          FROM orders o WHERE ${inRange} AND ${valid} GROUP BY dow`,
     ).bind(since, until),
-    // where orders come from (campaign links, ads, referrers, the team's channels)
-    c.env.DB.prepare(
-      `SELECT COALESCE(o.source, 'direct') AS source, COUNT(*) AS placed,
-              SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders,
-              COALESCE(SUM(CASE WHEN ${valid} THEN o.total ELSE 0 END), 0) AS revenue,
-              SUM(CASE WHEN o.status = 'livree' THEN 1 ELSE 0 END) AS delivered,
-              COALESCE(SUM(CASE WHEN o.status = 'livree' THEN o.total ELSE 0 END), 0) AS delivered_revenue
-         FROM orders o WHERE ${inRange} GROUP BY COALESCE(o.source, 'direct') ORDER BY revenue DESC`,
-    ).bind(since, until),
-    c.env.DB.prepare(
-      `SELECT lower(o.utm_campaign) AS campaign, COUNT(*) AS placed,
-              SUM(CASE WHEN ${valid} THEN 1 ELSE 0 END) AS orders, COALESCE(SUM(CASE WHEN ${valid} THEN o.total ELSE 0 END), 0) AS revenue,
-              SUM(CASE WHEN o.status = 'livree' THEN 1 ELSE 0 END) AS delivered
-         FROM orders o WHERE ${inRange} AND o.utm_campaign IS NOT NULL AND o.utm_campaign != ''
-        GROUP BY lower(o.utm_campaign) ORDER BY revenue DESC LIMIT 20`,
-    ).bind(since, until),
-    // visits per source and campaign (counted once per browser session by the store)
-    c.env.DB.prepare(
-      "SELECT metric, dim, SUM(value) AS n FROM analytics_daily WHERE metric IN ('visits','visits_campaign') AND date >= ? AND date <= ? GROUP BY metric, dim",
-    ).bind(day(since), day(until - 1)),
   ]);
 
   const t = totals!.results[0] as Record<string, number | null>;
@@ -349,17 +329,6 @@ systemRoutes.get("/stats", requirePermission("stats.view"), async (c) => {
       return { ...w, deliveryRate: pct(delivered, delivered + returned), avg_days: roundDays(w.avg_days as number | null, Number(w.timed ?? 0)) };
     }),
     channels: channels!.results,
-    ...(() => {
-      const v = visits!.results as { metric: string; dim: string; n: number }[];
-      const seen = (metric: string, dim: string) => v.find((x) => x.metric === metric && x.dim === dim)?.n ?? 0;
-      // conversion: orders / visits, once there are enough visits to mean something
-      const conv = (orders: number, n: number) => (n >= MIN_SAMPLE ? Math.round((orders / n) * 1000) / 10 : null);
-      return {
-        sources: (sources!.results as { source: string; orders: number }[]).map((s) => ({ ...s, visits: seen("visits", s.source), conversion: conv(s.orders, seen("visits", s.source)) })),
-        campaigns: (campaigns!.results as { campaign: string; orders: number }[]).map((s) => ({ ...s, visits: seen("visits_campaign", s.campaign), conversion: conv(s.orders, seen("visits_campaign", s.campaign)) })),
-        visits: v.filter((x) => x.metric === "visits").reduce((t, x) => t + x.n, 0),
-      };
-    })(),
     hours: hours!.results,
     weekdays: weekdays!.results,
     topProducts: top!.results,

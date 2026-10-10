@@ -1,6 +1,8 @@
 import { Hono, type Context } from "hono";
 import {
+  askableSources,
   classifySource,
+  sourceLabel,
   assistantInput,
   cartSaveInput,
   cleanText,
@@ -73,12 +75,18 @@ publicRoutes.get("/health", async (c) => {
 publicRoutes.get("/site", (c) =>
   versioned(c, 300, async () => {
     const [s, drop, flash] = await Promise.all([
-      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design", "boutique", "instagram"]),
+      getSettings(c.env, ["store", "announcement", "contact", "checkout", "maintenance", "texts", "design", "boutique", "instagram", "sources"]),
       featuredDrop(c.env),
       activeFlash(c.env),
     ]);
     const dto: SiteConfigDTO = {
       store: { name: s.store.name },
+      heardFrom: s.sources.ask
+        ? askableSources(s.sources).map((key) => {
+            const ar = sourceLabel(key, s.sources, "ar");
+            return { key, ar: ar.name, fr: sourceLabel(key, s.sources, "fr").name, emoji: ar.emoji };
+          })
+        : null,
       announcement: { active: s.announcement.active, animation: s.announcement.animation ?? "scroll" },
       contact: {
         phone: s.contact.phone, whatsapp: s.contact.whatsapp, instagram: s.contact.instagram, tiktok: s.contact.tiktok,
@@ -193,7 +201,8 @@ publicRoutes.post("/visit", async (c) => {
       clickId: z.enum(["fb", "google", "tiktok"]).optional(),
     }),
   );
-  const source = classifySource({ utmSource: v.source, utmMedium: v.medium, referrer: v.referrer, clickId: v.clickId });
+  const { sources } = await getSettings(c.env, ["sources"]);
+  const source = classifySource({ utmSource: v.source, utmMedium: v.medium, referrer: v.referrer, clickId: v.clickId }, sources.custom);
   const metrics: [string, string][] = [["visits", source]];
   if (v.campaign) metrics.push(["visits_campaign", v.campaign.toLowerCase()]);
   await c.env.DB.batch(analyticsStmts(c.env, Date.now(), metrics, 1));

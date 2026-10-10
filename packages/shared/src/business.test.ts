@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifySource, sourceOfChannel } from "./attribution";
+import { askableSources, classifySource, DEFAULT_SOURCE_SETTINGS, sourceLabel, sourceOfChannel } from "./attribution";
 import { DEFAULT_DUPLICATE_SETTINGS, duplicateScore, normalizeAddress, type OrderForDuplicate } from "./duplicates";
 import { businessPnl, codTotals, reconcileCodOrder } from "./finance";
 import { canFollowupTransition, canManifestTransition, manifestEditable } from "./logistics";
@@ -167,5 +167,25 @@ describe("manifests and failed deliveries", () => {
     expect(canFollowupTransition("needs_contact", "callback")).toBe(true);
     expect(canFollowupTransition("resolved", "contacted")).toBe(false);
     expect(canFollowupTransition("resolved", "needs_contact")).toBe(true);
+  });
+});
+
+describe("the shop's own sources", () => {
+  const settings = { builtIn: { instagram: { name: "Page Insta", emoji: "🌸" }, tiktok: { hidden: true } }, custom: [{ key: "lina", name: "Influenceuse Lina", emoji: "💄" }], ask: true };
+  it("a link made for one of them counts for it, whatever the case", () => {
+    expect(classifySource({ utmSource: "LINA" }, settings.custom)).toBe("lina");
+    expect(classifySource({ utmSource: "lina" })).toBe("campaign");
+    expect(classifySource({ utmSource: "ig" }, settings.custom)).toBe("instagram");
+  });
+  it("names: the shop's renaming, its own sources, the defaults in each language", () => {
+    expect(sourceLabel("instagram", settings, "ar")).toMatchObject({ name: "Page Insta", emoji: "🌸" });
+    expect(sourceLabel("lina", settings, "fr")).toMatchObject({ name: "Influenceuse Lina", custom: true });
+    expect(sourceLabel("facebook", DEFAULT_SOURCE_SETTINGS, "ar").name).toBe("فيسبوك");
+  });
+  it("the checkout answers: own sources first, hidden ones left out", () => {
+    const keys = askableSources(settings);
+    expect(keys[0]).toBe("lina");
+    expect(keys).not.toContain("tiktok");
+    expect(keys).toContain("word_of_mouth");
   });
 });

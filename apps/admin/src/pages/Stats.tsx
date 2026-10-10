@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../api";
-import { ORDER_SOURCE_LABEL, OUTCOME_REASON_LABEL, type OrderSource, type OutcomeReason } from "@henine/shared";
+import { OUTCOME_REASON_LABEL, type OutcomeReason } from "@henine/shared";
 import { da, ltr } from "../lib/format";
 import { Card, ErrorState, ListSkeleton, PageHeader, Pills, Stat, TextField } from "../ui";
 import { tr } from "../i18n";
@@ -30,10 +30,6 @@ interface StatsData {
     byType: { type: string; shipped: number; delivered: number; returned: number; deliveryRate: number | null; avg_days: number | null }[];
   };
   channels: { channel: string; orders: number; revenue: number }[];
-  /** where orders come from, with the visits of each source (conversion = orders / visits) */
-  sources: { source: OrderSource; placed: number; orders: number; revenue: number; delivered: number; delivered_revenue: number; visits: number; conversion: number | null }[];
-  campaigns: { campaign: string; placed: number; orders: number; revenue: number; delivered: number; visits: number; conversion: number | null }[];
-  visits: number;
   hours: { hour: string; orders: number }[];
   weekdays: { dow: number; orders: number; revenue: number }[];
   topProducts: { product_id: number; name_fr: string; units: number; revenue: number }[];
@@ -294,7 +290,6 @@ export function StatsPage() {
           <Card title={tr("Wilayas")}>
             <WilayaTable rows={d.wilayas} />
           </Card>
-          <SourcesCard sources={d.sources ?? []} campaigns={d.campaigns ?? []} visits={d.visits ?? 0} />
           <Card title={tr("Pourquoi les annulations ?")}>
             <BarList rows={cancelReasons.map((r) => ({ label: REASON_LABEL(r.reason), value: r.n, display: String(r.n) }))} />
           </Card>
@@ -336,73 +331,6 @@ export function StatsPage() {
         </>
       )}
     </div>
-  );
-}
-
-/** Which sources bring orders and money, and how well their visits turn into orders. */
-function SourcesCard({ sources, campaigns, visits }: { sources: StatsData["sources"]; campaigns: StatsData["campaigns"]; visits: number }) {
-  if (!sources.length) return null;
-  const best = [...sources].sort((a, b) => b.revenue - a.revenue)[0];
-  const conv = (v: number | null) => (v == null ? "—" : ltr(`${String(v).replace(".", ",")} %`));
-  return (
-    <Card title={tr("D'où viennent les commandes")}>
-      <p className="mb-3 text-sm text-ink-soft">
-        {tr("Liens de campagne, publicités, Instagram, WhatsApp, Google… retenus 30 jours sur le téléphone de la cliente.")}
-        {best && best.revenue > 0 && <> {tr("Meilleure source : {0} ({1}).", { 0: tr(ORDER_SOURCE_LABEL[best.source]?.fr ?? best.source), 1: da(best.revenue) })}</>}
-        {visits > 0 && <> {tr("{0} visites sur la période.", { 0: visits })}</>}
-      </p>
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[36rem] text-sm">
-          <thead>
-            <tr className="text-xs uppercase tracking-[0.08em] text-ink-soft">
-              <th className="py-1.5 text-start font-semibold">{tr("Source")}</th>
-              <th className="py-1.5 text-end font-semibold">{tr("Visites")}</th>
-              <th className="py-1.5 text-end font-semibold">{tr("Commandes")}</th>
-              <th className="py-1.5 text-end font-semibold">{tr("Conversion")}</th>
-              <th className="py-1.5 text-end font-semibold">{tr("CA")}</th>
-              <th className="py-1.5 text-end font-semibold">{tr("Livrées")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sources.map((s) => (
-              <tr key={s.source} className="border-t border-line">
-                <td className="py-2">
-                  {ORDER_SOURCE_LABEL[s.source]?.emoji} {tr(ORDER_SOURCE_LABEL[s.source]?.fr ?? s.source)}
-                </td>
-                <td className="py-2 text-end tabular-nums">{s.visits || "—"}</td>
-                <td className="py-2 text-end tabular-nums">{s.orders}</td>
-                <td className="py-2 text-end tabular-nums">{conv(s.conversion)}</td>
-                <td className="py-2 text-end tabular-nums">{da(s.revenue)}</td>
-                <td className="py-2 text-end tabular-nums">{s.delivered}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      {campaigns.length > 0 && (
-        <>
-          <p className="mb-2 mt-5 text-sm font-semibold">{tr("Campagnes (utm_campaign)")}</p>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[32rem] text-sm">
-              <tbody>
-                {campaigns.map((c) => (
-                  <tr key={c.campaign} className="border-t border-line">
-                    <td className="py-2 font-medium">{c.campaign}</td>
-                    <td className="py-2 text-end tabular-nums">{tr("{0} visites", { 0: c.visits })}</td>
-                    <td className="py-2 text-end tabular-nums">{tr("{0} cmd", { 0: c.orders })}</td>
-                    <td className="py-2 text-end tabular-nums">{conv(c.conversion)}</td>
-                    <td className="py-2 text-end tabular-nums">{da(c.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-      <p className="mt-3 text-xs text-ink-soft">
-        {tr("Astuce : mettez un lien de campagne dans votre bio et vos publicités, par exemple henine…/?utm_source=instagram&utm_campaign=ramadan.")}
-      </p>
-    </Card>
   );
 }
 

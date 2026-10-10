@@ -77,7 +77,7 @@ export const NAV: NavGroup[] = [
   {
     label: tr("Analyse"),
     items: [
-      { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn, also: ["/finance"] },
+      { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn, also: ["/finance", "/sources"] },
     ],
   },
   {
@@ -98,6 +98,7 @@ export const INNER_PAGES: { path: string; label: string; group: string; parent: 
   { path: "/expeditions", label: tr("Expéditions"), group: tr("Commandes"), parent: "/commandes" },
   { path: "/collections", label: tr("Collections"), group: tr("Commandes"), parent: "/promos" },
   { path: "/finance", label: tr("Finance"), group: tr("Analyse"), parent: "/statistiques" },
+  { path: "/sources", label: tr("Sources"), group: tr("Analyse"), parent: "/statistiques" },
   { path: "/parametres", label: tr("Paramètres"), group: tr("Système"), parent: "/parametres" },
 ];
 
