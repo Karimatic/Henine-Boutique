@@ -1,6 +1,6 @@
 /**
- * Marketing / Analyse: the sidebar section titles are tabs too. Each opens this page, a
- * shortcut card per tab of the section (with what it is for), plus the pages that open from
+ * Marketing / Analyse: each section has a tab of its own, first in its group. It opens this
+ * page, a shortcut card per other tab of the section (with what it is for), plus the pages that open from
  * inside them (Finance and Sources under Statistiques).
  */
 import { hasPermission, type Permission } from "@henine/shared";
@@ -20,10 +20,14 @@ const EXTRA: Record<string, { icon: LucideIcon; permission: Permission }> = {
 export function SectionHub() {
   const me = useMe();
   const path = useRouterState({ select: (s) => s.location.pathname }).replace(/^\/admin/, "") || "/";
-  const group = NAV.find((g) => g.path === path);
+  // the section whose own tab this is (its first item)
+  const group = NAV.find((g) => g.items[0]?.path === path);
   if (!group || !me.data) return null;
   const perms = me.data.permissions;
-  const tabs = group.items.filter((i) => hasPermission(perms, i.permission)).map((i) => ({ path: i.path, label: i.label, icon: i.icon }));
+  const tabs = group.items
+    .slice(1)
+    .filter((i) => hasPermission(perms, i.permission))
+    .map((i) => ({ path: i.path, label: i.label, icon: i.icon }));
   const inner = INNER_PAGES.filter((p) => EXTRA[p.path] && group.items.some((i) => i.path === p.parent) && hasPermission(perms, EXTRA[p.path]!.permission)).map((p) => ({
     path: p.path,
     label: p.label,

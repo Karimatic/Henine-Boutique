@@ -291,7 +291,9 @@ html[lang="ar"] body {
 :root[data-theme="dark"] .text-rose-800,
 :root[data-theme="dark"] .hover\:text-rose-800:hover,
 :root[data-theme="dark"] .group:hover .group-hover\:text-rose-800,
-:root[data-theme="dark"] .md\:text-plum-700 {
+:root[data-theme="dark"] .md\:text-plum-700,
+:root[data-theme="dark"] .\[\&\.active\]\:text-plum-600.active,
+:root[data-theme="dark"] .group.active .group-\[\.active\]\:text-plum-600 {
   color: var(--color-accent-text);
 }
 :root[data-theme="dark"] .text-danger { color: #ff9b93; }
@@ -359,7 +361,9 @@ html[lang="ar"] body {
 :root:not([data-theme="light"]) .text-rose-800,
 :root:not([data-theme="light"]) .hover\:text-rose-800:hover,
 :root:not([data-theme="light"]) .group:hover .group-hover\:text-rose-800,
-:root:not([data-theme="light"]) .md\:text-plum-700 {
+:root:not([data-theme="light"]) .md\:text-plum-700,
+:root:not([data-theme="light"]) .\[\&\.active\]\:text-plum-600.active,
+:root:not([data-theme="light"]) .group.active .group-\[\.active\]\:text-plum-600 {
   color: var(--color-accent-text);
 }
 :root:not([data-theme="light"]) .text-danger { color: #ff9b93; }

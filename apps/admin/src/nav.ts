@@ -8,6 +8,8 @@ import {
   House,
   KeyRound,
   LayoutDashboard,
+  LineChart,
+  Megaphone,
   Link,
   Menu,
   MessageSquare,
@@ -35,8 +37,6 @@ export interface NavItem {
 
 export interface NavGroup {
   label: string;
-  /** the section title is a tab of its own: a page with a shortcut to each tab inside */
-  path?: string;
   items: NavItem[];
 }
 
@@ -80,8 +80,9 @@ export const NAV: NavGroup[] = [
   },
   {
     label: tr("Marketing"),
-    path: "/marketing",
     items: [
+      // the section's own tab: a page with a shortcut to each tab below
+      { path: "/marketing", label: tr("Marketing"), permission: "marketing.edit", icon: Megaphone },
       { path: "/accueil", label: tr("Page d'accueil"), permission: "marketing.edit", icon: House },
       { path: "/avis", label: tr("Avis"), permission: "reviews.moderate", icon: Star },
       { path: "/notifier", label: tr("Notifier"), permission: "marketing.edit", icon: BellRing },
@@ -91,8 +92,8 @@ export const NAV: NavGroup[] = [
   },
   {
     label: tr("Analyse"),
-    path: "/analyse",
     items: [
+      { path: "/analyse", label: tr("Analyse"), permission: "stats.view", icon: LineChart },
       { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn, also: ["/finance", "/sources"] },
     ],
   },
