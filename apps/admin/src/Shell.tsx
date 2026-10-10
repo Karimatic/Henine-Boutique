@@ -73,6 +73,8 @@ function useAdminPath(): string {
 function useCrumbs(path: string): string[] {
   if (path === "/") return [DASHBOARD.label];
   if (path === "/plus") return [tr("Menu")];
+  const section = NAV.find((g) => g.path === path);
+  if (section) return [section.label];
   const inner = INNER_PAGES.find((i) => path === i.path || path.startsWith(`${i.path}/`));
   if (inner) {
     const parent = NAV.flatMap((g) => g.items).find((i) => i.path === inner.parent);
@@ -137,7 +139,18 @@ function SidebarNav({ groups, collapsed, onNavigate }: { groups: NavGroup[]; col
           {collapsed ? (
             <div className="mx-auto mb-2 h-px w-6 bg-line" aria-hidden="true" />
           ) : (
-            <p className="mb-1.5 px-2.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70">{g.label}</p>
+            g.path ? (
+              // a section that is a tab too (Marketing, Analyse)
+              <Link
+                to={g.path}
+                className="mb-1.5 flex items-center justify-between rounded-md px-2.5 py-0.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70 transition hover:text-plum-600 [&.active]:text-plum-600"
+              >
+                {g.label}
+                <ChevronRight className="size-3.5 rtl:rotate-180" />
+              </Link>
+            ) : (
+              <p className="mb-1.5 px-2.5 text-xs font-medium uppercase tracking-wider text-ink-soft/70">{g.label}</p>
+            )
           )}
           <div className="space-y-0.5">{g.items.map((i) => item(i.path, i.label, i.icon, false, i.also))}</div>
         </div>
@@ -420,7 +433,14 @@ export function MoreMenu() {
     <div className="space-y-6">
       {visibleNav(me.data).map((g) => (
         <section key={g.label}>
-          <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">{g.label}</h2>
+          {g.path ? (
+            <Link to={g.path} className="mb-2 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">
+              {g.label}
+              <ChevronRight className="size-3.5 rtl:rotate-180" />
+            </Link>
+          ) : (
+            <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-soft">{g.label}</h2>
+          )}
           <ul className="divide-y divide-line/70 overflow-hidden rounded-xl border border-line/70 bg-surface shadow-[0_1px_2px_rgb(43_22_32/0.04)]">
             {g.items.map((i) => (
               <li key={i.path}>

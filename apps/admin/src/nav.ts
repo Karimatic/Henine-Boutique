@@ -35,8 +35,22 @@ export interface NavItem {
 
 export interface NavGroup {
   label: string;
+  /** the section title is a tab of its own: a page with a shortcut to each tab inside */
+  path?: string;
   items: NavItem[];
 }
+
+/** One line under each shortcut of the section pages (Marketing, Analyse). */
+export const TAB_HINTS: Record<string, string> = {
+  "/accueil": tr("Bannières, sections et apparence de la boutique."),
+  "/avis": tr("Les avis des clientes, à publier ou masquer."),
+  "/notifier": tr("Prévenir les clientes : retour en stock, nouveautés."),
+  "/liens": tr("Page « lien en bio » Instagram et liens courts."),
+  "/contact": tr("Les messages reçus des clientes."),
+  "/statistiques": tr("Ventes, commandes, retours et rentabilité."),
+  "/finance": tr("Bénéfice réel, argent du livreur, dépenses."),
+  "/sources": tr("D'où viennent vos clientes et ce que chaque source rapporte."),
+};
 
 export const DASHBOARD = { path: "/", label: tr("Tableau de bord"), icon: LayoutDashboard };
 
@@ -66,6 +80,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: tr("Marketing"),
+    path: "/marketing",
     items: [
       { path: "/accueil", label: tr("Page d'accueil"), permission: "marketing.edit", icon: House },
       { path: "/avis", label: tr("Avis"), permission: "reviews.moderate", icon: Star },
@@ -76,6 +91,7 @@ export const NAV: NavGroup[] = [
   },
   {
     label: tr("Analyse"),
+    path: "/analyse",
     items: [
       { path: "/statistiques", label: tr("Statistiques"), permission: "stats.view", icon: ChartColumn, also: ["/finance", "/sources"] },
     ],

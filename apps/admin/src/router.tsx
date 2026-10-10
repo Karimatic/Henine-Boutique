@@ -60,6 +60,8 @@ const appRoutes = [
   page("/liens", lazy(Marketing, "LinksPage")),
   page("/collections", lazy(Marketing, "CollectionsPage")),
   page("/contact", lazy(Marketing, "ContactPage")),
+  page("/marketing", lazy(() => import("./pages/SectionHub"), "SectionHub")),
+  page("/analyse", lazy(() => import("./pages/SectionHub"), "SectionHub")),
   page("/statistiques", lazy(() => import("./pages/Stats"), "StatsPage")),
   page("/finance", lazy(() => import("./pages/Finance"), "FinancePage")),
   page("/sources", lazy(() => import("./pages/Sources"), "SourcesPage")),
