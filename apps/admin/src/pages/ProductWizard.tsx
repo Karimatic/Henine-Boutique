@@ -1,6 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { DiscountFields } from "../lib/discount";
-import { studioEnabled, studioPhoto } from "../lib/studio";
 import { useCan } from "../Shell";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Check, ImagePlus } from "lucide-react";
@@ -78,20 +77,14 @@ export function ProductWizard() {
         status, categoryId: info.categoryId, tags: ["nouveaute"], price: info.price ?? 0, compareAtPrice: info.compareAt, costPrice: can("cost.view") ? info.cost : null,
         seoTitle: null, seoDescription: null, instagramUrl: null, relatedIds: [], sizeGuideId: null, options, variants,
       });
-      const studio = studioEnabled();
-      let studioFailed = false;
       for (const [n, file] of files.entries()) {
         setBusy(tr("Photo {0}/{1}…", { 0: n + 1, 1: files.length }));
-        // same style for every product: background removed, centred in the same frame
-        const clean = studio ? await studioPhoto(file) : null;
-        if (studio && !clean) studioFailed = true;
-        await uploadPhoto(saved.id, clean ?? file, undefined, !!clean).catch(() => toast(tr("Une photo n'a pas pu être envoyée : ajoutez-la depuis la fiche."), "error"));
+        await uploadPhoto(saved.id, file).catch(() => toast(tr("Une photo n'a pas pu être envoyée : ajoutez-la depuis la fiche."), "error"));
       }
       if (video) {
         setBusy(tr("Vidéo…"));
         await uploadVideo(saved.id, video).catch(() => toast(tr("La vidéo n'a pas pu être envoyée : ajoutez-la depuis la fiche."), "error"));
       }
-      if (studioFailed) toast(tr("Le fond n'a pas pu être retiré pour le moment : photo gardée telle quelle."), "error");
       toast(status === "published" ? tr("Produit en ligne ✓") : tr("Brouillon enregistré ✓"));
       void qc.invalidateQueries({ queryKey: ["products"] });
       void qc.invalidateQueries({ queryKey: ["stock-products"] });

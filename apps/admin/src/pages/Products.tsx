@@ -6,7 +6,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, del, errorMessage, post, put, upload } from "../api";
 import { da } from "../lib/format";
 import { processImage } from "../lib/images";
-import { setStudioEnabled, studioEnabled, studioPhoto } from "../lib/studio";
 import { useCan } from "../Shell";
 import {
   Badge, Button, Card, Empty, ErrorState, inputCls, ListSkeleton, NumberField, PageHeader, Pills, SearchBox, Select, Spinner, TextArea, TextField, useToast, useIsOwner,
@@ -872,8 +871,8 @@ function VariantsTable({ form, onChange, disabled }: { form: ProductForm; onChan
 
 
 /** Resize + compress on the phone (several widths, WebP, no GPS), then upload. */
-export async function uploadPhoto(productId: number, file: File, onUploading?: () => void, transparent = false): Promise<ImageRef & { id: number }> {
-  const img = await processImage(file, transparent);
+export async function uploadPhoto(productId: number, file: File, onUploading?: () => void): Promise<ImageRef & { id: number }> {
+  const img = await processImage(file);
   const form = new FormData();
   for (const [w, blob] of Object.entries(img.files)) form.append(`w${w}`, blob, `${w}.${img.format}`);
   form.append("width", String(img.width));
@@ -895,7 +894,6 @@ function ImagesEditor({
   const toast = useToast();
   const qc = useQueryClient();
   const [busy, setBusy] = useState<string | null>(null);
-  const [studio, setStudio] = useState(studioEnabled);
   const colors = options.find((o) => o.kind === "couleur")?.values ?? [];
   const colorIdOf = (ref: string) => (ref.startsWith("v:") ? Number(ref.slice(2)) : null);
 
@@ -910,20 +908,10 @@ function ImagesEditor({
   async function handleFiles(list: FileList | File[] | null) {
     if (!list?.length) return;
     let current = images;
-    let studioFailed = false;
     for (const [n, file] of [...list].entries()) {
       try {
-        // same style for every product: background removed, centred in the same frame
-        let photo = file;
-        let cutout = false;
-        if (studio) {
-          setBusy(tr("Photo {0}/{1} : retrait du fond…", { 0: n + 1, 1: list.length }));
-          const clean = await studioPhoto(file);
-          if (clean) [photo, cutout] = [clean, true];
-          else studioFailed = true;
-        }
         setBusy(tr("Photo {0}/{1} : optimisation…", { 0: n + 1, 1: list.length }));
-        const saved = await uploadPhoto(productId, photo, () => setBusy(tr("Photo {0}/{1} : envoi…", { 0: n + 1, 1: list.length })), cutout);
+        const saved = await uploadPhoto(productId, file, () => setBusy(tr("Photo {0}/{1} : envoi…", { 0: n + 1, 1: list.length })));
         current = [...current, saved];
         onChange(current);
       } catch (e) {
@@ -931,7 +919,6 @@ function ImagesEditor({
       }
     }
     setBusy(null);
-    if (studioFailed) toast(tr("Le fond n'a pas pu être retiré pour le moment : photo gardée telle quelle."), "error");
     void qc.invalidateQueries({ queryKey: ["products"] });
   }
 
@@ -947,21 +934,6 @@ function ImagesEditor({
         busy ? <span className="flex items-center gap-2 text-xs text-ink-soft"><Spinner className="size-3.5" />{busy}</span> : null
       }
     >
-      <label className="mb-3 flex items-start gap-2.5 rounded-xl bg-ivory-deep/70 p-3 text-sm">
-        <input
-          type="checkbox"
-          className="mt-0.5 size-4 accent-plum-600"
-          checked={studio}
-          onChange={(e) => {
-            setStudio(e.target.checked);
-            setStudioEnabled(e.target.checked);
-          }}
-        />
-        <span>
-          <b>{tr("✨ Même style pour toutes les photos")}</b>
-          <span className="block text-xs text-ink-soft">{tr("Le fond est retiré et le produit centré, comme sur les grands sites : toutes les photos de la boutique se ressemblent. Pour un meilleur résultat, photographiez le vêtement seul.")}</span>
-        </span>
-      </label>
       <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4">
         {images.map((img, i) => (
           <li key={img.id} className="group relative">
